@@ -1,4 +1,19 @@
-# Raredisease ML
+# RDDS: Data Science for Rare Disease Diagnostics
 
-## Reads
-https://www.nas.nasa.gov/hecc/support/kb/using-conda-environments-for-machine-learning_557.html
+This repository contains tools for data exploration and
+machine learning development targeting rare disease analysis.
+
+This repo provides a development environment that can be used both locally
+as well as on SLURM.
+
+## Layout
+```raw
+.
+├── build (repo infrastructure)
+├── docs (documentation)
+├── Makefile (main entrypoint)
+├── README.md (this file)
+└── tmp (temporary output directory)
+```
+
+The `Makefile` is the main entry point.

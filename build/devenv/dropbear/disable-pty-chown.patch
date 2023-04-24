@@ -1,0 +1,80 @@
+diff --git a/sshpty.c b/sshpty.c
+index fceb7fd..3676c12 100644
+--- a/sshpty.c
++++ b/sshpty.c
+@@ -247,16 +247,6 @@ pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen)
+ void
+ pty_release(const char *tty_name)
+ {
+-	if (chown(tty_name, (uid_t) 0, (gid_t) 0) < 0
+-			&& (errno != ENOENT)) {
+-		dropbear_log(LOG_ERR,
+-				"chown %.100s 0 0 failed: %.100s", tty_name, strerror(errno));
+-	}
+-	if (chmod(tty_name, (mode_t) 0666) < 0
+-			&& (errno != ENOENT)) {
+-		dropbear_log(LOG_ERR,
+-			"chmod %.100s 0666 failed: %.100s", tty_name, strerror(errno));
+-	}
+ }
+ 
+ /* Makes the tty the processes controlling tty and sets it to sane modes. */
+@@ -355,58 +345,4 @@ pty_change_window_size(int ptyfd, int row, int col,
+ void
+ pty_setowner(struct passwd *pw, const char *tty_name)
+ {
+-	struct group *grp;
+-	gid_t gid;
+-	mode_t mode;
+-	struct stat st;
+-
+-	/* Determine the group to make the owner of the tty. */
+-	grp = getgrnam("tty");
+-	if (grp) {
+-		gid = grp->gr_gid;
+-		mode = S_IRUSR | S_IWUSR | S_IWGRP;
+-	} else {
+-		gid = pw->pw_gid;
+-		mode = S_IRUSR | S_IWUSR | S_IWGRP | S_IWOTH;
+-	}
+-
+-	/*
+-	 * Change owner and mode of the tty as required.
+-	 * Warn but continue if filesystem is read-only and the uids match/
+-	 * tty is owned by root.
+-	 */
+-	if (stat(tty_name, &st)) {
+-		dropbear_exit("pty_setowner: stat(%.101s) failed: %.100s",
+-				tty_name, strerror(errno));
+-	}
+-
+-	if (st.st_uid != pw->pw_uid || st.st_gid != gid) {
+-		if (chown(tty_name, pw->pw_uid, gid) < 0) {
+-			if (errno == EROFS &&
+-			    (st.st_uid == pw->pw_uid || st.st_uid == 0)) {
+-				dropbear_log(LOG_ERR,
+-					"chown(%.100s, %u, %u) failed: %.100s",
+-						tty_name, (unsigned int)pw->pw_uid, (unsigned int)gid,
+-						strerror(errno));
+-			} else {
+-				dropbear_exit("chown(%.100s, %u, %u) failed: %.100s",
+-				    tty_name, (unsigned int)pw->pw_uid, (unsigned int)gid,
+-				    strerror(errno));
+-			}
+-		}
+-	}
+-
+-	if ((st.st_mode & (S_IRWXU|S_IRWXG|S_IRWXO)) != mode) {
+-		if (chmod(tty_name, mode) < 0) {
+-			if (errno == EROFS &&
+-			    (st.st_mode & (S_IRGRP | S_IROTH)) == 0) {
+-				dropbear_log(LOG_ERR,
+-					"chmod(%.100s, 0%o) failed: %.100s",
+-					tty_name, mode, strerror(errno));
+-			} else {
+-				dropbear_exit("chmod(%.100s, 0%o) failed: %.100s",
+-				    tty_name, mode, strerror(errno));
+-			}
+-		}
+-	}
+ }

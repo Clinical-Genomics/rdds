@@ -1,0 +1,21 @@
+diff --git a/svr-chansession.c b/svr-chansession.c
+index 656a968..742201c 100644
+--- a/svr-chansession.c
++++ b/svr-chansession.c
+@@ -984,15 +984,7 @@ static void execchild(const void *user_data) {
+ #if DROPBEAR_SVR_MULTIUSER
+ 	/* We can only change uid/gid as root ... */
+ 	if (getuid() == 0) {
+-
+-		if ((setgid(ses.authstate.pw_gid) < 0) ||
+-			(initgroups(ses.authstate.pw_name, 
+-						ses.authstate.pw_gid) < 0)) {
+-			dropbear_exit("Error changing user group");
+-		}
+-		if (setuid(ses.authstate.pw_uid) < 0) {
+-			dropbear_exit("Error changing user");
+-		}
++		/* Don't try to change UID, GUID in case of root user */
+ 	} else {
+ 		/* ... but if the daemon is the same uid as the requested uid, we don't
+ 		 * need to */

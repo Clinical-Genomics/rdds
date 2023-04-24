@@ -1,0 +1,8 @@
+Host devenv
+  Hostname localhost
+  User root
+  IdentityFile ./build/devenv/devenv-docker.rsakey
+  Port 2150
+  ForwardX11 yes
+  ForwardX11Trusted yes
+  StrictHostKeyChecking no
