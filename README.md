@@ -17,3 +17,6 @@ as well as on SLURM.
 ```
 
 The `Makefile` is the main entry point.
+
+## TODOs
+* [ ] CI for unit tests

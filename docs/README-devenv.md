@@ -88,3 +88,8 @@ X11 forwarding is disabled to avoid man-in-the-middle attacks.
 This will break X11 forwarding.
 If this happens, just run the above command:
 `ssh-keygen -f "/home/$USER/.ssh/known_hosts" -R "[localhost]:2150"`.
+
+### GIT Colors on Hasta
+Seems like Git does not provide colors by default
+on Hasta. Run the following to force colored output:
+`git config --global color.ui true`
