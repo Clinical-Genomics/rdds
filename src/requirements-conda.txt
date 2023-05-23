@@ -1,0 +1,15 @@
+# Graphics
+matplotlib==3.7.1
+seaborn==0.12.2
+
+# Dataset
+h5py==3.7.0
+
+# For improved debugging speed
+cython==0.29.33
+
+# Analytics and ML
+scikit-learn==1.2.2
+
+# Tests
+pytest==7.3.1

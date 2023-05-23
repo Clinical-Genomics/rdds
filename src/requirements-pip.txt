@@ -1,0 +1,6 @@
+# VCF parsing
+cyvcf2==0.30.22
+
+# Analytics and ML
+tensorflow==2.12.0
+tensorflow_text==2.12.1

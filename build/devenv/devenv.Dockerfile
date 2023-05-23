@@ -22,8 +22,11 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-$CONDAVER.sh && \
   rm Miniconda3-$CONDAVER.sh
 
 # Install python deps
+COPY src/requirements-conda.txt /tmp
+COPY src/requirements-pip.txt /tmp
 RUN . /opt/conda/bin/activate && \
-  conda install -y matplotlib
+  conda install -y --file /tmp/requirements-conda.txt && \
+  pip3 install -r /tmp/requirements-pip.txt
 
 # Setup prompt
 RUN echo "export PS1=\"\[\033[1;31m\]\u@RD-DSDev:\w>\033[0m\]$\"" >> /root/.bashrc
@@ -95,6 +98,7 @@ RUN mkdir -p /etc/dropbear
 
 # Create mountpoint directory for this repository
 RUN mkdir -p /rdds
+ENV PYTHONPATH=$PYTHONPATH:/rdds
 RUN echo "* Repo mounted at /rdds" >> /usr/share/base-files/motd
 
 # Install container test files
