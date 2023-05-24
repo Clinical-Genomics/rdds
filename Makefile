@@ -18,6 +18,7 @@ devenv-docker-sshd:
 
 devenv-ssh:
 	# SSH into development container (local or tunneled)
+	chmod go-rw build/devenv/devenv-docker.rsakey
 	ssh -F build/devenv/devenv.sshconfig -oUserKnownHostsFile=/dev/null devenv
 
 devenv-convert-dockerimage-to-singularity:
