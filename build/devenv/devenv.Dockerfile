@@ -73,7 +73,7 @@ RUN tar -xf pycharm-$PYCHARMVER.tar.gz && rm pycharm-$PYCHARMVER.tar.gz
 RUN ln -s pycharm-$PYCHARMVER pycharm
 
 FROM base AS devenv
-RUN apt-get install -y vim
+RUN apt-get install -y vim git
 
 # Install dropbear SSH server and keygen tool
 COPY --from=dropbear /opt/dropbear/dropbear /usr/bin
