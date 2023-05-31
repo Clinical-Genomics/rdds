@@ -89,6 +89,7 @@ RUN echo "* Pycharm installed into /opt/pycharm" >> /usr/share/base-files/motd
 
 # Install client pubkey so that one can login via SSH
 COPY build/devenv/devenv-docker.rsakey.pub /root/.ssh/authorized_keys
+RUN chmod go-rw /root/.ssh/authorized_keys
 RUN mkdir -p /etc/dropbear
 
 # Create mountpoint directory for this repository
