@@ -89,16 +89,12 @@ Completed rankscore data set comparison test, checked 4586750 variants
 Tests passed (i.e. no difference in `RankScore` compared to reference set).
 
 <img src="media/snv-RankScore_value_kernel_density_estimate.png" width="400x400">
-<i><br>RankScore kernel density estimate<br></i>
-
-<img src="media/snv-RankScore_value_empirical_culmulative_density_function.png" width="400x400">
-<i><br>RankScore CDF<br></i>
+<img src="media/snv-RankScore_value_empirical_culmulative_density_function.png" width="400x400"><br>
+<i>RankScore kernel density estimate, RankScore CDF</i><br>
 
 <img src="media/snv-RankScoreNormalized_value_kernel_density_estimate.png" width="400x400">
-<i><br>RankScoreNormalized kernel density estimate<br></i>
-
-<img src="media/snv-RankScoreNormalized_value_empirical_culmulative_density_function.png" width="400x400">
-<i><br>RankScoreNormalized CDF<br></i>
+<img src="media/snv-RankScoreNormalized_value_empirical_culmulative_density_function.png" width="400x400"><br>
+<i>RankScoreNormalized kernel density estimate, RankScoreNormalized CDF</i><br>
 
 #### Rankscore Optimal Performance Point
 <img src="media/snv-RankScore_value-f-score.png" width="400x400">
