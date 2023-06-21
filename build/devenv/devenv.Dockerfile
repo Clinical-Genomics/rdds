@@ -77,7 +77,11 @@ RUN ln -s pycharm-$PYCHARMVER pycharm
 
 FROM base AS devenv
 RUN apt-get update && \
- apt-get install -y --no-install-recommends vim git
+ apt-get install -y --no-install-recommends \
+ vim \
+ git \
+ bcftools \
+ tabix
 
 # Install dropbear SSH server and keygen tool
 COPY --from=dropbear /opt/dropbear/dropbear /usr/bin
