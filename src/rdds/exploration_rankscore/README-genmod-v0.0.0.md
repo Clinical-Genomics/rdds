@@ -88,22 +88,33 @@ Completed rankscore data set comparison test, checked 4586750 variants
 ```
 Tests passed (i.e. no difference in `RankScore` compared to reference set).
 
-<img src="media/snv-RankScore_value_kernel_density_estimate.png" width="400x400">
-<img src="media/snv-RankScore_value_empirical_culmulative_density_function.png" width="400x400"><br>
-<i>RankScore kernel density estimate, RankScore CDF</i><br>
+<table>
+  <tr>
+    <td><img src="media/snv-RankScore_value_kernel_density_estimate.png" width="400x400"></td>
+    <td><img src="media/snv-RankScore_value_empirical_culmulative_density_function.png" width="400x400"></td>
+  </tr>
+  <tr>
+    <td><img src="media/snv-RankScoreNormalized_value_kernel_density_estimate.png" width="400x400"></td>
+    <td><img src="media/snv-RankScoreNormalized_value_empirical_culmulative_density_function.png" width="400x400"></td>
+  </tr>
+</table>
+<i>RankScore (top) versus RankScoreNormalized (bottom) kernel density estimate, RankScore CDF</i>
 
-<img src="media/snv-RankScoreNormalized_value_kernel_density_estimate.png" width="400x400">
-<img src="media/snv-RankScoreNormalized_value_empirical_culmulative_density_function.png" width="400x400"><br>
-<i>RankScoreNormalized kernel density estimate, RankScoreNormalized CDF</i><br>
 
 #### Rankscore Optimal Performance Point
-<img src="media/snv-RankScore_value-f-score.png" width="400x400">
-<img src="media/snv-RankScore_value-mcc-score.png" width="400x400"><br>
-<i>F1 score, MCC score for RankScore</i><br>
 
-<img src="media/snv-RankScoreNormalized_value-f-score.png" width="400x400">
-<img src="media/snv-RankScoreNormalized_value-mcc-score.png" width="400x400"><br>
-<i>F1 score, MCC score for RankScoreNormalized</i>
+<table>
+  <tr>
+    <td><img src="media/snv-RankScore_value-f-score.png" width="400x400"></td>
+    <td><img src="media/snv-RankScore_value-mcc-score.png" width="400x400"></td>
+  </tr>
+  <tr>
+    <td><img src="media/snv-RankScoreNormalized_value-f-score.png" width="400x400"></td>
+    <td><img src="media/snv-RankScoreNormalized_value-mcc-score.png" width="400x400"></td>
+  </tr>
+</table>
+<i>RankScore (top) vs RankScoreNormalized (bottom) F1 score, MCC score for RankScore</i>
+
 
 ```
 # RankScore Optimal Point
