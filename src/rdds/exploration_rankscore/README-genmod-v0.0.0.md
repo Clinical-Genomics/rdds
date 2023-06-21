@@ -102,16 +102,12 @@ Tests passed (i.e. no difference in `RankScore` compared to reference set).
 
 #### Rankscore Optimal Performance Point
 <img src="media/snv-RankScore_value-f-score.png" width="400x400">
-<i><br>F1 score<br></i>
-
-<img src="media/snv-RankScore_value-mcc-score.png" width="400x400">
-<i><br>MCC score<br></i>
+<img src="media/snv-RankScore_value-mcc-score.png" width="400x400"><br>
+<i>F1 score, MCC score for RankScore</i><br>
 
 <img src="media/snv-RankScoreNormalized_value-f-score.png" width="400x400">
-<i><br>F1 score<br></i>
-
-<img src="media/snv-RankScoreNormalized_value-mcc-score.png" width="400x400">
-<i><br>MCC score<br></i>
+<img src="media/snv-RankScoreNormalized_value-mcc-score.png" width="400x400"><br>
+<i>F1 score, MCC score for RankScoreNormalized</i>
 
 ```
 # RankScore Optimal Point
