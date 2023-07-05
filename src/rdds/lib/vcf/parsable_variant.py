@@ -5,6 +5,8 @@ from collections import Iterator
 
 _NUMERICAL_DTYPES = [int, float, np.float32, np.float64, np.int32, np.int64]
 
+UNPACK_SUBFIELDS = False  # Split sub fields into separate columns
+
 class ParsingError(Exception):
     """
     Parsing of data failed error
@@ -200,19 +202,30 @@ class ParsableVariant:
 
     def _parse_fn_RankResult(self,
                              text: str):
-        parts: List[str] = text.split('|')
-        for i, sub_text in enumerate(parts):
-            self._parse_store_data(key='RankResult-%d' % i, data=sub_text)
+        if UNPACK_SUBFIELDS:
+            parts: List[str] = text.split('|')
+            for i, sub_text in enumerate(parts):
+                self._parse_store_data(key='RankResult-%d' % i, data=sub_text)
+        else:
+            self._parse_store_data(key='RankResult', data=text, allowed_special_characters={'|', '-'})
 
     def _parse_fn_Compounds(self,
                             text: str):
         parts: List[str] = text.split(':')
+        if len(parts) != 2:
+            raise ValueError('Expected len of two')
         self._parse_store_data(key='Compounds_family_id', data=parts[0], expected_dtype=str)
-        for i, compound in enumerate(parts[1].split('|')):
-            self._parse_store_data(key='Compounds_value-%d' % i,
-                                   data=compound,
+        if UNPACK_SUBFIELDS:
+            for i, compound in enumerate(parts[1].split('|')):
+                self._parse_store_data(key='Compounds_value-%d' % i,
+                                       data=compound,
+                                       expected_dtype=str,
+                                       allowed_special_characters={'_', '-', '>'})
+        else:
+            self._parse_store_data(key='Compounds_value',
+                                   data=parts[1],
                                    expected_dtype=str,
-                                   allowed_special_characters={'_', '-', '>'})
+                                   allowed_special_characters={'_', '-', '>', '|'})
 
     def _parse_fn_GeneticModels(self,
                              text: str):
@@ -435,33 +448,61 @@ class ParsableVariant:
         for key, value in zip(keys, data):
             if key == 'CSQ_genomic_superdups_frac_match':
                 # Nested sub field
-                for i, sub_value in enumerate(value.split('&')):
-                    self._parse_store_data(key=key+'-%d' % i, data=sub_value)
+                if UNPACK_SUBFIELDS:
+                    for i, sub_value in enumerate(value.split('&')):
+                        self._parse_store_data(key=key+'-%d' % i, data=sub_value)
+                else:
+                    self._parse_store_data(key='CSQ_genomic_superdups_frac_match',
+                                           data=value,
+                                           allowed_special_characters={'&', '.'})
             elif key == 'CSQ_CLINVAR_CLNREVSTAT':
                 # TODO: Move this to bugfix method
                 value = value.replace(',', '')  # ',-' data observed in this field
-                for i, revision_status in enumerate(value.split('&')):
-                    self._parse_store_data(key=key+'-%d' % i,
-                                           data=revision_status,
-                                           allowed_special_characters={'-', '_'})
+                if UNPACK_SUBFIELDS:
+                    for i, revision_status in enumerate(value.split('&')):
+                        self._parse_store_data(key=key+'-%d' % i,
+                                               data=revision_status,
+                                               allowed_special_characters={'-', '_'})
+                else:
+                    self._parse_store_data(key='CSQ_CLINVAR_CLNREVSTAT',
+                                           data=value,
+                                           allowed_special_characters={'-', '_', '&'})
             elif key == 'CSQ_CLINVAR_CLNSIG':
-                for i, sub_value in enumerate(value.split('&')):
-                    self._parse_store_data(key=key + '-%d' % i, data=sub_value, allowed_special_characters={'/', '_'})
+                if UNPACK_SUBFIELDS:
+                    for i, sub_value in enumerate(value.split('&')):
+                        self._parse_store_data(key=key + '-%d' % i, data=sub_value, allowed_special_characters={'/', '_'})
+                else:
+                    self._parse_store_data(key='CSQ_CLINVAR_CLNSIG',
+                                           data=value,
+                                           allowed_special_characters={'/', '_', '&'})
             elif key in ['CSQ_EXON', 'CSQ_INTRON']:
-                for i, sub_value in enumerate(value.split('/')):
-                    self._parse_store_data(key=key + '-%d' % i, data=sub_value)
+                if UNPACK_SUBFIELDS:
+                    for i, sub_value in enumerate(value.split('/')):
+                        self._parse_store_data(key=key + '-%d' % i, data=sub_value)
+                else:
+                    self._parse_store_data(key=key,
+                                           data=value,
+                                           allowed_special_characters={'/'})
             elif key == 'CSQ_Codons':
-                for i, sub_value in enumerate(value.split('/')):
-                    self._parse_store_data(key=key + '-%d' % i, data=sub_value, allowed_special_characters={'-'})
+                if UNPACK_SUBFIELDS:
+                    for i, sub_value in enumerate(value.split('/')):
+                        self._parse_store_data(key=key + '-%d' % i, data=sub_value, allowed_special_characters={'-'})
+                else:
+                    self._parse_store_data(key=key, data=value, allowed_special_characters={'-', '/'})
             elif key == 'CSQ_HGVSc':
-                if value != '':
-                    hgvsc_reference, hgvsc_description = value.split(':')
-                    self._parse_store_data(key=key+'-reference',
-                                           data=hgvsc_reference,
-                                           allowed_special_characters={'.', '_'})
-                    self._parse_store_data(key=key + '-description',
-                                           data=hgvsc_description,
-                                           allowed_special_characters={'.', '>', '-', '+', '_', '*'})
+                if UNPACK_SUBFIELDS:
+                    if value != '':
+                        hgvsc_reference, hgvsc_description = value.split(':')
+                        self._parse_store_data(key=key+'-reference',
+                                               data=hgvsc_reference,
+                                               allowed_special_characters={'.', '_'})
+                        self._parse_store_data(key=key + '-description',
+                                               data=hgvsc_description,
+                                               allowed_special_characters={'.', '>', '-', '+', '_', '*'})
+                else:
+                    self._parse_store_data(key=key,
+                                           data=value,
+                                           allowed_special_characters={'.', '>', '-', '+', '_', '*', ':'})
             elif key == 'CSQ_HGVSp':
                 self._parse_store_data(key=key,
                                        data=self._hack_bugfix_ensemble_vep_430(value),
@@ -469,17 +510,27 @@ class ParsableVariant:
             elif key == 'CSQ_DOMAINS':
                 # TODO: Split on database names such as PANTHER, SUPERFAMILY rather than on position idx
                 # Syntax: DBNAME:INFO&DNMANE:INFO& ...
-                for i, sub_value in enumerate(value.split('&')):
-                    self._parse_store_data(key=key + '-%d' % i,
-                                           data=sub_value,
-                                           allowed_special_characters={':', '.', '_', '(', ')', '-'})
+                if UNPACK_SUBFIELDS:
+                    for i, sub_value in enumerate(value.split('&')):
+                        self._parse_store_data(key=key + '-%d' % i,
+                                               data=sub_value,
+                                               allowed_special_characters={':', '.', '_', '(', ')', '-'})
+                else:
+                    self._parse_store_data(key=key,
+                                           data=value,
+                                           allowed_special_characters={':', '.', '_', '(', ')', '-', '&'})
             elif key == 'CSQ_Amino_acids':
                 self._parse_store_data(key=key, data=value, allowed_special_characters={'/', '-', '*'})
             elif key == 'CSQ_TRANSCRIPTION_FACTORS':
-                for i, sub_value in enumerate(value.split('&')):
-                    self._parse_store_data(key=key + '-%d' % i,
-                                           data=sub_value,
-                                           allowed_special_characters={':'})
+                if UNPACK_SUBFIELDS:
+                    for i, sub_value in enumerate(value.split('&')):
+                        self._parse_store_data(key=key + '-%d' % i,
+                                               data=sub_value,
+                                               allowed_special_characters={':'})
+                else:
+                    self._parse_store_data(key=key,
+                                           data=value,
+                                           allowed_special_characters={':', '&'})
             elif key in ['CSQ_cDNA_position', 'CSQ_CDS_position', 'CSQ_Protein_position']:
                 self._parse_store_data(key=key, data=value, allowed_special_characters={'?', '-'})
             else:
@@ -493,25 +544,33 @@ class ParsableVariant:
         :param text:
         :return:
         """
-        sub_texts: List[str] = text.split(',')
-        key = 'most_severe_consequence'
-        for i, sub_text in enumerate(sub_texts):
-            numerical_value, rest = sub_text.split(':')
-            alt_variant, vep_so_term = rest.split('|')
-            self._parse_store_data(key=key + '-num-%d' % i,
-                                   data=numerical_value)
-            self._parse_store_data(key=key + '-alt-%d' % i,
-                                   data=alt_variant,
-                                   allowed_special_characters={'-'})
-            self._parse_store_data(key=key + '-vep-%d' % i,
-                                   data=vep_so_term,
-                                   allowed_special_characters={'_'})
+        if UNPACK_SUBFIELDS:
+            sub_texts: List[str] = text.split(',')
+            key = 'most_severe_consequence'
+            for i, sub_text in enumerate(sub_texts):
+                numerical_value, rest = sub_text.split(':')
+                alt_variant, vep_so_term = rest.split('|')
+                self._parse_store_data(key=key + '-num-%d' % i,
+                                       data=numerical_value)
+                self._parse_store_data(key=key + '-alt-%d' % i,
+                                       data=alt_variant,
+                                       allowed_special_characters={'-'})
+                self._parse_store_data(key=key + '-vep-%d' % i,
+                                       data=vep_so_term,
+                                       allowed_special_characters={'_'})
+        else:
+            self._parse_store_data(key='most_severe_consequence',
+                                   data=text,
+                                   allowed_special_characters={':', '|', '_', '-', ','})
 
     def _parse_fn_Annotation(self,
                              text: str):
-        parts: List[str] = text.split(',')
-        for i, sub_text in enumerate(parts):
-            self._parse_store_data(key='Annotation-%d' % i, data=sub_text, allowed_special_characters={'-'})
+        if UNPACK_SUBFIELDS:
+            parts: List[str] = text.split(',')
+            for i, sub_text in enumerate(parts):
+                self._parse_store_data(key='Annotation-%d' % i, data=sub_text, allowed_special_characters={'-'})
+        else:
+            self._parse_store_data(key='Annotation', data=text, allowed_special_characters={'-', ','})
 
     def get_attribute(self,
                       key: str,
