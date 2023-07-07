@@ -90,3 +90,30 @@ class VCFReader(cyvcf2.VCFReader):
         data_fields.extend(self.info_fields)
         data_fields.extend(self.format_fields)
         return data_fields
+
+    @property
+    def csq_description(self) -> Union[str, None]:
+        """
+        Return CSQ Description field content
+        :return:
+        """
+        for header in self.header_iter():
+            try:
+                if header['ID'] == 'CSQ':
+                    vep_csq_description: str = header['Description']
+                    return vep_csq_description
+            except (AttributeError, KeyError):
+                pass
+
+    @property
+    def csq_sub_fields(self) -> Union[List[str], None]:
+        """
+        Return CSQ Description sub field names as list
+        :return:
+        """
+        vep_csq_description = self.csq_description
+        if vep_csq_description is None:
+            return
+        keys = vep_csq_description.split('Format: ')[1].replace('"', '').split('|')
+        keys = ['CSQ_%s' % key for key in keys]
+        return keys
