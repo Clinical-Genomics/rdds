@@ -56,3 +56,23 @@ def test_hd5_data_generator_repeat(hd5_file_path):
             tensor = data_iter.__next__()
             assert tensor[-1] == i
         assert i == DATA_LENGTH - 1
+
+
+def test_hd5_data_generator_multiple_tensors(hd5_file_path):
+    """
+    Test for iterator basic behavior, to return multiple vectors
+    """
+    # GIVEN a HD5 data generator reading from HD5 file
+    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                            output_tensor_format=[['dataset0', 'dataset1'], ['dataset2']],
+                                                            forever=False)
+    # WHEN iterating over data
+    data_iter = hd5_data_generator()
+    for i, nested_tensor in enumerate(data_iter):
+        # THEN expect the data to be split according to output_tensor_format
+        assert isinstance(nested_tensor, tuple)
+        assert len(nested_tensor) == 2
+        assert isinstance(nested_tensor[0][0], bytes)
+        assert isinstance(nested_tensor[0][1], bytes)
+        assert isinstance(nested_tensor[1][0], float)
+    assert i == DATA_LENGTH - 1
