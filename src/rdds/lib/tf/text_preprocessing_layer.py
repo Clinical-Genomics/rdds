@@ -1,3 +1,4 @@
+from typing import *
 import tensorflow as tf
 import tensorflow_text as tftext
 
@@ -18,11 +19,15 @@ class TextPreprocessingLayer(tf.Module):
         tf.Module.__init__(self, name='TextPreprocessing')
         self._splitter: tftext.Splitter = tftext.RegexSplitter(split_regex=split_regex)
 
-    def __call__(self, x: tf.RaggedTensor) -> tf.RaggedTensor:
+    def __call__(self, *tensors: Union[tf.RaggedTensor, Tuple[tf.RaggedTensor]]) -> Union[tf.RaggedTensor, Tuple[tf.RaggedTensor]]:
         """
         Apply text preprocessing to input tensor x
-        :param x: Tensor
-        :return: Preprocessed data as RaggedTensor
+        :param tensors: RaggedTensor or Tuple[RaggedTensor]
+        :return: Preprocessed data as RaggedTensor or Tuple[RaggedTensor]
         """
-        x = self._splitter.split(x)
-        return x
+        if len(tensors) == 1:
+            return self._splitter.split(tensors[0])
+        processed_tensors = tuple()
+        for tensor in tensors:
+            processed_tensors += (self._splitter.split(tensor), )
+        return processed_tensors
