@@ -76,3 +76,18 @@ def test_hd5_data_generator_multiple_tensors(hd5_file_path):
         assert isinstance(nested_tensor[0][1], bytes)
         assert isinstance(nested_tensor[1][0], float)
     assert i == DATA_LENGTH - 1
+
+
+def test_hd5_data_types(hd5_file_path):
+    """
+    Test the datatypes returned by hd5 data generator.
+    """
+    # GIVEN a dataset and generator
+    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path)
+    # WHEN querying the dataset dtypes
+    dtypes = hd5_data_generator.data_types
+    # THEN expect them to match the data provided
+    assert isinstance(dtypes, dict)
+    assert dtypes['dataset0'] == bytes
+    assert dtypes['dataset1'] == bytes
+    assert dtypes['dataset2'] == float

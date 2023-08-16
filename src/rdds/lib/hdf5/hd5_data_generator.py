@@ -82,6 +82,32 @@ class Hd5DataGenerator:
                 output_vector += (self._group[dataset_name][self._idx], )
         return output_vector
 
+    @property
+    def data_types(self) -> Dict[str, Type]:
+        """
+        Return output vector data types as a dict of names to python native types.
+        """
+        # Map numpy dtype short names to python compatible dtypes
+        numpy_dtype_lookup_map = {'d': float,  # float64
+                                  'f': float,  # float32
+                                  'O': bytes}  # Possibly string or other data in binary format
+
+        def get_dtypes(output_tensor_format: List[str]) -> Dict[str, Type]:
+            dtypes: Dict[str, Type] = dict()
+            for dataset_name in output_tensor_format:
+                dtype = numpy_dtype_lookup_map[self._group[dataset_name].dtype.char]
+                dtypes.update({dataset_name: dtype})
+            return dtypes
+
+        if isinstance(self._output_tensor_format[0], list):
+            dtypes: Dict[str, Type] = dict()
+            for inner_list in self._output_tensor_format:
+                dtypes_inner = get_dtypes(inner_list)
+                for key, value in dtypes_inner.items():
+                    dtypes.update({key: value})
+            return dtypes
+        elif isinstance(self._output_tensor_format[0], str):
+            return get_dtypes(self._output_tensor_format)
 
     def __call__(self) -> Tuple[Union[str, float], ...]:
         while True:
