@@ -1,6 +1,6 @@
 import cyvcf2
 from cyvcf2 import Variant
-
+from typing import *
 import subprocess as sp
 from tempfile import NamedTemporaryFile
 
@@ -47,3 +47,46 @@ class VCFReader(cyvcf2.VCFReader):
                 self._number_of_variants = sum(1 for _ in f) - header_rows
 
         return self._number_of_variants
+
+    def _get_type_fields(self, type: str) -> List[str]:
+        """
+        Return VCF field ID (names) of fields in category 'type'
+        :param type:
+        :return:
+        """
+        return [entry['ID'] for entry in list(self.header_iter()) if entry['HeaderType'] == type]
+
+    @property
+    def static_data_fields(self) -> List[str]:
+        """
+        Static fields that's always expected to be present in VCF
+        :return:
+        """
+        return ['CHROM', 'POS', 'ID', 'REF', 'ALT']
+
+    @property
+    def format_fields(self) -> List[str]:
+        """
+        Return all FORMAT fields
+        :return:
+        """
+        return self._get_type_fields(type='FORMAT')
+
+    @property
+    def info_fields(self) -> List[str]:
+        """
+        Return all INFO fields
+        :return:
+        """
+        return self._get_type_fields(type='INFO')
+
+    @property
+    def data_fields(self) -> List[str]:
+        """
+        Return all fields containing variant data
+        :return:
+        """
+        data_fields: List[str] = self.static_data_fields
+        data_fields.extend(self.info_fields)
+        data_fields.extend(self.format_fields)
+        return data_fields
