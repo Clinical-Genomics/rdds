@@ -1,8 +1,37 @@
 import cyvcf2
 from cyvcf2 import Variant
-
+from typing import List, Optional
 import subprocess as sp
 from tempfile import NamedTemporaryFile
+from enum import Enum
+
+
+class StrEnum(str, Enum):
+    """
+    Base class for string enums.
+    """
+    def __str__(self) -> str:
+        # Return internal value on calling the symbolic name
+        return self.value
+
+
+class StaticVcfFields(StrEnum):
+    """
+    Collection of static VCF fields, flat fields.
+    """
+    chrom = 'CHROM'
+    pos = 'POS'
+    id = 'ID'
+    ref = 'REF'
+    alt = 'ALT'
+
+
+class StaticNestedVcfFields(StrEnum):
+    """
+    Collection of static, nested VCF fields.
+    """
+    info = 'INFO'
+    format = 'FORMAT'
 
 
 class VCFReader(cyvcf2.VCFReader):
@@ -47,3 +76,73 @@ class VCFReader(cyvcf2.VCFReader):
                 self._number_of_variants = sum(1 for _ in f) - header_rows
 
         return self._number_of_variants
+
+    def _get_type_fields(self, type: str) -> List[str]:
+        """
+        Return VCF field ID (names) of fields in category 'type'
+        :param type:
+        :return:
+        """
+        return [entry['ID'] for entry in list(self.header_iter()) if entry['HeaderType'] == type]
+
+    @property
+    def static_data_fields(self) -> List[str]:
+        """
+        Static fields that's always expected to be present in VCF
+        :return:
+        """
+        return [entry.value for entry in StaticVcfFields]
+
+    @property
+    def format_fields(self) -> List[str]:
+        """
+        Return all FORMAT fields
+        :return:
+        """
+        return self._get_type_fields(type=StaticNestedVcfFields.format)
+
+    @property
+    def info_fields(self) -> List[str]:
+        """
+        Return all INFO fields
+        :return:
+        """
+        return self._get_type_fields(type=StaticNestedVcfFields.info)
+
+    @property
+    def data_fields(self) -> List[str]:
+        """
+        Return all fields containing variant data
+        :return:
+        """
+        data_fields: List[str] = self.static_data_fields
+        data_fields.extend(self.info_fields)
+        data_fields.extend(self.format_fields)
+        return data_fields
+
+    @property
+    def csq_description(self) -> Optional[str]:
+        """
+        Return CSQ Description field content, if present.
+        :return: Content of Description of CSQ field.
+        """
+        for header in self.header_iter():
+            try:
+                if header['ID'] == 'CSQ':
+                    vep_csq_description: str = header['Description']
+                    return vep_csq_description
+            except (AttributeError, KeyError):
+                pass
+
+    @property
+    def csq_sub_fields(self) -> Optional[List[str]]:
+        """
+        Return CSQ Description sub-field names as list, if present.
+        :return: List of nested field names in CSQ field.
+        """
+        vep_csq_description = self.csq_description
+        if vep_csq_description is None:
+            return
+        keys = vep_csq_description.split('Format: ')[1].replace('"', '').split('|')
+        keys = ['CSQ_%s' % key for key in keys]
+        return keys
