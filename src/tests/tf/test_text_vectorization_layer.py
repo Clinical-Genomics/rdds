@@ -19,7 +19,7 @@ def test_text_vectorization_layer(word_dataset, work_dir):
     model.compile()
     # THEN expect the dictionary to contain the words in the dataset
     y = model.predict(['nicely'])
-    assert 'Some' in text_vectorization_layer._vocabulary_layer.get_vocabulary()
+    assert 'some' in text_vectorization_layer._vocabulary_layer.get_vocabulary()
 
     # THEN expect the embeddings to match expected shape
     assert isinstance(text_vectorization_layer.embeddings, list)
