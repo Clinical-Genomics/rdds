@@ -25,7 +25,7 @@ def word_dataset() -> tf.data.Dataset:
 
 @pt.fixture
 def text_preprocessing_layer():
-    return TextPreprocessingLayer(split_regex='SPLITME')
+    return TextPreprocessingLayer(split_regex='splitme')
 
 
 def test_text_vectorization_layer(word_dataset, text_preprocessing_layer, work_dir):
@@ -43,7 +43,7 @@ def test_text_vectorization_layer(word_dataset, text_preprocessing_layer, work_d
     model.compile()
     # THEN expect the dictionary to contain the words in the dataset
     y = model.predict(['nicely'])
-    assert 'Some' in text_vectorization_layer._vocabulary_layer.get_vocabulary()
+    assert 'some' in text_vectorization_layer._vocabulary_layer.get_vocabulary()
 
     # THEN expect the embeddings to match expected shape
     assert isinstance(text_vectorization_layer.embeddings, list)

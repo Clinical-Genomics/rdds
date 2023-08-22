@@ -19,15 +19,20 @@ class TextPreprocessingLayer(tf.Module):
         tf.Module.__init__(self, name='TextPreprocessing')
         self._splitter: tftext.Splitter = tftext.RegexSplitter(split_regex=split_regex)
 
+    def _process_tensor(self, tensor):
+        tensor = tf.strings.lower(tensor)  # lowercase all words
+        tensor = self._splitter.split(tensor)  # split words
+        return tensor
+
     def __call__(self, *tensors: Union[tf.RaggedTensor, Tuple[tf.RaggedTensor]]) -> Union[tf.RaggedTensor, Tuple[tf.RaggedTensor]]:
         """
         Apply text preprocessing to input tensor x
         :param tensors: RaggedTensor or Tuple[RaggedTensor]
         :return: Preprocessed data as RaggedTensor or Tuple[RaggedTensor]
         """
-        if len(tensors) == 1:
-            return self._splitter.split(tensors[0])
+        if isinstance(tensors, tuple) and len(tensors) == 1:
+            return self._process_tensor(tensors[0])
         processed_tensors = tuple()
         for tensor in tensors:
-            processed_tensors += (self._splitter.split(tensor), )
+            processed_tensors += (self._process_tensor(tensor), )
         return processed_tensors
