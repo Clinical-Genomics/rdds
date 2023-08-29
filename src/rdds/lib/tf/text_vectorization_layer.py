@@ -1,6 +1,6 @@
 import tensorflow as tf
 from typing import List
-
+from datetime import datetime
 from . import constants
 
 
@@ -32,12 +32,14 @@ class TextVectorizationLayer:
         :param embedding_dimensions: The shape of embedding matrix, [N_WORDS, embedding_dimensions]
         :return:
         """
+        time_start: datetime = datetime.now()
         self._vocabulary_layer.compile()
         self._vocabulary_layer.adapt(dataset)
         self._vocabulary_size = len(self._vocabulary_layer.get_vocabulary(include_special_tokens=True))
         self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
                                                            output_dim=embedding_dimensions,
                                                            name=f'{self._name}{constants.EMBEDDINGS_LAYER_NAME_SUFFIX}')
+        print(f'Creating vocabulary took {datetime.now() - time_start}')
 
     def __call__(self, ragged_tensor: tf.RaggedTensor) -> tf.RaggedTensor:
         """
