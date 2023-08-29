@@ -1,5 +1,6 @@
 import tensorflow as tf
 from typing import *
+from datetime import datetime
 
 
 class TextVectorizationLayer:
@@ -26,6 +27,7 @@ class TextVectorizationLayer:
     def adapt(self,
               dataset: tf.data.Dataset,
               embedding_dimensions: int = 1):
+        time_start: datetime = datetime.now()
         """
         "Train" vocabulary using dataset. Construct embeddings for words in dictionary.
         :param dataset: TF dataset generating vectors containing words
@@ -38,6 +40,7 @@ class TextVectorizationLayer:
         self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
                                                            output_dim=embedding_dimensions,
                                                            name=self._name+'Embeddings')
+        print(f'Creating vocabulary took {datetime.now() - time_start}')
 
     def __call__(self, x: tf.RaggedTensor) -> tf.RaggedTensor:
         """
