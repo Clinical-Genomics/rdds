@@ -1,4 +1,5 @@
 import h5py
+import numpy as np
 from typing import *
 
 from . import _LOGGER
@@ -18,11 +19,14 @@ class Hd5DataGenerator:
                  hd5_file_path: str,
                  group_name: str = None,
                  output_tensor_format: OutputTensorFormat = None,
+                 label: str = None,
                  forever: bool = True):
         """
         :param hd5_file_path: HD5 file to generate data from
         :param group_name: Group in HD5 file to read data from (reads all datasets)
         :param output_tensor_format: The format (dataset names) constituting the output tensor
+        :param label: Dataset name, if supplied, HD5DataGenerator yields (data_tensor, labels)
+          where data_tensor is equivalent to output_tensor_format field.
         :param forever: Loop over data forever
         """
         self._hd5_file_path: str = hd5_file_path
@@ -40,7 +44,8 @@ class Hd5DataGenerator:
             _LOGGER.warning('Output tensor format not deterministic and depends on HD5 content')
             output_tensor_format = list(self._group.keys())
         self._output_tensor_format: OutputTensorFormat = output_tensor_format
-        _LOGGER.info(f'OutputTensorFormat: {self._output_tensor_format}')
+        self._label = label
+        _LOGGER.info(f'OutputTensorFormat: {self._output_tensor_format}, Label: {self._label}')
 
         # Check that dataset shapes are identical.
         # Deduce first dataset name based on output_tensor_format, a possibly nested list.
@@ -109,9 +114,39 @@ class Hd5DataGenerator:
         elif isinstance(self._output_tensor_format[0], str):
             return get_dtypes(self._output_tensor_format)
 
+    @staticmethod
+    def _expand_categorical_label_1d_to_2d(label: float) -> Tuple[float, float]:
+        """
+        Expands a 1D label value into a multiclass 2D categorical label vector, according to the formula:
+        (1 - label, label).
+
+        This method assumes that the label is in range (0, 1).
+
+        :param label: 1D label to be unpacked
+        :return: 2D label as tuple.
+        """
+        if not isinstance(label, (float, np.float32)):
+            raise TypeError(f'Expected a float value, got {type(label)}')
+        if not 0.0 <= label <= 1.0:
+            raise ValueError(f'Invalid value encountered, got {label}')
+        return 1.0 - label, label
+
     def __call__(self) -> Tuple[Union[str, float], ...]:
+        """
+        Yields data from HD5 data set.
+        :return:
+            1. Tuple of data (tensor0, tensor1, ...) OR
+            2. Tuple of tuples ((tensor0, tensor1, ...), (label, ))
+        """
         while True:
-            yield self._assemble_output_vector(self._output_tensor_format)
+            x = self._assemble_output_vector(self._output_tensor_format)
+            if self._label is not None:
+                label = self._assemble_output_vector([self._label])
+                if len(label) > 1:
+                    raise ValueError(f'Only 1D label currently supported. Got {label}')
+                labels = self._expand_categorical_label_1d_to_2d(label[0])
+                x = (x, ) + (labels, )  # Add label, so (data, label) is produced
+            yield x
             self._idx += 1
             if self._idx >= self._data_length:
                 if not self._forever:

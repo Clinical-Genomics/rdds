@@ -2,6 +2,7 @@ import pytest as pt
 import h5py
 import tempfile
 import os
+import numpy as np
 
 from rdds.lib.hdf5 import Hd5DataGenerator
 DATA_LENGTH: int = 10
@@ -17,6 +18,8 @@ def hd5_file_path() -> str:
     group['dataset1'][()] = ['A', 'B'*2, 'C'*3, 'D'*4, 'E'*5, 'F'*6, 'G'*7, 'H'*8, 'I'*9, 'J'*10]
     group.create_dataset('dataset2', dtype=float, shape=(DATA_LENGTH, ))
     group['dataset2'][()] = list(range(0, DATA_LENGTH))
+    group.create_dataset('label', dtype=float, shape=(DATA_LENGTH, ))
+    group['label'][()] = np.array(list(range(0, DATA_LENGTH))) / DATA_LENGTH
     hd5_file.flush()
     hd5_file.close()
     yield file.name
@@ -28,7 +31,9 @@ def test_hd5_data_generator(hd5_file_path):
     Test for iterator basic behavior
     """
     # GIVEN a HD5 data generator reading from HD5 file
-    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path, forever=False)
+    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                            output_tensor_format=['dataset0', 'dataset1', 'dataset2'],
+                                                            forever=False)
     # WHEN iterating over data
     data_iter = hd5_data_generator()
     for i, tensor in enumerate(data_iter):
@@ -47,7 +52,9 @@ def test_hd5_data_generator_repeat(hd5_file_path):
     Test for repeating data
     """
     # GIVEN a HD5 data generator reading from HD5 file
-    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path, forever=True)
+    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                            output_tensor_format=['dataset0', 'dataset1', 'dataset2'],
+                                                            forever=True)
     # WHEN iterating over data
     data_iter = hd5_data_generator()
     # THEN expect data to start over after epoch if 'forever' is True
@@ -77,6 +84,28 @@ def test_hd5_data_generator_multiple_tensors(hd5_file_path):
         assert isinstance(nested_tensor[1][0], float)
     assert i == DATA_LENGTH - 1
 
+
+def test_hd5_with_label(hd5_file_path):
+    """
+    Test for yielding labels alongside data.
+    """
+    # GIVEN a HD5 data generator reading from HD5 file
+    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                            output_tensor_format=[['dataset0', 'dataset1'], ['dataset2']],
+                                                            label='label',
+                                                            forever=False)
+    # WHEN iterating over data
+    data_iter = hd5_data_generator()
+    for i, xy in enumerate(data_iter):
+        nested_tensor, label = xy
+        # THEN expect the data to be split according to output_tensor_format, and labels are produced
+        assert isinstance(nested_tensor, tuple)
+        assert len(nested_tensor) == 2
+        assert isinstance(nested_tensor[0][0], bytes)
+        assert isinstance(nested_tensor[0][1], bytes)
+        assert isinstance(nested_tensor[1][0], float)
+        assert 0 <= label[0] <= 1
+    assert i == DATA_LENGTH - 1
 
 def test_hd5_data_types(hd5_file_path):
     """

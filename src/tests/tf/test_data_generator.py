@@ -10,18 +10,24 @@ from tests.hdf5.test_generator import hd5_file_path, DATA_LENGTH  # Test fixture
 
 @pt.fixture
 def endless_hd5_data_generator(hd5_file_path) -> Hd5DataGenerator:
-    return Hd5DataGenerator(hd5_file_path=hd5_file_path, forever=True)
+    return Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                            output_tensor_format=['dataset0', 'dataset1', 'dataset2'],
+                            label='label',
+                            forever=True)
 
 
 @pt.fixture
-def output_signature() -> Tuple[Union[tf.TensorSpec, tf.RaggedTensorSpec], ...]:
+def output_signature():
     """
     Matching data format in hd5_data_generator()
     :return:
     """
-    return (tf.TensorSpec((), dtype=tf.string),
-            tf.TensorSpec((), dtype=tf.string),
-            tf.TensorSpec((), dtype=tf.float32))
+    return ((tf.TensorSpec((), dtype=tf.string),  # string 0
+            tf.TensorSpec((), dtype=tf.string),  # string 1
+            tf.TensorSpec((), dtype=tf.float32)),  # numerical 0
+
+            (tf.TensorSpec((), dtype=tf.float32),
+             tf.TensorSpec((), dtype=tf.float32)))  # label 2D
 
 
 def test_hd5_data_generator(endless_hd5_data_generator,
@@ -38,8 +44,12 @@ def test_hd5_data_generator(endless_hd5_data_generator,
     for n_epoch in range(0, 5):
         # Select one epoch of data from dataset
         batch: List[Tuple[tf.Tensor]] = list(hd5_data_set.take(1))
-        tensors_in_batch: Tuple[tf.Tensor] = batch[0]
-        numerical_tensor: tf.Tensor = tensors_in_batch[-1]
+        xy: Tuple[tf.Tensor] = batch[0]
+        data_tensors = xy[0]
+        label_tensors = xy[1]
+        numerical_tensor: tf.Tensor = data_tensors[-1]  # label tensor is the last tensor
         numerical_tensor_as_numpy: np.ndarray = numerical_tensor.numpy()
         # THEN expect data to be presented as expected in every batch
         assert np.isclose(np.sum(np.subtract(numerical_tensor_as_numpy, np.arange(0, DATA_LENGTH))), 0, atol=1E-6)
+        assert np.max(label_tensors) <= 1
+        assert np.min(label_tensors) >= 0
