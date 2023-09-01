@@ -3,6 +3,7 @@ from typing import List
 from datetime import datetime
 from . import constants
 
+# FIXME: Bug https://github.com/keras-team/keras/issues/15163 with  tensorboard
 
 class TextVectorizationLayer:
 
