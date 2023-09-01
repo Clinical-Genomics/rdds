@@ -23,3 +23,18 @@ def hd5_file() -> Tuple[str, int]:
     hd5_file.close()
     yield file.name, data_length
     os.remove(file.name)
+
+@pytest.fixture
+def hd5_file_path_with_nans(hd5_file):
+    hd5_file_path, data_length = hd5_file
+    hd5_file: h5py.File = h5py.File(hd5_file_path, 'r+')
+    group = hd5_file['group']
+    group.create_dataset('string_null', shape=(data_length, ), dtype=h5py.string_dtype())
+    group.create_dataset('float_null', shape=(data_length,), dtype=float)
+    # Null bytestrings are empty b''
+    group['float_null'][()] = [None] * data_length  # Null floats are NaN
+    print(group['string_null'][:])
+    print(group['float_null'][:])
+    hd5_file.flush()
+    hd5_file.close()
+    yield hd5_file_path
