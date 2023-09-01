@@ -25,6 +25,19 @@ def hd5_file_path() -> str:
     yield file.name
     os.remove(file.name)
 
+@pt.fixture
+def hd5_file_path_with_nans(hd5_file_path):
+    hd5_file: h5py.File = h5py.File(hd5_file_path, 'r+')
+    group = hd5_file['group']
+    group.create_dataset('string_null', shape=(DATA_LENGTH, ), dtype=h5py.string_dtype())
+    group.create_dataset('float_null', shape=(DATA_LENGTH,), dtype=float)
+    # Null bytestrings are empty b''
+    group['float_null'][()] = [None] * DATA_LENGTH  # Null floats are NaN
+    print(group['string_null'][:])
+    print(group['float_null'][:])
+    hd5_file.flush()
+    hd5_file.close()
+    yield hd5_file_path
 
 def test_hd5_data_generator(hd5_file_path):
     """
@@ -107,6 +120,7 @@ def test_hd5_with_label(hd5_file_path):
         assert 0 <= label[0] <= 1
     assert i == DATA_LENGTH - 1
 
+
 def test_hd5_data_types(hd5_file_path):
     """
     Test the datatypes returned by hd5 data generator.
@@ -120,3 +134,20 @@ def test_hd5_data_types(hd5_file_path):
     assert dtypes['dataset0'] == bytes
     assert dtypes['dataset1'] == bytes
     assert dtypes['dataset2'] == float
+
+
+def test_hd5_null_checks(hd5_file_path_with_nans):
+    """
+    Test for replacing NaN values in data.
+    """
+    # GIVEN a data generator that provides NaN data
+    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path_with_nans,
+                                                            output_tensor_format=['string_null',
+                                                                                  'float_null'],
+                                                            forever=False)
+    data_iter = hd5_data_generator()
+    # WHEN reading data from generator
+    for nullstring, nullfloat in data_iter:
+        # THEN expect the string data to be empty which is OK, and all NaN floats replaced with 0.0
+        assert nullstring == b''
+        assert nullfloat == 0.0
