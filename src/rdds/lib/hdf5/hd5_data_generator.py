@@ -24,7 +24,8 @@ class Hd5DataGenerator:
                  group_name: str = None,
                  output_tensor_format: OutputTensorFormat = None,
                  label: str = None,
-                 forever: bool = True):
+                 forever: bool = True,
+                 replace_nan_floats_with: float = 0.0):
         """
         :param hd5_file_path: HD5 file to generate data from
         :param group_name: Group in HD5 file to read data from (reads all datasets)
@@ -32,11 +33,13 @@ class Hd5DataGenerator:
         :param label: Dataset name, if supplied, HD5DataGenerator yields (data_tensor, labels)
           where data_tensor is equivalent to output_tensor_format field.
         :param forever: Loop over data forever
+        :param replace_nan_floats_with: Floating point value to replace NaN values
         :raises ValueError: In case internal dataset rank is not 1
         """
         self._hd5_file_path: str = hd5_file_path
         self._hd5_file = h5py.File(self._hd5_file_path, 'r')
         self._data_length = int
+        self._replace_nan_floats_with = replace_nan_floats_with
 
         self._group_name = group_name if group_name else list(self._hd5_file.keys())[0]
         _LOGGER.info(f'Generating data from group \'{group_name}\'')
@@ -75,6 +78,21 @@ class Hd5DataGenerator:
     def data_length(self):
         return self._data_length
 
+    def _replace_nan_values(self, sample: Union[bytes, float]) -> Union[bytes, float]:
+        """
+        Replace NaN values with a predefined value.
+        :param sample: The sample to be checked, potentially float::NaN
+        :return: sample, possibly replaced.
+        """
+        if isinstance(sample, bytes):
+            # A bytestring might be empty b'', which is OK
+            return sample
+        if isinstance(sample, (float, np.float64, np.float32)):
+            if not sample == sample:  # NaN check
+                return self._replace_nan_floats_with
+            return sample
+        raise NotImplementedError(f'Replacing NaN values for dtype {type(sample)} not implemented.')
+
     def _assemble_output_vector(self,
                                 output_tensor_format: OutputTensorFormat) -> Tuple[Union[str, float], Any]:
         """
@@ -88,7 +106,9 @@ class Hd5DataGenerator:
                 output_vector += (self._assemble_output_vector(output_tensor_format_inner), )
         elif isinstance(output_tensor_format[0], str):
             for dataset_name in output_tensor_format:
-                output_vector += (self._group[dataset_name][self._idx], )
+                sample: Any = self._group[dataset_name][self._idx]
+                sample = self._replace_nan_values(sample=sample)
+                output_vector += (sample, )
         return output_vector
 
     @property
