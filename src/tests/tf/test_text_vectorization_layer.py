@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import os
 
 from rdds.lib.tf import TextVectorizationLayer, TextPreprocessingLayer
 
@@ -27,6 +28,19 @@ def test_text_vectorization_layer(word_dataset, work_dir):
     embeddings_matrix: np.array = text_vectorization_layer.embeddings[0].numpy()
     assert embeddings_matrix.shape == (5, 1)
 
+    # THEN expect vocabulary to be successfully saved to file
+    text_vectorization_layer.save_vocabulary_to_file('/tmp/vocab.txt')
+    with open('/tmp/vocab.txt') as file:
+        vocabulary: List[str] = file.read().split('\n')
+        vocabulary.remove('')
+        assert set(vocabulary) == set(
+                ['[UNK]',
+                'some',
+                'nicely',
+                'formatted',
+                'sentence'])
+    os.remove('/tmp/vocab.txt')
+
     # WHEN saving the dictionary and embeddings to file
     model.save(filepath=work_dir)
     model = None
@@ -42,3 +56,15 @@ def test_text_vectorization_layer(word_dataset, work_dir):
     assert embeddings_matrix_loaded.shape == (5, 1)
     embeddings_num_diff: float = np.sum(np.subtract(embeddings_matrix, embeddings_matrix_loaded))
     assert np.isclose(embeddings_num_diff, 0, atol=1E-6)
+
+
+def test_save_load_vocabulary_file(vocabulary_file):
+    """
+    Test loading of precompiled vocabulary file.
+    """
+    # GIVEN a precompiled vocabulary file
+    text_vectorization_layer = TextVectorizationLayer(precompiled_vocabulary_file=vocabulary_file)
+    text_vectorization_layer.adapt()
+    # WHEN building the layer
+    # THEN expect it to load the vocabulary file
+    assert text_vectorization_layer.vocabulary == ['[UNK]', 'foo', 'bar']
