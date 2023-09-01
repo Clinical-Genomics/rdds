@@ -2,6 +2,7 @@ import tensorflow as tf
 from typing import *
 from datetime import datetime
 
+# FIXME: Bug https://github.com/keras-team/keras/issues/15163 with  tensorboard
 
 class TextVectorizationLayer:
 
