@@ -28,6 +28,16 @@ def text_preprocessing_layer():
     return TextPreprocessingLayer(split_regex='splitme')
 
 
+@pt.fixture
+def vocabulary_file():
+    file_path = '/tmp/vocab.txt'
+    with open(file_path, 'w') as vocabulary_file:
+        for word in ['foo', 'bar']:
+            print(word, file=vocabulary_file)
+    yield file_path
+    os.remove(file_path)
+
+
 def test_text_vectorization_layer(word_dataset, text_preprocessing_layer, work_dir):
     """
     Test creation of dictionary and embeddings.
@@ -51,6 +61,10 @@ def test_text_vectorization_layer(word_dataset, text_preprocessing_layer, work_d
     embeddings_matrix: np.array = text_vectorization_layer.embeddings[0].numpy()
     assert embeddings_matrix.shape == (5, 1)
 
+    # THEN expect vocabulary to be successfully saved to file
+    text_vectorization_layer.save_vocabulary_to_file('/tmp/vocab.txt')
+    os.remove('/tmp/vocab.txt')
+
     # WHEN saving the dictionary and embeddings to file
     model.save(filepath=work_dir)
     model = None
@@ -66,3 +80,15 @@ def test_text_vectorization_layer(word_dataset, text_preprocessing_layer, work_d
     assert embeddings_matrix_loaded.shape == (5, 1)
     embeddings_num_diff: float = np.sum(np.subtract(embeddings_matrix, embeddings_matrix_loaded))
     assert np.isclose(embeddings_num_diff, 0, atol=1E-6)
+
+
+def test_save_load_vocabulary_file(vocabulary_file):
+    """
+    Test loading of precompiled vocabulary file.
+    """
+    # GIVEN a precompiled vocabulary file
+    text_vectorization_layer: TextVectorizationLayer = TextVectorizationLayer(precompiled_vocabulary_file=vocabulary_file)
+    text_vectorization_layer.adapt()
+    # WHEN building the layer
+    # THEN expect it to load the vocabulary file
+    assert text_vectorization_layer.vocabulary == ['[UNK]', 'foo', 'bar']
