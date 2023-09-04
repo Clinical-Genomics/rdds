@@ -2,3 +2,4 @@ from .data_generator import get_tf_dataset_from_hd5_data_generator
 from .text_preprocessing_layer import TextPreprocessingLayer
 from .text_vectorization_layer import TextVectorizationLayer
 from .tfprint import tfprint
+from .dna_sequence_trimmer import DnaSequenceTrimmer
