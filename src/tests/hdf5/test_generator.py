@@ -82,13 +82,14 @@ def test_hd5_with_label(hd5_file):
     # WHEN iterating over data
     data_iter = hd5_data_generator()
     for i, xy in enumerate(data_iter):
-        nested_tensor, label = xy
+        nested_tensor, labels = xy
         # THEN expect the data to be split according to output_tensor_format, and labels are produced
         assert isinstance(nested_tensor, tuple)
         assert len(nested_tensor) == 2
         assert isinstance(nested_tensor[0][0], bytes)
         assert isinstance(nested_tensor[0][1], bytes)
         assert isinstance(nested_tensor[1][0], float)
+        label, = labels
         assert 0 <= label[0] <= 1
     assert i == data_length - 1
 
