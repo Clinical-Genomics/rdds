@@ -140,7 +140,7 @@ class Hd5DataGenerator:
             return get_dtypes(self._output_tensor_format)
 
     @staticmethod
-    def _expand_categorical_label_1d_to_2d(label: float) -> Tuple[float, float]:
+    def _expand_categorical_label_1d_to_2d(label: float) -> np.array:
         """
         Expands a 1D label value into a multiclass 2D categorical label vector, according to the formula:
         (1 - label, label).
@@ -154,7 +154,8 @@ class Hd5DataGenerator:
             raise TypeError(f'Expected a float value, got {type(label)}')
         if not 0.0 <= label <= 1.0:
             raise ValueError(f'Invalid value encountered, got {label}')
-        return 1.0 - label, label
+        multiclass_label = (1.0 - label, label)
+        return (multiclass_label, )
 
     def __call__(self) -> Tuple[Union[str, float], ...]:
         """
