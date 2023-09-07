@@ -26,6 +26,14 @@ sudo apt-get install -y \
    debootstrap
 ```
 
+### Docker
+Install the Docker packages as described on docker.com instead of using
+Ubuntu native packages. This is because Ubuntu native buildkit, buildx is
+failing to build properly in Docker >= v24.
+
+Installation instructions for Docker on Ubuntu:
+https://docs.docker.com/engine/install/ubuntu/
+
 ### Install Golang
 Golang is the language of choice in the Singularity project.
 
