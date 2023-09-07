@@ -26,8 +26,7 @@ def output_signature():
             tf.TensorSpec((), dtype=tf.string),  # string 1
             tf.TensorSpec((), dtype=tf.float32)),  # numerical 0
 
-            (tf.TensorSpec((), dtype=tf.float32),
-             tf.TensorSpec((), dtype=tf.float32)))  # label 2D
+            (tf.TensorSpec((2, ), dtype=tf.float32), ))  # label 2D
 
 
 def test_hd5_data_generator(endless_hd5_data_generator,
