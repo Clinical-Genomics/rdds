@@ -1,8 +1,13 @@
 # Development Environment
 
-The docker image `cg/rddsdev` is made available as a development environment.
+The docker image `clinicalgenomics/rddsdev` is made available as a development environment.
 The image contains all dependencies and various tools for machine learning
 development.
+
+The image can be pulled from `clinicalgenomics` organisation at dockerhub:
+https://hub.docker.com/repository/docker/clinicalgenomics/rdds
+
+`docker pull clinicalgenomics/rdds`
 
 Features:
 * Conda install
