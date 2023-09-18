@@ -7,6 +7,12 @@ from rdds.lib.tf import get_tf_dataset_from_hd5_data_generator
 
 from tests.hdf5.test_generator import hd5_file_path, DATA_LENGTH  # Test fixture
 
+@pt.fixture
+def limited_hd5_data_generator(hd5_file_path) -> Hd5DataGenerator:
+    return Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                            output_tensor_format=['dataset0', 'dataset1', 'dataset2'],
+                            label='label',
+                            forever=False)
 
 @pt.fixture
 def endless_hd5_data_generator(hd5_file_path) -> Hd5DataGenerator:
@@ -52,3 +58,20 @@ def test_hd5_data_generator(endless_hd5_data_generator,
         assert np.isclose(np.sum(np.subtract(numerical_tensor_as_numpy, np.arange(0, DATA_LENGTH))), 0, atol=1E-6)
         assert np.max(label_tensors) <= 1
         assert np.min(label_tensors) >= 0
+
+
+def test_dataset_repeat(limited_hd5_data_generator, output_signature):
+    """
+    Test that hd5 data generator, TF data.Dataset can create repeatable datasets, which is
+    the base for lots of other functionality in tf.data.Dataset
+    """
+    # GIVEN a hd5 data generator
+    hd5_data_set: tf.data.Dataset = \
+        get_tf_dataset_from_hd5_data_generator(hd5_data_generator=limited_hd5_data_generator,
+                                               output_signature=output_signature)
+
+    # WHEN repeating the dataset twice
+    hd5_data_set = hd5_data_set.repeat(count=2)
+
+    # THEN expect the data to be repeated
+    assert len(list(hd5_data_set)) == DATA_LENGTH * 2

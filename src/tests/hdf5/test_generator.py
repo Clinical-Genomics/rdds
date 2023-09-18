@@ -4,6 +4,7 @@ import tempfile
 import os
 import numpy as np
 
+from rdds.lib.determinism import SEED
 from rdds.lib.hdf5 import Hd5DataGenerator
 DATA_LENGTH: int = 10
 
@@ -38,6 +39,18 @@ def hd5_file_path_with_nans(hd5_file_path):
     hd5_file.flush()
     hd5_file.close()
     yield hd5_file_path
+
+@pt.fixture
+def hd5_file_path_with_categorical_labels(hd5_file_path) -> str:
+    hd5_file: h5py.File = h5py.File(hd5_file_path, 'r+')
+    group = hd5_file['group']
+    categorical_labels = np.random.default_rng(seed=SEED).integers(low=0, high=2, size=DATA_LENGTH)
+    group['label'][()] = categorical_labels[:]
+    print('LABEL', group['label'][:])
+    hd5_file.flush()
+    hd5_file.close()
+    return hd5_file_path
+
 
 def test_hd5_data_generator(hd5_file_path):
     """

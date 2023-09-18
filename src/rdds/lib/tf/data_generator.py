@@ -16,7 +16,20 @@ def get_tf_dataset_from_hd5_data_generator(hd5_data_generator: Hd5DataGenerator,
       runtime inferred from data.
     :return: Instance of tf.data.Dataset
     """
-    return tf.data.Dataset.from_generator(generator=hd5_data_generator,
+    if not isinstance(hd5_data_generator, Hd5DataGenerator):
+        raise ValueError(f'Expected a Hd5DataGenerator but got {type(hd5_data_generator)}')
+
+    def initialize_new_iterator() -> Iterator:
+        """
+        Helper function to create re-instantiatable datasets.
+
+        Tensorflow re-instantiates hd5 data generator multiple times, example during initialisation, label sampling and
+        when calling tf.data.Dataset.repeat().
+        :return: Iterator
+        """
+        return hd5_data_generator()
+
+    return tf.data.Dataset.from_generator(generator=initialize_new_iterator,
                                           output_signature=output_signature,
                                           output_shapes=output_shapes,
                                           name='Hd5DataSet')
