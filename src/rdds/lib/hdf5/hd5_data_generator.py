@@ -12,12 +12,15 @@ Hdf5DataSetNames = str  # A HDF5 data set name
 OutputTensorFormat = Union[List[Hdf5DataSetNames], List[List[Hdf5DataSetNames]]]
 
 
+
 class Hd5DataGenerator:
 
     """
     Class that wraps HD5 data as a Generator instance.
 
-    * TODO: Shuffle data support
+    NOTE: This class has to conform to requirements in tf.data.Dataset.from_generator()
+    i.e. that this class should for example support multiple calls to self.__call__
+    to not modify any variable in the self instance.
     """
 
     def __init__(self,
@@ -71,8 +74,6 @@ class Hd5DataGenerator:
         self._data_length: int = zeroeth_dataset.shape[0]
         _LOGGER.info(f'{self._data_length} samples across {len(self._group.keys())} features')
 
-        self._idx: int = 0  # Current index for data generation
-
         self._forever: bool = forever
 
     @property
@@ -95,19 +96,22 @@ class Hd5DataGenerator:
         raise NotImplementedError(f'Replacing NaN values for dtype {type(sample)} not implemented.')
 
     def _assemble_output_vector(self,
+                                idx: int,
                                 output_tensor_format: OutputTensorFormat) -> Tuple[Union[str, float], Any]:
         """
         Assemble data from hd5 file and return as tuple.
+        :param idx: Sample index to fetch
         :param output_tensor_format: A possibly nested output_tensor_format, see definition above.
         :return: Tuple of data according to output_tensor_format
         """
         output_vector: Tuple[Union[str, float]] = tuple()
         if isinstance(output_tensor_format[0], list):
             for output_tensor_format_inner in output_tensor_format:
-                output_vector += (self._assemble_output_vector(output_tensor_format_inner), )
+                output_vector += (self._assemble_output_vector(idx=idx,
+                                                               output_tensor_format=output_tensor_format_inner), )
         elif isinstance(output_tensor_format[0], str):
             for dataset_name in output_tensor_format:
-                sample: Any = self._group[dataset_name][self._idx]
+                sample: Any = self._group[dataset_name][idx]
                 sample = self._replace_nan_values(sample=sample)
                 output_vector += (sample, )
         return output_vector
@@ -157,29 +161,30 @@ class Hd5DataGenerator:
         multiclass_label = (1.0 - label, label)
         return (multiclass_label, )
 
-    def __call__(self) -> Tuple[Union[str, float], ...]:
+    def __call__(self) -> Iterator[Tuple[Union[str, float], ...]]:
         """
         Yields data from HD5 data set.
         :return:
             1. Tuple of data (tensor0, tensor1, ...) OR
             2. Tuple of tuples ((tensor0, tensor1, ...), (label, ))
         """
-        while True:
-            x = self._assemble_output_vector(self._output_tensor_format)
+        idx = 0
+        while idx < self._data_length:
+            output_vector = self._assemble_output_vector(idx=idx,
+                                             output_tensor_format=self._output_tensor_format)
             if self._label is not None:
-                label = self._assemble_output_vector([self._label])
+                label: Tuple[float] = self._assemble_output_vector(idx=idx,
+                                                     output_tensor_format=[self._label])
                 if len(label) > 1:
                     raise ValueError(f'Only 1D label currently supported. Got {label}')
                 labels = self._expand_categorical_label_1d_to_2d(label[0])
-                x = (x, ) + (labels, )  # Add label, so (data, label) is produced
-            yield x
-            self._idx += 1
-            if self._idx >= self._data_length:
-                if not self._forever:
-                    _LOGGER.debug('End of epoch')
-                    return
-                self._idx = 0
+                output_vector = (output_vector, ) + (labels, )  # Add label, so (data, label) is produced
+            idx += 1
+            if idx >= self._data_length and self._forever:
                 _LOGGER.debug('Restart epoch')
+                idx = 0
+            yield output_vector
+            _LOGGER.debug('Restart epoch')
 
     def __del__(self):
         try:
