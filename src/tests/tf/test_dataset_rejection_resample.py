@@ -11,12 +11,13 @@ from tests.tf.test_data_generator import output_signature
 
 from rdds.lib.tf import rejection_resample
 
+
 @pt.fixture
 def hd5_data_generator(hd5_file_path_with_categorical_labels) -> Hd5DataGenerator:
     return Hd5DataGenerator(hd5_file_path=hd5_file_path_with_categorical_labels,
                             output_tensor_format=['dataset0', 'dataset1', 'dataset2'],
-                            label='label',
-                            forever=False)
+                            label='label')
+
 
 @pt.mark.parametrize("expected_negative_ratio, expected_positive_ratio",
                      [(1.00, 0.00),
