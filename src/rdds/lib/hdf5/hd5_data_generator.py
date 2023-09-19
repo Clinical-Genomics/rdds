@@ -28,7 +28,6 @@ class Hd5DataGenerator:
                  group_name: str = None,
                  output_tensor_format: OutputTensorFormat = None,
                  label: str = None,
-                 forever: bool = True,
                  replace_nan_floats_with: float = 0.0):
         """
         :param hd5_file_path: HD5 file to generate data from
@@ -36,7 +35,6 @@ class Hd5DataGenerator:
         :param output_tensor_format: The format (dataset names) constituting the output tensor
         :param label: Dataset name, if supplied, HD5DataGenerator yields (data_tensor, labels)
           where data_tensor is equivalent to output_tensor_format field.
-        :param forever: Loop over data forever
         :param replace_nan_floats_with: Floating point value to replace NaN values
         :raises ValueError: In case internal dataset rank is not 1
         """
@@ -73,8 +71,6 @@ class Hd5DataGenerator:
                 raise ValueError(f'Not identical dataset shapes, got {dataset.shape}!={zeroeth_dataset.shape}')
         self._data_length: int = zeroeth_dataset.shape[0]
         _LOGGER.info(f'{self._data_length} samples across {len(self._group.keys())} features')
-
-        self._forever: bool = forever
 
     @property
     def data_length(self):
@@ -180,9 +176,6 @@ class Hd5DataGenerator:
                 labels = self._expand_categorical_label_1d_to_2d(label[0])
                 output_vector = (output_vector, ) + (labels, )  # Add label, so (data, label) is produced
             idx += 1
-            if idx >= self._data_length and self._forever:
-                _LOGGER.debug('Restart epoch')
-                idx = 0
             yield output_vector
             _LOGGER.debug('Restart epoch')
 
