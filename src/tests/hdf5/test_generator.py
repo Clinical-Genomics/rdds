@@ -14,8 +14,7 @@ def test_hd5_data_generator(hd5_file):
     hd5_file_path, data_length = hd5_file
     # GIVEN a HD5 data generator reading from HD5 file
     hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
-                                                            output_tensor_format=['dataset0', 'dataset1', 'dataset2'],
-                                                            forever=False)
+                                                            output_tensor_format=['dataset0', 'dataset1', 'dataset2'])
     # WHEN iterating over data
     data_iter = hd5_data_generator()
     for index, tensor in enumerate(data_iter):
@@ -29,23 +28,21 @@ def test_hd5_data_generator(hd5_file):
         data_iter.__next__()
 
 
-def test_hd5_data_generator_repeat(hd5_file):
+def test_hd5_data_generator_nr_samples(hd5_file):
     """
-    Test for repeating data.
+    Test for making sure all samples are produced by generator.
     """
     hd5_file_path, data_length = hd5_file
     # GIVEN a HD5 data generator reading from HD5 file
     hd5_data_generator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
-                                          output_tensor_format=['dataset0', 'dataset1', 'dataset2'],
-                                          forever=True)
+                                          output_tensor_format=['dataset0', 'dataset1', 'dataset2'])
     # WHEN iterating over data
-    data_iter: Hd5DataGenerator = hd5_data_generator()
-    # THEN expect data to start over after epoch if 'forever' is True
-    for n_epochs in range(0, 2):
-        for index in range(0, data_length):
-            tensor = data_iter.__next__()
-            assert tensor[-1] == index
-        assert index == data_length - 1
+    data_iter = hd5_data_generator()
+    # THEN expect data to end after one epoch
+    count_samples = 0
+    for _ in data_iter:
+        count_samples += 1
+    assert count_samples == hd5_data_generator.data_length
 
 
 def test_hd5_data_generator_multiple_tensors(hd5_file):
@@ -55,8 +52,7 @@ def test_hd5_data_generator_multiple_tensors(hd5_file):
     hd5_file_path, data_length = hd5_file
     # GIVEN a HD5 data generator reading from HD5 file
     hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
-                                                            output_tensor_format=[['dataset0', 'dataset1'], ['dataset2']],
-                                                            forever=False)
+                                                            output_tensor_format=[['dataset0', 'dataset1'], ['dataset2']])
     # WHEN iterating over data
     data_iter = hd5_data_generator()
     for index, nested_tensor in enumerate(data_iter):
@@ -77,8 +73,7 @@ def test_hd5_with_label(hd5_file):
     # GIVEN a HD5 data generator reading from HD5 file
     hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                             output_tensor_format=[['dataset0', 'dataset1'], ['dataset2']],
-                                                            label='label',
-                                                            forever=False)
+                                                            label='label')
     # WHEN iterating over data
     data_iter = hd5_data_generator()
     for i, xy in enumerate(data_iter):
@@ -117,8 +112,7 @@ def test_hd5_null_checks(hd5_file_path_with_nans):
     # GIVEN a data generator that provides NaN data
     hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path_with_nans,
                                                             output_tensor_format=['string_null',
-                                                                                  'float_null'],
-                                                            forever=False)
+                                                                                  'float_null'])
     data_iter = hd5_data_generator()
     # WHEN reading data from generator
     for nullstring, nullfloat in data_iter:
