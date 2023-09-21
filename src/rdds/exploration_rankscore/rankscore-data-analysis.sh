@@ -30,7 +30,7 @@ export HD5_SV=$LOGDIR/mutacc-20230512_comb_ann_vep_parsed.annotate_models_score_
 export HD5_REF=$LOGDIR/mutacc-20230512_gatkcomb_rhocall_norm_af_mt_frqf_cadd_vep_parsed_ranked.vcf-ref.hd5
 
 python3 -m rdds.exploration_rankscore testnormalizedrankscore --hd5 $HD5_SNV --hd5ref $HD5_REF > $LOGDIR/testnormalizedrankscore-snv.log 2>&1 &
-python3 -m rdds.exploration_rankscore testnormalizedrankscore --hd5 $HD5_SV --hd5ref $HD5_REF > $LOGDIR/testnormalizedrankscore-sv.log 2>&1 &
+python3 -m rdds.exploration_rankscore testnormalizedrankscore --hd5 $HD5_SV > $LOGDIR/testnormalizedrankscore-sv.log 2>&1 &
 
 python3 -m rdds.exploration_rankscore rankscorestats --hd5 $HD5_SNV --image-name-prefix snv > $LOGDIR/rankscorestats-snv.log 2>&1 &
 python3 -m rdds.exploration_rankscore rankscorestats --hd5 $HD5_SV --image-name-prefix sv --k-fold-subset-size 25000 > $LOGDIR/rankscorestats-sv.log 2>&1 &

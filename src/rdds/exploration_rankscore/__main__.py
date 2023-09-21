@@ -59,7 +59,8 @@ elif args.mode == 'compile':
         dataset.compile_structured_format_mutacc_tp_cases(mutacc_vcf_file_path=args.vcf_mutacc_tp_cases)
 elif args.mode == 'testnormalizedrankscore':
     Dataset(args.hd5).view()
-    Dataset(args.hd5ref).view()
+    if args.hd5ref:
+        Dataset(args.hd5ref).view()
     run_rankscore_normalization_tests(file_path=args.hd5, file_path_ref=args.hd5ref)
 elif args.mode == 'rankscorestats':
     Dataset(args.hd5).view()

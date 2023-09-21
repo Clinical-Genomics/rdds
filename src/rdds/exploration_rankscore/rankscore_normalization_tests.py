@@ -107,14 +107,15 @@ def run_rankscore_normalization_tests(file_path_ref: str,
     :param file_path: Dataset under test
     :return:
     """
-    hd5_file_ref = File(file_path_ref, 'r')
-    dataset_ref = hd5_file_ref['structured_vcfs']
     hd5_file = File(file_path, 'r')
     dataset = hd5_file['structured_vcfs']
 
     test_rankscore_normalization(dataset)
-    test_compare_rankscore(dataset_ref=dataset_ref,
-                           dataset=dataset)
+    if file_path_ref:
+        hd5_file_ref = File(file_path_ref, 'r')
+        dataset_ref = hd5_file_ref['structured_vcfs']
+        test_compare_rankscore(dataset_ref=dataset_ref,
+                               dataset=dataset)
+        hd5_file_ref.close()
 
     hd5_file.close()
-    hd5_file_ref.close()
