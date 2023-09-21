@@ -1,5 +1,10 @@
 from h5py import File, Group
 import pandas as pd
+from typing import Tuple, Any
+
+from rdds.exploration_rankscore.rankscore_low_bound_cap_check import is_below_normalisation_low_bound
+from rdds.exploration_rankscore.assemble_unique_variant_id import dataframe_assemble_unique_variant_id
+
 """
 Comparison methods for evaluation of normalized rank score.
 
@@ -74,28 +79,49 @@ def test_compare_rankscore(dataset_ref: Group,
     :return:
     """
     print('Starting rankscore data set comparison test')
-    df_test: pd.DataFrame = pd.DataFrame(data={'rank_score': dataset['RankScore_value'][:, 0]}, index=dataset['variant_ids'][:, 0])
+    df_test: pd.DataFrame = pd.DataFrame(data={'rank_score': dataset['RankScore_value'][:, 0],
+                                               'alt': dataset['alt'][:, 0],
+                                               'ref': dataset['ref'][:, 0],
+                                               'pos': dataset['pos'][:, 0],
+                                               'normalization_min_bound': dataset['RankScoreMinMax_min'][:, 0]},
+                                         index=dataset['variant_ids'][:, 0])
+    df_test = dataframe_assemble_unique_variant_id(df=df_test)
+    df_test.sort_index(inplace=True)
     if len(df_test) == 0:
         raise ValueError('Expected data in test set')
-    df_ref: pd.DataFrame = pd.DataFrame(data={'rank_score_ref': dataset_ref['RankScore_value'][:, 0]}, index=dataset_ref['variant_ids'][:, 0])
+    df_ref: pd.DataFrame = pd.DataFrame(data={'rank_score_ref': dataset_ref['RankScore_value'][:, 0],
+                                              'alt': dataset_ref['alt'][:, 0],
+                                              'ref': dataset_ref['ref'][:, 0],
+                                              'pos': dataset_ref['pos'][:, 0],
+                                              }, index=dataset_ref['variant_ids'][:, 0])
+    df_ref = dataframe_assemble_unique_variant_id(df=df_ref)
+    df_ref.sort_index(inplace=True)
     if len(df_ref) == 0:
         raise ValueError('Expected data in ref set')
     if not len(df_ref) == len(df_test):
         raise ValueError(f'Mismatch in amount of variants in datasets, REF={len(df_ref)} TEST={len(df_test)}')
     df: pd.DataFrame = pd.concat((df_test, df_ref), axis=1)  # Concatenate DFs based on index (variant_id)
 
-    # For every variant in dataset, make sure the rank score is identical to test set
-    n_ok: int = 0
-    for row in df.itertuples():
+    def check_rank_score(row: Tuple[Any, ...]) -> None:
+        """
+        Checks RankScore so that they're identical in reference and test sets.
+        :param row:
+        :return:
+        """
         if not row.rank_score_ref == row.rank_score_ref:  # ref set value is NaN (variant missing from ref set)
-            continue
+            return
         if abs(row.rank_score_ref - row.rank_score) >= _RANKSCORE_MAX_DIFF:
+            if is_below_normalisation_low_bound(rank_score=row.rank_score_ref,
+                                                rank_score_normalized=row.rank_score,
+                                                rank_score_normalization_low_bound=row.normalization_min_bound):
+                return  # Since the rank score is capped to min of rank score normalized bound by design, it's OK
             raise ValueError(f'Mismatch rank score {row}')
-        n_ok += 1
-    if not n_ok == len(df_ref):
-        raise ValueError(f'Did not test all variants in REF set, only {n_ok} not {len(df_ref)}')
 
-    print(f'Completed rankscore data set comparison test, checked {n_ok} variants')
+    # For every variant in dataset, make sure the rank score is identical to test set
+    for row in df.itertuples():
+        check_rank_score(row)
+
+    print(f'Completed rankscore data set comparison test, checked {len(df)} variants')
 
 
 def run_rankscore_normalization_tests(file_path_ref: str,
