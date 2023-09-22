@@ -28,7 +28,8 @@ class Hd5DataGenerator:
                  group_name: str = None,
                  output_tensor_format: OutputTensorFormat = None,
                  label: str = None,
-                 replace_nan_floats_with: float = 0.0):
+                 replace_nan_floats_with: float = 0.0,
+                 load_data_into_ram: bool = True):
         """
         :param hd5_file_path: HD5 file to generate data from
         :param group_name: Group in HD5 file to read data from (reads all datasets)
@@ -36,10 +37,11 @@ class Hd5DataGenerator:
         :param label: Dataset name, if supplied, HD5DataGenerator yields (data_tensor, labels)
           where data_tensor is equivalent to output_tensor_format field.
         :param replace_nan_floats_with: Floating point value to replace NaN values
+        :param load_data_into_ram: Load file content into RAM if True. Improves reading performance.
         :raises ValueError: In case internal dataset rank is not 1
         """
         self._hd5_file_path: str = hd5_file_path
-        self._hd5_file = h5py.File(self._hd5_file_path, 'r')
+        self._hd5_file = h5py.File(name=self._hd5_file_path, mode='r')
         self._data_length = int
         self._replace_nan_floats_with = replace_nan_floats_with
 
@@ -47,6 +49,12 @@ class Hd5DataGenerator:
         _LOGGER.info(f'Generating data from group \'{group_name}\'')
         self._group_name: str = group_name if group_name else list(self._hd5_file.keys())[0]
         self._group: h5py.Group = self._hd5_file[self._group_name]
+        if load_data_into_ram:
+            # Load all data into RAM as numpy arrays.
+            in_ram_group: Dict[str, np.ndarray] = {}  # Mock the Group dictionary API by using a dict
+            for dataset_name in self._group.keys():
+                in_ram_group.update({dataset_name: self._group[dataset_name][:]})
+            self._group: Dict[str, np.ndarray] = in_ram_group
 
         if not output_tensor_format:
             # TODO: Deterministic output format
