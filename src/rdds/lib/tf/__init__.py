@@ -4,3 +4,4 @@ from .text_vectorization_layer import TextVectorizationLayer
 from .tfprint import tfprint
 from .dna_sequence_trimmer import DnaSequenceTrimmer
 from .dataset_rejection_resample import rejection_resample
+from .instance_normalisation_layer import InstanceNormalisation
