@@ -195,6 +195,24 @@ class VariantRankScoreModel:
                                   metrics=metrics)
         self._keras_model.summary(line_length=160)
 
+    @staticmethod
+    def count_feature_types(hd5_output_dtypes: Dict[str, Type]) -> Tuple[int, int]:
+        """
+        Computes amount of numerical vs textbased features in dataset.
+        :param hd5_output_dtypes: The output types from hd5_data_generator.data_types attribute
+        :return: Tuple of count
+        """
+        n_text_features = 0
+        n_numerical_features = 0
+        for feature_name, feature_dtype in hd5_output_dtypes.items():
+            if feature_dtype == bytes:
+                n_text_features += 1
+            elif feature_dtype == float:
+                n_numerical_features += 1
+            else:
+                raise ValueError('Unknown feature dtype', feature_dtype)
+        return n_text_features, n_numerical_features
+
     def train(self,
               hd5_file_path: str,
               batch_size=128):
@@ -202,18 +220,6 @@ class VariantRankScoreModel:
         # Set up a training directory for this run
         self._train_log_dir = os.path.join(WORKDIR, 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         os.makedirs(self._train_log_dir)
-
-        def count_feature_types(hd5_output_dtypes: Dict[str, Type]) -> Tuple[int, int]:
-            n_text_features = 0
-            n_numerical_features = 0
-            for feature_name, feature_dtype in hd5_output_dtypes.items():
-                if feature_dtype == bytes:
-                    n_text_features += 1
-                elif feature_dtype == float:
-                    n_numerical_features += 1
-                else:
-                    raise ValueError('Unknown feature dtype', feature_dtype)
-            return n_text_features, n_numerical_features
 
         # Training and vocabulary generation setup
         hd5_data_generator_vocabulary: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
@@ -224,7 +230,7 @@ class VariantRankScoreModel:
                                                                       output_tensor_format=[self._features_text,
                                                                                             self._features_numerical],
                                                                       label='label')
-        n_text_features, n_numerical_features = count_feature_types(hd5_output_dtypes=hd5_data_generator_train.data_types)
+        n_text_features, n_numerical_features = self.count_feature_types(hd5_output_dtypes=hd5_data_generator_train.data_types)
         input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
                            tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
                            (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
