@@ -10,11 +10,17 @@ RUN apt-get update && \
     xorg \
     xauth
 
-# Install Conda
 WORKDIR /tmp
 
-ENV CONDAVER=py38_23.3.1-0-Linux-x86_64
+# Install CUDA library (Tensorflow GPU dep)
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
+  dpkg -i cuda-keyring_1.1-1_all.deb && \
+  apt-get update && \
+  apt-get -y install cuda && \
+  rm *.deb
 
+# Install Conda
+ENV CONDAVER=py38_23.3.1-0-Linux-x86_64
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-$CONDAVER.sh && \
   sha256sum Miniconda3-$CONDAVER.sh | grep d1f3a4388c1a6fd065e32870f67abc39eb38f4edd36c4947ec7411e32311bd59 && \
   chmod +x Miniconda3-$CONDAVER.sh && \
