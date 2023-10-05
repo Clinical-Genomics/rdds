@@ -1,12 +1,19 @@
+ARG OS_FLAVOUR
+ARG VERSION
+
+FROM clinicalgenomics/rdds-ubuntu-20.04-nvidia-470:${VERSION} AS ubuntu_20_04_nvidia_470
+# Placeholder to set stage label name
+
 # Ubuntu 20.04/AMD64
-FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS base
-
+FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS ubuntu_20_04
 ENV DEBIAN_FRONTEND=noninteractive
-
-# Install OS deps
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y wget \
+    apt-get install -y wget
+
+FROM ${OS_FLAVOUR} as base
+# Install OS deps
+RUN apt-get install -y \
     xorg \
     xauth
 
