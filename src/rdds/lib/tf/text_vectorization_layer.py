@@ -10,7 +10,8 @@ LOGGER.setLevel(INFO)
 from . import constants
 
 
-# FIXME: Bug https://github.com/keras-team/keras/issues/15163 with  tensorboard
+# FIXME: Bug https://github.com/keras-team/keras/issues/15163 with  tensorboard, running adapt() and then starting training fails with
+# AttributeError: 'VocabWeightHandler' object has no attribute 'name'
 
 class TextVectorizationLayer:
 
@@ -53,7 +54,9 @@ class TextVectorizationLayer:
             raise ValueError('Setting both dataset and precompiled_vocabulary_file is invalid. Choose one option.')
         self._vocabulary_layer.compile()
         if dataset is not None:
+            LOGGER.info('Compiling vocabulary from dataset...')
             self._vocabulary_layer.adapt(dataset)
+        LOGGER.info('Vocabulary is complete!')
         self._vocabulary = self._vocabulary_layer.get_vocabulary(include_special_tokens=True)
         self._vocabulary_size = len(self._vocabulary)
         self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
