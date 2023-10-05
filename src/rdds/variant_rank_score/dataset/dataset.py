@@ -8,7 +8,7 @@ import h5py
 from h5py import File as Hd5File, string_dtype, Dataset as Hd5DataSet, Group as Hd5Group
 import numpy as np
 from multiprocessing import Queue
-from rdds.lib.processpool import ProcessPool, DummyPool, Task, CompletedTaskQueue, MULTIPROCESSING_LOGGER
+from rdds.lib.process_pool import ProcessPool, DummyPool, Task, CompletedTaskQueue, MULTIPROCESSING_LOGGER
 from dataclasses import dataclass
 from re import match, Match
 from os import remove
@@ -282,7 +282,7 @@ class Dataset:
 
         # Run multi core processing of VCF file
         # Assign every process a separate result_queue to avoid pipe fill-up locking up all processes.
-        process_pool: ProcessPool = ProcessPool(fn=self._parse_collect_vcf_field,
+        process_pool: ProcessPool = ProcessPool(function=self._parse_collect_vcf_field,
                                                 args=[(task, ) for task in tasks],  # Pool expects tuple arguments per process
                                                 process_names=[task.parsed_field_name_regexp_fmt for task in tasks])
 
@@ -294,7 +294,7 @@ class Dataset:
         completed_task_queue: CompletedTaskQueue = process_pool.run_async()
 
         # Assemble all VCFs to a single hd5 file, flattened
-        for result_idx in range(0, process_pool.n_expected_tasks):
+        for result_idx in range(0, process_pool.nr_expected_tasks):
             completed_task: Task = completed_task_queue.get()
             MULTIPROCESSING_LOGGER.info(f'Retrieved {completed_task.process.name}')
             MULTIPROCESSING_LOGGER.debug(f'[MAIN]{ProcessResourceUsage()}')
