@@ -1,0 +1,1 @@
+from fixtures.text_vectorization import work_dir, word_dataset
