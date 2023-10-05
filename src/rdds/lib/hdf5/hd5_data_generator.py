@@ -29,7 +29,8 @@ class Hd5DataGenerator:
                  output_tensor_format: OutputTensorFormat = None,
                  label: str = None,
                  replace_nan_floats_with: float = 0.0,
-                 load_data_into_ram: bool = True):
+                 load_data_into_ram: bool = True,
+                 expand_1d_categorical_to_2d: bool = True):
         """
         :param hd5_file_path: HD5 file to generate data from
         :param group_name: Group in HD5 file to read data from (reads all datasets)
@@ -38,12 +39,13 @@ class Hd5DataGenerator:
           where data_tensor is equivalent to output_tensor_format field.
         :param replace_nan_floats_with: Floating point value to replace NaN values
         :param load_data_into_ram: Load file content into RAM if True. Improves reading performance.
-        :raises ValueError: In case internal dataset rank is not 1
+        :param expand_1d_categorical_to_2d: Unpack a 1D categorical label [0][TN] into 2D; [1, 0][TN, TP]
         """
         self._hd5_file_path: str = hd5_file_path
         self._hd5_file = h5py.File(name=self._hd5_file_path, mode='r')
         self._data_length = int
         self._replace_nan_floats_with = replace_nan_floats_with
+        self._expand_1d_categorical_to_2d: bool = expand_1d_categorical_to_2d
 
         self._group_name = group_name if group_name else list(self._hd5_file.keys())[0]
         _LOGGER.info(f'Generating data from group \'{group_name}\'')
@@ -148,6 +150,18 @@ class Hd5DataGenerator:
             return get_dtypes(self._output_tensor_format)
 
     @staticmethod
+    def _check_is_valid_categorical_label(label: float):
+        """
+        Checks that the value is indeed a "categorically" interpretable value, [0, 1].
+        :param label: The label value to be checked
+        :raises ValueError in case of bad label value, or TypeError in case not numerical type
+        """
+        if not isinstance(label, (float, np.float32)):
+            raise TypeError(f'Expected a float value, got {type(label)}')
+        if not 0.0 <= label <= 1.0:
+            raise ValueError(f'Invalid value encountered, got {label}')
+
+    @staticmethod
     def _expand_categorical_label_1d_to_2d(label: float) -> np.array:
         """
         Expands a 1D label value into a multiclass 2D categorical label vector, according to the formula:
@@ -158,12 +172,8 @@ class Hd5DataGenerator:
         :param label: 1D label to be unpacked
         :return: 2D label as tuple.
         """
-        if not isinstance(label, (float, np.float32)):
-            raise TypeError(f'Expected a float value, got {type(label)}')
-        if not 0.0 <= label <= 1.0:
-            raise ValueError(f'Invalid value encountered, got {label}')
-        multiclass_label = (1.0 - label, label)
-        return (multiclass_label, )
+        Hd5DataGenerator._check_is_valid_categorical_label(label=label)
+        return(1.0 - label, label)
 
     def __call__(self) -> Iterator[Tuple[Union[str, float], ...]]:
         """
@@ -181,8 +191,9 @@ class Hd5DataGenerator:
                                                      output_tensor_format=[self._label])
                 if len(label) > 1:
                     raise ValueError(f'Only 1D label currently supported. Got {label}')
-                labels = self._expand_categorical_label_1d_to_2d(label[0])
-                output_vector = (output_vector, ) + (labels, )  # Add label, so (data, label) is produced
+                if self._expand_1d_categorical_to_2d:
+                    label = self._expand_categorical_label_1d_to_2d(label[0])
+                output_vector: Tuple[Tuple[float, ...], ...] = (output_vector, ) + ((label, ), )  # Add label, so (data, label) is produced
             idx += 1
             yield output_vector
             _LOGGER.debug('Restart epoch')
