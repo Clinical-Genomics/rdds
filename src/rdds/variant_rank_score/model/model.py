@@ -31,7 +31,7 @@ FEATURES_TEXT = ['CSQ_PolyPhen',
                  'CSQ_CLINVAR_CLNSIG',
                  #'FILTER',
                  'most_severe_consequence',
-                 'GeneticModels_model'
+                 'GeneticModels_model'  # TODO: Drop since clinvar does not contain pedigree information?
                  ]
 
 FEATURES_FLOAT = ['CSQ_MaxEntScan_alt',
