@@ -21,12 +21,14 @@ from rdds.lib.tf import tfprint
 # TODO: Determine whether to use GeneticModels_family_id?
 # TODO: Determine whether to use ModelScore_family_id?
 
+# FIXME: IT's required to set this variable to None on first run, to generate a vocabulary. Then restart training using this file.
+# See comment in the text_vectorization_layer.py about keras and tensorboard.
 _DEFAULT_VOCABULARY_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'vocabulary.txt'))
 
 FEATURES_TEXT = ['CSQ_PolyPhen',
                  'CSQ_SIFT',
-                 #'CLINVAR_CLNREVSTAT',
-                 #'CLINVAR_CLNSIG',
+                 'CSQ_CLINVAR_CLNREVSTAT',
+                 'CSQ_CLINVAR_CLNSIG',
                  #'FILTER',
                  'most_severe_consequence',
                  'GeneticModels_model'

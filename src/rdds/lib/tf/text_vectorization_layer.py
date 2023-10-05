@@ -2,7 +2,9 @@ import tensorflow as tf
 from typing import *
 from datetime import datetime
 
-# FIXME: Bug https://github.com/keras-team/keras/issues/15163 with  tensorboard
+# FIXME: Bug https://github.com/keras-team/keras/issues/15163 with  tensorboard, running adapt() and then starting training fails with
+# AttributeError: 'VocabWeightHandler' object has no attribute 'name'
+
 
 class TextVectorizationLayer:
 
