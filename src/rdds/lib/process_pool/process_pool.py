@@ -25,6 +25,9 @@ class Task:
 
 CompletedTaskQueue = Queue
 
+_DISPATCH_THREAD_NAME = 'dispatch'
+_COLLECT_STOPPED_PROCESS_THREAD_NAME = 'collect_stopped_processes'
+
 
 class ProcessPool:
 
@@ -143,9 +146,9 @@ class ProcessPool:
         """
         threading.excepthook = self._threading_excepthook
         self._dispatch_thread = Thread(target=self._dispatch,
-                                       name='dispatch')
+                                       name=_DISPATCH_THREAD_NAME)
         self._collect_stopped_tasks_thread = Thread(target=self._collect_stopped_tasks,
-                                                    name='collect_stopped_processes')
+                                                    name=_COLLECT_STOPPED_PROCESS_THREAD_NAME)
         self._collect_stopped_tasks_thread.start()
         self._dispatch_thread.start()
 
