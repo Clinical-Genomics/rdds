@@ -107,9 +107,33 @@ def test_hd5_data_generator_multiple_tensors(hd5_file_path):
     assert i == DATA_LENGTH - 1
 
 
-def test_hd5_with_label(hd5_file_path):
+def test_hd5_with_1d_label(hd5_file_path):
     """
-    Test for yielding labels alongside data.
+    Test for yielding labels alongside data, 1D label.
+    """
+    # GIVEN a HD5 data generator reading from HD5 file
+    hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                            output_tensor_format=[['dataset0', 'dataset1'], ['dataset2']],
+                                                            label='label',
+                                                            expand_1d_categorical_to_2d=False)
+    # WHEN iterating over data
+    data_iter = hd5_data_generator()
+    for i, xy in enumerate(data_iter):
+        nested_tensor, labels = xy
+        # THEN expect the data to be split according to output_tensor_format, and labels are produced
+        assert isinstance(nested_tensor, tuple)
+        assert len(nested_tensor) == 2
+        assert isinstance(nested_tensor[0][0], bytes)
+        assert isinstance(nested_tensor[0][1], bytes)
+        assert isinstance(nested_tensor[1][0], float)
+        label, = labels
+        assert 0 <= label[0] <= 1
+    assert i == DATA_LENGTH - 1
+
+
+def test_hd5_with_2d_label(hd5_file_path):
+    """
+    Test for yielding labels alongside data, label is unpacked from 1D to 2D.
     """
     # GIVEN a HD5 data generator reading from HD5 file
     hd5_data_generator: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
@@ -126,7 +150,10 @@ def test_hd5_with_label(hd5_file_path):
         assert isinstance(nested_tensor[0][1], bytes)
         assert isinstance(nested_tensor[1][0], float)
         label, = labels
+        # THEN expect 2D label
         assert 0 <= label[0] <= 1
+        assert 0 <= label[1] <= 1
+        assert 0 <= label[0] + label[1] <= 1.0
     assert i == DATA_LENGTH - 1
 
 

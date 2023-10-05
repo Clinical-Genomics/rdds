@@ -16,7 +16,6 @@ def rejection_resample(dataset: tf.data.Dataset,
     def class_mapping_fn(data: Tuple[tf.Tensor],
                          labels: Tuple[tf.Tensor]):
         labels: tf.Tensor = labels[0]  # Unpack tuple
-        print('labels', labels)
         return tf.cast(tf.math.equal(labels[0], 1), dtype=tf.int32)
 
     if not len(desired_class_ratio) == 2:

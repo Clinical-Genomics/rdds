@@ -24,7 +24,8 @@ class Hd5DataGenerator:
                  output_tensor_format: OutputTensorFormat = None,
                  label: str = None,
                  replace_nan_floats_with: float = 0.0,
-                 load_data_into_ram: bool = True):
+                 load_data_into_ram: bool = True,
+                 expand_1d_categorical_to_2d: bool = True):
         """
         :param hd5_file_path: HD5 file to generate data from
         :param group_name: Group in HD5 file to read data from (reads all datasets)
@@ -33,11 +34,13 @@ class Hd5DataGenerator:
           where data_tensor is equivalent to output_tensor_format field.
         :param replace_nan_floats_with: Floating point value to replace NaN values
         :param load_data_into_ram: Load file content into RAM if True. Improves reading performance.
+        :param expand_1d_categorical_to_2d: Unpack a 1D categorical label [0][TN] into 2D; [1, 0][TN, TP]
         """
         self._hd5_file_path: str = hd5_file_path
         self._hd5_file: h5py.File = h5py.File(name=self._hd5_file_path, mode='r')
         self._data_length = int
         self._replace_nan_floats_with = replace_nan_floats_with
+        self._expand_1d_categorical_to_2d = expand_1d_categorical_to_2d
 
         if group_name is None:
             group_name = list(self._hd5_file.keys())[0]
@@ -157,7 +160,7 @@ class Hd5DataGenerator:
         if not 0.0 <= label <= 1.0:
             raise ValueError(f'Invalid value encountered, got {label}')
         multiclass_label = (1.0 - label, label)
-        return (multiclass_label, )
+        return multiclass_label
 
     def __call__(self) -> Iterator[Tuple[Union[str, float], ...]]:
         """
@@ -175,8 +178,9 @@ class Hd5DataGenerator:
                                                      output_tensor_format=[self._label])
                 if len(label) > 1:
                     raise ValueError(f'Only 1D label currently supported. Got {label}')
-                labels = self._expand_categorical_label_1d_to_2d(label[0])
-                x = (x, ) + (labels, )  # Add label, so (data, label) is produced
+                if self._expand_1d_categorical_to_2d:
+                    label = self._expand_categorical_label_1d_to_2d(label[0])
+                x = (x, ) + ((label, ), )  # Add label, so (data, label) is produced
             idx += 1
             yield x
             _LOGGER.debug('Restart epoch')
