@@ -2,6 +2,8 @@ import tensorflow as tf
 from typing import *
 from datetime import datetime
 
+# TODO: Add logging from rdds.lib.logging module.
+
 # FIXME: Bug https://github.com/keras-team/keras/issues/15163 with  tensorboard, running adapt() and then starting training fails with
 # AttributeError: 'VocabWeightHandler' object has no attribute 'name'
 
@@ -49,7 +51,9 @@ class TextVectorizationLayer:
             raise ValueError('Setting both dataset and precompiled_vocabulary_file is invalid. Choose one option.')
         self._vocabulary_layer.compile()
         if dataset is not None:
+            print('Compiling vocabulary from dataset...')
             self._vocabulary_layer.adapt(dataset)
+        print('Vocabulary is complete!')
         self._vocabulary_size = len(self._vocabulary_layer.get_vocabulary(include_special_tokens=True))
         self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
                                                            output_dim=embedding_dimensions,
