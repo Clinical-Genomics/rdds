@@ -28,9 +28,15 @@ used for input to `genmod` for generating the reference data.
 
 ## Genmod Version Under Test
 ```
-060942c12d33ad6b1501d2c3e6652bb75b4f00ad (rankscore-normalization) Compound scoring: Cap rankscore values to (min, ) range
+* 66cbd6a (HEAD -> master, origin/master, origin/HEAD) Compound scoring: Cap rankscore values to (min, ) range
+* 293e7b1 requirements: Set fixed version for deps
+* f117508 Variant Rank Score Normalization
+* e880836 Remove score_variant() method in favor of score()
+* 6080b08 Variant annotation: Don't use 'regions' as default click argument
+* 0735751 Genmod __version__: Allow testing of module without pkg install
+* 87565d8 Run pytest in Dockerfile
+*   5360536 (tag: 3.7.4) Merge pull request #111 from ramprasadn/oserror-fix
 ```
-<span style="color:red;">**NOTE**: This branch has not yet been merged to `master`.</span>
 
 ## Test Execution
 Run the following command in the devenv singularity container:
