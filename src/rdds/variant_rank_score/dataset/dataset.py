@@ -17,7 +17,7 @@ import re
 from rdds.lib.resource_usage import ProcessResourceUsage
 from rdds.lib.vcf import VCFReader, Variant
 from rdds.lib.vcf import ParsableVariant
-from .class_labels import LABEL_PATHOGENIC_VARIANT, LABEL_BENIGN_VARIANT
+from .clinvar_label_mapping import CLINVAR_CLNSIG_DROP_LABELS, CLINVAR_LABEL_MAPPING
 
 # Types definitions
 info_meta_field = Dict[str, str]
@@ -27,6 +27,9 @@ _NUMPY_NUMERICAL_DTYPES = [np.dtype(np.float32), np.dtype(np.float64), np.dtype(
 _MAX_STRING_LENGTH = 2 ** 9
 _NUMPY_STRING_DTYPES = [np.dtype('<U%d' % i) for i in range(1, _MAX_STRING_LENGTH + 1)]
 _HD5_STRING_DTYPES = [f'|S%d' % i for i in range(1, _MAX_STRING_LENGTH)]
+
+_MASK_KEEP_VALUE: int = 0  # Un-masked rows to be kept
+_MASK_DROP_VALUE: int = 1  # Masked rows with this value is to be ignored, dropped
 
 
 @dataclass
@@ -328,6 +331,28 @@ class Dataset:
         return group_name
 
     @staticmethod
+    def _parse_clinvar_bytestring_to_list(byte_string: bytes) -> List[str]:
+        """
+        Parse a bytestring of CLINVAR_CLNSIG field to list of strings, all lowercase.
+
+        :param byte_string: A byte encoded string matching CLINVAR CLNSIG field.
+          Can be made up by multiple keys, such as 'pathogenic|risk_factor'
+        :return: A list of keywords, str
+        :raises ValueError: In case no keywords were found
+        """
+
+        if not isinstance(byte_string, bytes):
+            raise ValueError(f'Expected bytes but got {byte_string}')
+
+        clinvar_clnsig: str = byte_string.decode('utf-8')  # Decode bytestring
+        clinvar_clnsig = clinvar_clnsig.lower()  # lowercase all keywords
+        keywords: List[str] = re.split("[|\|/|,]", clinvar_clnsig)  # Split on characters | / ,
+        keywords = [keyword.rstrip('_').lstrip('_') for keyword in keywords]  # Remove prefixed, trailing '_'
+        if len(keywords) == 0:
+            raise ValueError(f'Expected a CLNSIG field value, got {byte_string}')
+        return keywords
+
+    @staticmethod
     def _clinvar_ground_truth_to_categorical_label(byte_string: bytes) -> float:
         """
         Translates a byte (string) to numerical value to be used as categorical label,
@@ -336,46 +361,9 @@ class Dataset:
         Mapping according to: https://www.ncbi.nlm.nih.gov/clinvar/docs/clinsig
 
         :param byte_string: A byte encoded string matching CLINVAR CLNSIG field.
-        Can be made up by multiple keys, such as 'pathogenic|risk_factor'
+          Can be made up by multiple keys, such as 'pathogenic|risk_factor'
         :return: Float value in range (0, 1)
         """
-        if not isinstance(byte_string, bytes):
-            raise ValueError(f'Expected bytes but got {byte_string}')
-        mapping: Dict[str, float] = {
-            # BENIGN maps
-            # For variants that cause a non-disease phenotype, such as lactose intolerance.
-            'affects': LABEL_BENIGN_VARIANT,
-            # A general term for a variant that affects a drug response, not a disease.
-            'drug_response': LABEL_BENIGN_VARIANT,
-            # FIXME: ClinVar description of this field
-            'confers_sensitivity': LABEL_BENIGN_VARIANT,
-            'likely_benign': LABEL_BENIGN_VARIANT,
-            'benign': LABEL_BENIGN_VARIANT,
-            # For variants that decrease the risk of a disorder, including infections.
-            'protective': LABEL_BENIGN_VARIANT,
-            # FIXME: ClinVar description of this field
-            'association_not_found': LABEL_BENIGN_VARIANT,
-
-            # PATHOGENIC maps
-            # For variants identified in a GWAS study and further interpreted for their clinical significance.
-            'association': LABEL_PATHOGENIC_VARIANT,
-            'risk_factor': LABEL_PATHOGENIC_VARIANT,
-            'likely_risk_allele': LABEL_PATHOGENIC_VARIANT,
-            'uncertain_risk_allele': LABEL_PATHOGENIC_VARIANT,
-            'conflicting_interpretations_of_pathogenicity': LABEL_PATHOGENIC_VARIANT,
-            'likely_pathogenic': LABEL_PATHOGENIC_VARIANT,
-            'pathogenic': LABEL_PATHOGENIC_VARIANT,
-
-            # AMBIGUOUS mappings. Treat these variants as possible de-novo variants by returning PATHOGENIC
-            # For variants where ClinVar has no interpretation specific to that allele.
-            '.': LABEL_PATHOGENIC_VARIANT,
-            'low_penetrance': LABEL_PATHOGENIC_VARIANT,
-            'uncertain_significance': LABEL_PATHOGENIC_VARIANT,
-            # For submissions without an interpretation of clinical significance.
-            'not_provided': LABEL_PATHOGENIC_VARIANT,
-            # For variants that does not have an appropriate mapping upon submission to ClinVar
-            'other': LABEL_PATHOGENIC_VARIANT
-        }
 
         def sum_cap_to_bound(*values: Tuple[float]) -> float:
             """
@@ -392,21 +380,16 @@ class Dataset:
                 raise ValueError('Failed to reduce dimensions')
             return label
 
-        clinvar_clnsig: str = byte_string.decode('utf-8')  # Decode bytestring
-        clinvar_clnsig = clinvar_clnsig.lower()  # lowercase all keywords
-        keywords: List[str] = re.split("[|\|/|,]", clinvar_clnsig)  # Split on characters | / ,
-        keywords = [keyword.rstrip('_').lstrip('_') for keyword in keywords]  # Remove prefixed, trailing '_'
-        if len(keywords) == 0:
-            raise ValueError(f'Expected a CLNSIG field value, got {byte_string}')
-        categorical_labels: List[float] = [mapping[keyword] for keyword in keywords]  # Convert to categorical values
-        categorical_labels = tuple(categorical_labels)  # Reformat to fit input to sum_cap_to_bound()
+        keywords = Dataset._parse_clinvar_bytestring_to_list(byte_string=byte_string)
+        categorical_labels: List[float] = [CLINVAR_LABEL_MAPPING[keyword] for keyword in keywords]  # Convert to categorical values
+        categorical_labels: Tuple[float] = tuple(categorical_labels)  # Reformat to fit input to sum_cap_to_bound()
         categorical_label = sum_cap_to_bound(categorical_labels)
         return categorical_label
 
     @staticmethod
     def _postprocess_ground_truth(hd5_file_path: str,
                                   group_name: str,
-                                  ground_truth_column_name: str,
+                                  ground_truth_dataset_name: str,
                                   mapping_fn: Callable):
         """
         Convert values in ground_truth_column_name to numerical values, i.e.
@@ -415,12 +398,12 @@ class Dataset:
         Supports only 1D labels, 1:1 mapping.
 
         :param group_name: The group where the labels are found
-        :param ground_truth_column_name: The name of the column where the labels are found
+        :param ground_truth_dataset_name: The name of the column where the labels are found
         :param mapping_fn: A function that translates bytestring to floating point value.
         """
         hd5_out_file = h5py.File(hd5_file_path, 'r+')
         group: h5py.Group = hd5_out_file[group_name]
-        ground_truth: np.ndarray = group[ground_truth_column_name][:]
+        ground_truth: np.ndarray = group[ground_truth_dataset_name][:]
         if len(ground_truth.shape) > 1:
             raise ValueError(f'Only 1D labels are supported. Got {ground_truth.shape}')
         dlen = ground_truth.shape[0]
@@ -443,11 +426,60 @@ class Dataset:
         """
         group_name = self._parse_vcf_fields_to_hd5s(vcf_file=vcf_file,
                                                     parsed_vcf_intermediate_storage_path=f'{self.out_file_path}.')
-        self._postprocess_ground_truth(hd5_file_path=self.out_file_path,
-                                       group_name=group_name,
-                                       ground_truth_column_name='CLINVAR_GROUND_TRUTH',
-                                       mapping_fn=self._clinvar_ground_truth_to_categorical_label)
         return group_name
+
+    @staticmethod
+    def _mask_use_only_clinvar_benign_pathogenic(byte_string: bytes) -> int:
+        """
+        Return MASK or KEEP value depending on contents in byte_string.
+        If MASK value, the data row should be ignored in further processing.
+        :param byte_string: Clinvar CLNSIG field value, can be multi-type, 'likely_pathogenic|uncertain_significance'
+        :return: Integer, representing masking or not.
+        """
+        clinvar_keywords = Dataset._parse_clinvar_bytestring_to_list(byte_string=byte_string)
+        for drop_label in CLINVAR_CLNSIG_DROP_LABELS:
+            if drop_label in clinvar_keywords:
+                return _MASK_DROP_VALUE
+        return _MASK_KEEP_VALUE
+
+    @staticmethod
+    def _apply_data_masking_by_label(hd5_file_path: str,
+                                     group_name: str,
+                                     ground_truth_dataset_name: str,
+                                     mask_function: Callable) -> str:
+        """
+        Drops data samples according to mask_function.
+
+        :param hd5_file_path: Path to the HD5 file to apply masking to
+        :param group_name: The group where data resides
+        :param mask_function: Function that computes a mask.
+        :return: The processed group name containing the masked data.
+        :raises ValueError: In case datasets not rank 1
+        """
+        hd5_out_file = h5py.File(hd5_file_path, 'r+')
+        group: h5py.Group = hd5_out_file[group_name]
+        ground_truth: np.ndarray = group[ground_truth_dataset_name][:]
+        if len(ground_truth.shape) > 1:
+            raise ValueError(f'Only 1D labels are supported. Got {ground_truth.shape}')
+        data_length: int = ground_truth.shape[0]
+        data_mask = np.zeros(data_length)
+        for i in range(0, data_length):
+            data_mask[i] = mask_function(ground_truth[i])
+        idx_to_keep: np.ndarray = np.argwhere(data_mask == _MASK_KEEP_VALUE)[:, 0]  # Remove outer dim
+        print(f'Masking reduces amount of data to {100 * (float(len(idx_to_keep)) / data_length)} %')
+        masked_group_name: str = f'{group_name}-masked'
+        masked_group: h5py.Group = hd5_out_file.create_group(masked_group_name)
+        for dataset_name in group.keys():
+            if group[dataset_name].ndim > 1:
+                raise NotImplementedError(f'Only 1D datasets supported, got {dataset_name}:{group[dataset_name].shape}')
+            masked_dataset = masked_group.create_dataset(name=dataset_name,
+                                                         shape=(len(idx_to_keep), ),
+                                                         dtype=group[dataset_name].dtype)
+            data = group[dataset_name][:]  # Load into RAM for performance
+            masked_dataset[()] = data[idx_to_keep]
+        hd5_out_file.flush()
+        hd5_out_file.close()
+        return masked_group_name
 
     @staticmethod
     def _split_to_train_test_sets(hd5_file_path: str,
@@ -492,6 +524,14 @@ class Dataset:
                 vcf_file: str):
         time_start = datetime.now()
         group_name = self._compile_structured_format(vcf_file=vcf_file)
+        group_name = self._apply_data_masking_by_label(hd5_file_path=self.out_file_path,
+                                                       group_name=group_name,
+                                                       ground_truth_dataset_name='CLINVAR_GROUND_TRUTH',
+                                                       mask_function=self._mask_use_only_clinvar_benign_pathogenic)
+        self._postprocess_ground_truth(hd5_file_path=self.out_file_path,
+                                       group_name=group_name,
+                                       ground_truth_dataset_name='CLINVAR_GROUND_TRUTH',
+                                       mapping_fn=self._clinvar_ground_truth_to_categorical_label)
         self._split_to_train_test_sets(hd5_file_path=self.out_file_path,
                                        group_name=group_name,
                                        ratio_test=0.25)
