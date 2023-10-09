@@ -11,8 +11,7 @@ RUN apt-get update && \
     xauth
 
 WORKDIR /tmp
-
-# Install CUDA library (Tensorflow GPU dep)
+# Install CUDA library (Tensorflow GPU dep), https://www.tensorflow.org/install/pip
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt-get update && \
