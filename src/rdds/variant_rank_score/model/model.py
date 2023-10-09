@@ -241,7 +241,7 @@ class VariantRankScoreModel:
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
                                                                                 output_signature=input_signature)
         dataset_train = dataset_train.repeat(-1)
-        dataset_train = dataset_train.shuffle(buffer_size=int(hd5_data_generator_train.data_length * 0.01),
+        dataset_train = dataset_train.shuffle(buffer_size=int(hd5_data_generator_train.data_length),
                                               seed=1)  # FIXME: Seed
         dataset_train = rejection_resample(dataset=dataset_train,
                                            desired_class_ratio=[0.5, 0.5],
@@ -257,7 +257,7 @@ class VariantRankScoreModel:
         dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
                                                                                output_signature=input_signature)
         dataset_test = dataset_test.repeat(-1)
-        dataset_test = dataset_test.shuffle(buffer_size=int(hd5_data_generator_test.data_length * 0.01),
+        dataset_test = dataset_test.shuffle(buffer_size=int(hd5_data_generator_test.data_length),
                                             seed=1)  # FIXME: Seed
         dataset_test = rejection_resample(dataset=dataset_test,
                                           desired_class_ratio=[0.5, 0.5],
@@ -266,6 +266,8 @@ class VariantRankScoreModel:
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
         print(f'Model Input data mapping: {input_signature}')
         self._build(dataset=dataset_vocabulary)
+
+        steps_per_epoch = int(np.ceil(float(hd5_data_generator_train.data_length) / float(batch_size)))
 
         # Setup logging and store configuration files
         tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=self._train_log_dir,
@@ -307,7 +309,7 @@ class VariantRankScoreModel:
         history = self._keras_model.fit(x=dataset_train,
                               batch_size=1,
                               epochs=int(1E12),
-                              steps_per_epoch=128,
+                              steps_per_epoch=steps_per_epoch,
                               validation_data=dataset_test,
                               validation_steps=32,
                               callbacks=[tensorboard_callback,
