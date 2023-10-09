@@ -5,6 +5,7 @@ DOCKER := DOCKER_BUILDKIT=1 docker
 SINGULARITY_CACHEDIR_DEVENV=$(PWD)/tmp/devenv/singularity-cache-dir
 
 TAG=$(shell git describe --tags --dirty --always)
+TAG=gpu
 
 all:
 	# Default is no action
