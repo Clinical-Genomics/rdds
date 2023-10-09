@@ -3,7 +3,7 @@ import tensorflow as tf
 import tensorflow_text as tftext
 
 
-class TextPreprocessingLayer(tf.Module):
+class TextPreprocessingLayer:
 
     """
     Preprocesses text input.
@@ -16,7 +16,6 @@ class TextPreprocessingLayer(tf.Module):
         """
         :param split_regex: Regex pattern to split text by, matches are discarded.
         """
-        tf.Module.__init__(self, name='TextPreprocessing')
         self._splitter: tftext.Splitter = tftext.RegexSplitter(split_regex=split_regex)
 
     def _process_tensor(self, tensor: tf.RaggedTensor) -> tf.RaggedTensor:
