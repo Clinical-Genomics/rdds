@@ -19,6 +19,20 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86
   apt-get -y install cuda && \
   rm *.deb
 
+# NVIDIA driver
+RUN apt-get install -y -f  nvidia-driver-525 \
+  libnvidia-gl-525 \
+  nvidia-dkms-525 \
+  nvidia-kernel-open-525 \
+  nvidia-compute-utils-525 \
+  libnvidia-encode-525 \
+  libnvidia-cfg1-525 \
+  libnvidia-fbc1-525 \
+  libnvidia-common-525 \
+  nvidia-kernel-common-525 \
+  xserver-xorg-video-nvidia-525 \
+  libnvidia-extra-525
+
 # Install Conda
 ENV CONDAVER=py38_23.3.1-0-Linux-x86_64
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-$CONDAVER.sh && \
