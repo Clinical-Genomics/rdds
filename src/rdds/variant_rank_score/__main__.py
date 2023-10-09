@@ -14,7 +14,8 @@ parser = argparse.ArgumentParser(prog='Variant rank score model',
 parser.add_argument('mode',
                     choices=['compile-vcf',
                              'train',
-                             'view'])
+                             'view',
+                             'predict'])
 parser.add_argument('--vcf',
                     help='VCF file to compile into dataset')
 parser.add_argument('--hd5',
@@ -23,6 +24,7 @@ parser.add_argument('--hd5ref',
                     help='Dataset HD5PY file to analyze reference')
 parser.add_argument('--dataset-file-name',
                     default='dataset-%s.hdf5' % int(time()))
+parser.add_argument('--saved-model')
 args = parser.parse_args()
 
 try:
@@ -40,6 +42,9 @@ elif args.mode == 'compile-vcf':
 elif args.mode == 'train':
     variant_rank_score_model: VariantRankScoreModel = VariantRankScoreModel()
     variant_rank_score_model.train(args.hd5)
-
+elif args.mode == 'predict':
+    variant_rank_score_model: VariantRankScoreModel = VariantRankScoreModel()
+    variant_rank_score_model.load_saved_model(model_path=args.saved_model)
+    variant_rank_score_model.predict_on_hd5(args.hd5)
 else:
     raise ValueError('Unknown op mode', args.mode)

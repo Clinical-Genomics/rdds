@@ -275,6 +275,21 @@ class VariantRankScoreModel:
                                                                  save_freq='epoch',  # At end of epoch, validation metrics are available
                                                                  verbose=1)
 
+        def save_model_fn(epoch: int, logs=Optional[dict]):
+            """
+            Saves model to TF saved-model format.
+            :param epoch: Current epoch
+            :param logs: Dictionary of batch statistics
+            """
+            print(epoch, logs)
+            # TODO: Save not into keras format but into TF native
+            filepath = self._train_log_dir + '/saved-models/%d-%.2f.savedmodel' % (epoch, logs['val_loss'])
+            print(f'Saving model to {filepath}')
+            self._keras_model.save(filepath=filepath,
+                                   save_format='tf')
+
+        save_model_callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=save_model_fn)
+
         # TODO: A keras.save_model callback
         compile_config: Dict[str, Any] = self._keras_model.get_compile_config()
         network_config: str = self._keras_model.to_json()
@@ -295,10 +310,25 @@ class VariantRankScoreModel:
                               steps_per_epoch=128,
                               validation_data=dataset_test,
                               validation_steps=32,
-                              callbacks=[tensorboard_callback, save_model_callback],
+                              callbacks=[tensorboard_callback,
+                                         save_model_callback,
+                                         tf.keras.callbacks.TerminateOnNaN()],
                               verbose=2)
 
-    def load_saved_model(self, model_path: str): raise NotImplementedError()
+    def load_saved_model(self, model_path: str):
+        """
+        Load trained model from model_path
+        :param model_path: Path to TF saved model directory
+
+        # TODO: Use the VariantRankScoreModel.from_saved_model(path)
+        """
+        # FIXME: Load model with Keras native API, instead of TF saved model
+        # Fails in kwargs referenced before assignment, deep inside keras lib
+        # self._keras_model = tf.keras.models.load_model(filepath=model_path)
+        model = tf.saved_model.load(model_path)
+        print(f'Model input: {model.signatures["serving_default"].structured_input_signature}')
+        print(f'Model output: {model.signatures["serving_default"].outputs}')
+        self._tf_model = model  # FIXME: Don't hack it like this, load to self._keras_model
 
     def predict(self, input_data: Dict[str, np.ndarray]) -> np.ndarray:
         """
@@ -308,3 +338,49 @@ class VariantRankScoreModel:
         :return: Inferences
         """
         return self._keras_model.predict(x=input_data)
+
+    def predict_on_hd5(self,
+                       hd5_file_path: str,
+                       group_name: str = 'train'):
+
+        np.set_printoptions(linewidth=128, precision=6, floatmode='fixed')
+
+        # TODO: Make sure config to Hd5DataGenerator is identical to train time setup
+        datagen: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                     group_name=group_name,
+                                                     output_tensor_format=[self._features_text,
+                                                                           self._features_numerical],
+                                                     label='label',
+                                                     expand_1d_categorical_to_2d=True)
+        n_text_features, n_numerical_features = \
+            self.count_feature_types(hd5_output_dtypes=datagen.data_types)
+        input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
+                           tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
+                           (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
+        dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=datagen,
+                                                         output_signature=input_signature)
+        dataset = dataset.batch(10000)
+        dataset = dataset.prefetch(buffer_size=10)
+
+        output_file = open('/rdds/preds.tsv', 'w')  # FIXME: path
+        output_file.write('Data features: ' + str(datagen._output_tensor_format)+'\n')
+        output_file.write('feature_text\tfeature_numerical\ttruth\tpredicted\n')
+
+        nr_samples = float(datagen.data_length)
+        processed_samples: float = 0.0
+        for data, labels in dataset.as_numpy_iterator():
+            label, = labels
+            tensor_str, tensor_numerical = data
+            r = self._tf_model([tensor_str, tensor_numerical])
+            batch_size = tensor_str.shape[0]
+            for batch_idx in range(0, batch_size):
+                formatted = ''
+                formatted += f'{tensor_str[batch_idx]}\t'.replace('\n', '')
+                formatted += f'{tensor_numerical[batch_idx]}\t'.replace('\n', '')
+                formatted += f'{label[batch_idx, 1]}\t'
+                formatted += f'{r.numpy()[batch_idx, 1]}\n'
+                output_file.write(formatted)
+                processed_samples += 1
+            print("%.2f" % (100.0 * (processed_samples / nr_samples)))
+            output_file.flush()
+        output_file.close()
