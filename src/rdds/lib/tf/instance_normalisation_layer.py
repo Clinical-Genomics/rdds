@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+@tf.keras.saving.register_keras_serializable()  # Make sure layer is available in keras save/ load operations.
 class InstanceNormalisation(tf.keras.layers.BatchNormalization):
 
     """
