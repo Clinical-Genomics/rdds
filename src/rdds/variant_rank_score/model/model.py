@@ -240,6 +240,7 @@ class VariantRankScoreModel:
         dataset_vocabulary = dataset_vocabulary.prefetch(buffer_size=1024)
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
                                                                                 output_signature=input_signature)
+        dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
         dataset_train = dataset_train.shuffle(buffer_size=int(hd5_data_generator_train.data_length),
                                               seed=1)  # FIXME: Seed
@@ -256,6 +257,7 @@ class VariantRankScoreModel:
                                                                      label='label')
         dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
                                                                                output_signature=input_signature)
+        dataset_test = dataset_test.cache()
         dataset_test = dataset_test.repeat(-1)
         dataset_test = dataset_test.shuffle(buffer_size=int(hd5_data_generator_test.data_length),
                                             seed=1)  # FIXME: Seed
