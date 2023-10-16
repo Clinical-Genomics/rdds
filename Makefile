@@ -42,7 +42,7 @@ devenv-singularity-sshd:
 	# Start singularity development image locally
 	# Use --fakeroot to start as uid 0 and -w (required for sshd)
 	mkdir -p $(SINGULARITY_CACHEDIR_DEVENV)
-	SINGULARITY_CACHEDIR=$(SINGULARITY_CACHEDIR_DEVENV) singularity exec -w --fakeroot --no-home --cleanenv --contain --containall -B $(PWD):/rdds tmp/devenv/rdds-$(TAG).sif /entrypoint.sh
+	SINGULARITY_CACHEDIR=$(SINGULARITY_CACHEDIR_DEVENV) singularity exec --nv -w --fakeroot --no-home --cleanenv --contain --containall -B $(PWD):/rdds tmp/devenv/rdds-$(TAG).sif /entrypoint.sh
 
 docker-clean-images:
 	# Remove all docker dangling images and stopped containers
