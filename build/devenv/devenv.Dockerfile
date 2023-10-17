@@ -3,6 +3,14 @@ FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get update && apt-get upgrade -y && apt-get install -y  wget kmod
+WORKDIR /tmp
+#RUN rmmod nvidia-uvm
+RUN ls -l /dev
+#COPY build/devenv/NVIDIA-Linux-x86_64-520.56.06.run .
+RUN wget https://us.download.nvidia.com/XFree86/Linux-x86_64/520.56.06/NVIDIA-Linux-x86_64-520.56.06.run
+RUN chmod +x * && ./NVIDIA-Linux-x86_64-520.56.06.run --silent
+
 # Install OS deps
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -11,9 +19,10 @@ RUN apt-get update && \
     xauth
 
 WORKDIR /tmp
-# Install CUDA library (Tensorflow GPU dep), https://www.tensorflow.org/install/pip
-RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
-  dpkg -i cuda-keyring_1.1-1_all.deb && \
+# Install CUDA library (Tensorflow GPU dep)
+# Tensorflow v2.12 has a dependency on CUDA v11.8, see https://www.tensorflow.org/install/pip
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+  dpkg -i cuda-keyring_1.0-1_all.deb && \
   apt-get update && \
   apt-get -y install cuda && \
   rm *.deb
@@ -126,6 +135,10 @@ RUN echo "* Repo mounted at /rdds" >> /usr/share/base-files/motd
 
 # Install container test files
 COPY build/devenv/guitest.py /
+
+# This effectively uninstalls latest nvidia driver libs required by NVIDIA driver 525.125.06, seems to rely on CUDA 12.0
+RUN apt-get install -y cuda-11-8
+
 
 # Start dropbear SSHD on port 2150
 RUN printf "#!/bin/bash\n\ndropbear -p 2150 -b /usr/share/base-files/motd -s -F -R" > /entrypoint.sh && \
