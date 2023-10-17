@@ -16,9 +16,22 @@ WORKDIR /tmp
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt-get update && \
-  apt list | grep cuda && \
-  apt-get -y install cuda-drivers-520=520.61.05-1 && \
+  apt-get -y install cuda && \
   rm *.deb
+
+# NVIDIA driver
+RUN apt-get install -y -f  nvidia-driver-525 \
+  libnvidia-gl-525 \
+  nvidia-dkms-525 \
+  nvidia-kernel-open-525 \
+  nvidia-compute-utils-525 \
+  libnvidia-encode-525 \
+  libnvidia-cfg1-525 \
+  libnvidia-fbc1-525 \
+  libnvidia-common-525 \
+  nvidia-kernel-common-525 \
+  xserver-xorg-video-nvidia-525 \
+  libnvidia-extra-525
 
 # Install Conda
 ENV CONDAVER=py38_23.3.1-0-Linux-x86_64
