@@ -3,14 +3,6 @@ FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y  wget kmod
-WORKDIR /tmp
-#RUN rmmod nvidia-uvm
-RUN ls -l /dev
-#COPY build/devenv/NVIDIA-Linux-x86_64-520.56.06.run .
-RUN wget https://us.download.nvidia.com/XFree86/Linux-x86_64/520.56.06/NVIDIA-Linux-x86_64-520.56.06.run
-RUN chmod +x * && ./NVIDIA-Linux-x86_64-520.56.06.run --silent
-
 # Install OS deps
 RUN apt-get update && \
     apt-get upgrade -y && \
