@@ -13,7 +13,8 @@ all:
 
 devenv-build:
 	# Build docker development image
-	$(DOCKER) build -t $(DOCKERHUB)/rdds:$(TAG) --force-rm=true --rm=true --target devenv -f build/devenv/devenv.Dockerfile .
+	#$(DOCKER) build -t $(DOCKERHUB)/rdds:$(TAG) --force-rm=true --rm=true --target devenv -f build/devenv/devenv.Dockerfile .
+	DOCKER_BUILDKIT=0 docker build -t $(DOCKERHUB)/rdds:$(TAG) --force-rm=true --rm=true --target devenv - < build/devenv/devenv.Dockerfile
 
 devenv-upload-clinicalgenomics-dockerhub:
 	# Upload docker image to clinicalgenomics organisation at dockerhub
