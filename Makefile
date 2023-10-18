@@ -47,3 +47,7 @@ devenv-singularity-sshd:
 docker-clean-images:
 	# Remove all docker dangling images and stopped containers
 	docker system prune
+
+singularity-clean-cache:
+	# Remove cached images, builds in Singularity
+	singularity cache clean
