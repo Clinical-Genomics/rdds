@@ -27,6 +27,15 @@ Example
 ```
 apt-get install -y linux-modules-nvidia-520-generic nvidia-driver-520
 ```
+Should install `nvidia-driver-470, linux-modules-nvidia-470-5.15.0-86-generic`
+
+### Configuring Ubuntu 20.04
+```
+ubuntu-drivers install nvidia:470
+```
+
+Be aware of `meta`-packages that install higher versions of nvidia drivers!
+Make sure to read in on the package details; `apt-cache show nvidia-driver-470`.
 
 ## NVIDIA driver repository
 https://www.nvidia.com/en-us/drivers/unix/
@@ -63,7 +72,7 @@ CUDA® Toolkit 11.8.
 cuDNN SDK 8.6.0.
 ```
 
-##
+## Making use of installed CUDA and cuDNN libraries
 export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}
 export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 
