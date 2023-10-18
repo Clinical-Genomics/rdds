@@ -48,6 +48,11 @@ docker-clean-images:
 	# Remove all docker dangling images and stopped containers
 	docker system prune
 
+docker-clean-build-cache:
+	# Removes docker build cache (often very large)
+	docker builder prune
+	docker buildx prune
+
 singularity-clean-cache:
 	# Remove cached images, builds in Singularity
 	singularity cache clean
