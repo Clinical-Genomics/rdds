@@ -11,6 +11,9 @@ https://forums.developer.nvidia.com/t/cuda-12-1-tensorflow-on-linux-20-04-does-n
 
 https://discuss.tensorflow.org/t/gpu-with-cuda-11-8-not-detected-could-not-find-cuda-drivers/16085
 
+## Ubuntu - NVIDIA GPU Drivers Repo
+https://ubuntu.com/server/docs/nvidia-drivers-installation
+
 ## NVIDIA driver repository
 https://www.nvidia.com/en-us/drivers/unix/
 https://www.nvidia.com/en-us/drivers/unix/linux-amd64-display-archive/
