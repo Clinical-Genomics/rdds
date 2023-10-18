@@ -1,6 +1,26 @@
 # Ubuntu 20.04/AMD64
-FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS base
+FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS ubuntu
 
+FROM ubuntu AS gpubase
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y wget \
+    kmod
+
+WORKDIR /tmp
+# Install NVIDIA driver and CUDA library (Tensorflow GPU dep)
+# CUDA 11.8 is compatible with NVIDIA driver 520.61.05
+# Alternativt, försök hitta kompatibel nvidia drivare på ubuntu universe
+RUN wget https://us.download.nvidia.com/XFree86/Linux-x86_64/520.56.06/NVIDIA-Linux-x86_64-520.56.06.run
+RUN chmod +x * && ./NVIDIA-Linux-x86_64-520.56.06.run --accept-license --ui=none --no-questions --skip-module-unload --no-x-check --no-kernel-modules
+
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
+  dpkg -i cuda-keyring_1.1-1_all.deb && \
+  apt-get update && \
+  apt-get install -y cuda-libraries-11-8 && \
+  rm *.deb
+
+FROM gpubase as base
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install OS deps
@@ -10,31 +30,11 @@ RUN apt-get update && \
     xorg \
     xauth
 
-WORKDIR /tmp
-# Install NVIDIA driver and CUDA library (Tensorflow GPU dep)
-# Tensorflow v2.12 has a dependency on CUDA v11.8, see https://www.tensorflow.org/install/pip
-RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
-  dpkg -i cuda-keyring_1.1-1_all.deb && \
-  apt-get update && \
-  apt-get -y install cuda && \
-  rm *.deb
-
-# NVIDIA driver
-RUN apt-get install -y -f  nvidia-driver-525 \
-  libnvidia-gl-525 \
-  nvidia-dkms-525 \
-  nvidia-kernel-open-525 \
-  nvidia-compute-utils-525 \
-  libnvidia-encode-525 \
-  libnvidia-cfg1-525 \
-  libnvidia-fbc1-525 \
-  libnvidia-common-525 \
-  nvidia-kernel-common-525 \
-  xserver-xorg-video-nvidia-525 \
-  libnvidia-extra-525
-
 # Install Conda
+WORKDIR /tmp
+
 ENV CONDAVER=py38_23.3.1-0-Linux-x86_64
+
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-$CONDAVER.sh && \
   sha256sum Miniconda3-$CONDAVER.sh | grep d1f3a4388c1a6fd065e32870f67abc39eb38f4edd36c4947ec7411e32311bd59 && \
   chmod +x Miniconda3-$CONDAVER.sh && \
@@ -54,12 +54,12 @@ RUN echo "export PS1=\"\[\033[1;31m\]\u@RD-DSDev:\w>\033[0m\]$\"" >> /root/.bash
 # Setup aliases
 RUN echo "alias ls=\"ls -lah --color=always\"" >> /root/.bashrc
 
-FROM base AS motd
+FROM ubuntu AS motd
 # Setup a login message via motd
 RUN apt-get install -y figlet && \
   figlet -f slant RD-DSDev >> /usr/share/base-files/motd
 
-FROM base AS dropbear
+FROM ubuntu AS dropbear
 # Build dropbear SSH server to enable X11 forwarding
 # Install source code and build tools
 ENV DEBIAN_FRONTEND=noninteractive
@@ -86,7 +86,7 @@ RUN ./configure \
 # Build dropbear server and keygen tool
 RUN make -j 4 PROGRAMS="dropbear dropbearkey"
 
-FROM base AS pycharm
+FROM ubuntu AS pycharm
 ENV PYCHARMVER=community-2023.1.2
 RUN mkdir -p /opt
 WORKDIR /opt
@@ -127,10 +127,6 @@ RUN echo "* Repo mounted at /rdds" >> /usr/share/base-files/motd
 
 # Install container test files
 COPY build/devenv/guitest.py /
-
-# This effectively uninstalls latest nvidia driver libs required by NVIDIA driver 525.125.06, seems to rely on CUDA 12.0
-RUN apt-get install -y cuda-11-8
-
 
 # Start dropbear SSHD on port 2150
 RUN printf "#!/bin/bash\n\ndropbear -p 2150 -b /usr/share/base-files/motd -s -F -R" > /entrypoint.sh && \
