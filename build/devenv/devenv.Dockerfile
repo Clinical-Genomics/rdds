@@ -34,10 +34,12 @@ RUN echo "export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}" > /opt/init-cud
 #RUN dpkg install cudnn-local-repo-ubuntu2004-8.6.0.163_1.0-1_amd64.deb && \
 #    rm cudnn-local-repo-ubuntu2004-8.6.0.163_1.0-1_amd64.deb
 
-COPY cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz .
-RUN cp cudnn-*-archive/include/cudnn*.h /usr/local/cuda/include  && \
- cp -P cudnn-*-archive/lib/libcudnn* /usr/local/cuda/lib64
-chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*
+COPY build/devenv/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz .
+RUN tar -xf cudnn-*.tar.xz && \
+  cp cudnn-*-archive/include/cudnn*.h /usr/local/cuda/include  && \
+  cp -P cudnn-*-archive/lib/libcudnn* /usr/local/cuda/lib64  && \
+  chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*  && \
+  rm *.tar.xz
 
 FROM gpubase as base
 
