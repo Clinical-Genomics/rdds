@@ -11,7 +11,18 @@ https://forums.developer.nvidia.com/t/cuda-12-1-tensorflow-on-linux-20-04-does-n
 
 https://discuss.tensorflow.org/t/gpu-with-cuda-11-8-not-detected-could-not-find-cuda-drivers/16085
 
-## Ubuntu - NVIDIA GPU Drivers Repo
+## Host Setup
+### Configuring Ubuntu 20.04
+```
+ubuntu-drivers install nvidia:470
+```
+
+Be aware of `meta`-packages that install higher versions of nvidia drivers!
+Make sure to read in on the package details; `apt-cache show nvidia-driver-470`.
+
+This method is the preferred way.
+
+### Ubuntu - NVIDIA GPU Drivers Repo
 Installing (old) NVIDIA driver not available via the `ubuntu-drivers` utility,
 via APT utility.
 
@@ -25,17 +36,9 @@ https://ubuntu.com/server/docs/nvidia-drivers-installation
 
 Example
 ```
-apt-get install -y linux-modules-nvidia-520-generic nvidia-driver-520
+apt-get install -y linux-modules-nvidia-470-generic nvidia-driver-470
 ```
 Should install `nvidia-driver-470, linux-modules-nvidia-470-5.15.0-86-generic`
-
-### Configuring Ubuntu 20.04
-```
-ubuntu-drivers install nvidia:470
-```
-
-Be aware of `meta`-packages that install higher versions of nvidia drivers!
-Make sure to read in on the package details; `apt-cache show nvidia-driver-470`.
 
 ## NVIDIA driver repository
 https://www.nvidia.com/en-us/drivers/unix/
