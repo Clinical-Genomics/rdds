@@ -1,10 +1,12 @@
 # Ubuntu 20.04/AMD64
 FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS ubuntu
-
-FROM ubuntu AS gpubase
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y wget \
+    apt-get install -y wget
+
+FROM ubuntu AS gpubase
+RUN apt-get install -y wget \
     kmod
 
 WORKDIR /tmp
@@ -21,12 +23,9 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86
   rm *.deb
 
 FROM gpubase as base
-ENV DEBIAN_FRONTEND=noninteractive
 
 # Install OS deps
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y wget \
+RUN apt-get install -y \
     xorg \
     xauth
 
