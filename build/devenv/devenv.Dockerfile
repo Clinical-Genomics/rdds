@@ -1,12 +1,16 @@
+ARG OS_FLAVOUR
+
+FROM clinicalgenomics/rdds-ubuntu-20.04-nvidia-470 AS ubuntu_20_04_nvidia_470
+# Placeholder to set stage label name
+
 # Ubuntu 20.04/AMD64
-FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS ubuntu
+FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS ubuntu_20_04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y wget
 
-FROM gpubase as base
-
+FROM ${OS_FLAVOUR} as base
 # Install OS deps
 RUN apt-get install -y \
     xorg \
@@ -36,12 +40,12 @@ RUN echo "export PS1=\"\[\033[1;31m\]\u@RD-DSDev:\w>\033[0m\]$\"" >> /root/.bash
 # Setup aliases
 RUN echo "alias ls=\"ls -lah --color=always\"" >> /root/.bashrc
 
-FROM ubuntu AS motd
+FROM base AS motd
 # Setup a login message via motd
 RUN apt-get install -y figlet && \
   figlet -f slant RD-DSDev >> /usr/share/base-files/motd
 
-FROM ubuntu AS dropbear
+FROM base AS dropbear
 # Build dropbear SSH server to enable X11 forwarding
 # Install source code and build tools
 ENV DEBIAN_FRONTEND=noninteractive
@@ -68,7 +72,7 @@ RUN ./configure \
 # Build dropbear server and keygen tool
 RUN make -j 4 PROGRAMS="dropbear dropbearkey"
 
-FROM ubuntu AS pycharm
+FROM base AS pycharm
 ENV PYCHARMVER=community-2023.1.2
 RUN mkdir -p /opt
 WORKDIR /opt
