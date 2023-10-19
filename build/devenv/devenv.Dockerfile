@@ -30,11 +30,7 @@ RUN echo "export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}" > /opt/init-cud
   echo "export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> /opt/init-cuda-cudnn
 
 # Install cuDNN libraries (must be compatible with Nvidia Driver, CUDA versions)
-#COPY build/devenv/cudnn-local-repo-ubuntu2004-8.6.0.163_1.0-1_amd64.deb
-#RUN dpkg install cudnn-local-repo-ubuntu2004-8.6.0.163_1.0-1_amd64.deb && \
-#    rm cudnn-local-repo-ubuntu2004-8.6.0.163_1.0-1_amd64.deb
-
-COPY build/devenv/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz .
+COPY --from=clinicalgenomics/rdds/nvidia-cudnn:latest /opt/cudnn/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz .
 RUN tar -xf cudnn-*.tar.xz && \
   cp cudnn-*-archive/include/cudnn*.h /usr/local/cuda/include  && \
   cp -P cudnn-*-archive/lib/libcudnn* /usr/local/cuda/lib64  && \
