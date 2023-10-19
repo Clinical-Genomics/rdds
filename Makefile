@@ -11,6 +11,12 @@ all:
 	# Default is no action
 	@exit 0
 
+devenv-nvidia-cudnn-build:
+	$(DOCKER) build -t $(DOCKERHUB)/rdds/nvidia-cudnn:$(TAG) --force-rm=true --rm=true -f build/devenv/nvidia-cudnn.Dockerfile .
+
+devenv-nvidia-cudnn-push:
+	$(DOCKER) push $(DOCKERHUB)/rdds/nvidia-cudnn:$(TAG)
+
 devenv-build:
 	# Build docker development image
 	$(DOCKER) build -t $(DOCKERHUB)/rdds:$(TAG) --force-rm=true --rm=true --target devenv -f build/devenv/devenv.Dockerfile .
