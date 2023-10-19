@@ -18,6 +18,13 @@ devenv-nvidia-cudnn-build:
 devenv-nvidia-cudnn-push:
 	$(DOCKER) push $(DOCKERHUB)/rdds-nvidia-cudnn:$(TAG)
 
+devenv-ubuntu-20.04-nvidia-470-build:
+	# Image containing Ubuntu 20.04 with NVIDIA GPU driver 470.
+	$(DOCKER) build -t $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia-470:$(TAG) --force-rm=true --rm=true -f build/devenv/ubuntu-20.04-nvidia-470.Dockerfile .
+
+devenv-ubuntu-20.04-nvidia-470-push:
+	$(DOCKER) push $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia-470:$(TAG)
+
 devenv-build:
 	# Build docker development image
 	$(DOCKER) build -t $(DOCKERHUB)/rdds:$(TAG) --force-rm=true --rm=true --target devenv -f build/devenv/devenv.Dockerfile .

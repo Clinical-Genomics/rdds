@@ -5,38 +5,6 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y wget
 
-FROM ubuntu AS gpubase
-RUN apt-get install -y wget \
-    kmod
-
-WORKDIR /tmp
-# Install NVIDIA driver and CUDA library (Tensorflow GPU dep)
-# CUDA 11.8 is compatible with NVIDIA driver 520.61.05
-# Alternativt, försök hitta kompatibel nvidia drivare på ubuntu universe
-#RUN wget https://us.download.nvidia.com/XFree86/Linux-x86_64/520.56.06/NVIDIA-Linux-x86_64-520.56.06.run
-#RUN chmod +x * && ./NVIDIA-Linux-x86_64-520.56.06.run --accept-license --ui=none --no-questions --skip-module-unload --no-x-check --no-kernel-modules
-# Below does not seem to work well with Tensorflow? Installing above does solve CUDA loading in TF.
-#RUN apt-get install -y linux-modules-nvidia-520-generic nvidia-driver-520
-#RUN ubuntu-drivers install nvidia:470
-RUN apt-get install --no-install-recommends -y nvidia-driver-470=470.199.02-0ubuntu0.20.04.1
-
-RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
-  dpkg -i cuda-keyring_1.1-1_all.deb && \
-  apt-get update && \
-  apt-get install -y cuda-libraries-11-8 cuda-toolkit-11-8 && \
-  rm *.deb
-
-RUN echo "export PATH=/usr/local/cuda-11.8/bin${PATH:+:${PATH}}" > /opt/init-cuda-cudnn && \
-  echo "export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> /opt/init-cuda-cudnn
-
-# Install cuDNN libraries (must be compatible with Nvidia Driver, CUDA versions)
-COPY --from=clinicalgenomics/rdds/nvidia-cudnn:latest /opt/cudnn/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz .
-RUN tar -xf cudnn-*.tar.xz && \
-  cp cudnn-*-archive/include/cudnn*.h /usr/local/cuda/include  && \
-  cp -P cudnn-*-archive/lib/libcudnn* /usr/local/cuda/lib64  && \
-  chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*  && \
-  rm *.tar.xz
-
 FROM gpubase as base
 
 # Install OS deps
