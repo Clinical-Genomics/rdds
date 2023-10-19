@@ -22,7 +22,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86
   rm *.deb
 
 # Install NVIDIA cuDNN libraries into CUDA dir (must be compatible with Nvidia Driver, CUDA versions)
-COPY --from=clinicalgenomics/rdds/nvidia-cudnn:draft /opt/cudnn/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz .
+COPY --from=clinicalgenomics/rdds-nvidia-cudnn:draft /opt/cudnn/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz .
 RUN tar -xf cudnn-*.tar.xz && \
   cp cudnn-*-archive/include/cudnn*.h /usr/local/cuda/include  && \
   cp -P cudnn-*-archive/lib/libcudnn* /usr/local/cuda/lib64  && \
