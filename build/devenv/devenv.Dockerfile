@@ -1,6 +1,7 @@
 ARG OS_FLAVOUR
+ARG VERSION
 
-FROM clinicalgenomics/rdds-ubuntu-20.04-nvidia-470 AS ubuntu_20_04_nvidia_470
+FROM clinicalgenomics/rdds-ubuntu-20.04-nvidia-470:${VERSION} AS ubuntu_20_04_nvidia_470
 # Placeholder to set stage label name
 
 # Ubuntu 20.04/AMD64
