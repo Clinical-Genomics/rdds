@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-test-push:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
