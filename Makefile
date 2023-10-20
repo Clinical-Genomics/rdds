@@ -13,6 +13,9 @@ all:
 	# Default is no action
 	@exit 0
 
+get-version:
+	@echo $(VERSION)
+
 devenv-nvidia-cudnn-build:
 	# Image containing Nvidia cuDNN library
 	$(DOCKER) build -t $(DOCKERHUB)/rdds-nvidia-cudnn:$(VERSION) --force-rm=true --rm=true -f build/devenv/nvidia-cudnn.Dockerfile .
