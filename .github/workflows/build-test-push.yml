@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-test-push:
-    timeout-minutes: 30
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -31,7 +31,8 @@ jobs:
 
       - name: Build Docker Images
         run: |
-          make devenv-ubuntu_20_04-build
+          make devenv-ubuntu_20_04-build && \
+          make devenv-ubuntu_20_04_nvidia_470-build
 
       - name: Run Tests
         run: |
@@ -39,4 +40,5 @@ jobs:
 
       - name: Push Docker Images
         run: |
-          make devenv-ubuntu_20_04-push
+          make devenv-ubuntu_20_04-push && \
+          make devenv-ubuntu_20_04_nvidia_470-push
