@@ -8,10 +8,17 @@ DOCKER := DOCKER_BUILDKIT=1 docker
 SINGULARITY_CACHEDIR_DEVENV=$(PWD)/tmp/devenv/singularity-cache-dir
 
 VERSION=$(shell git describe --tags --dirty --always)
+VERSION_LATEST_MASTER=$(shell git describe --tags --abbrev=0 origin/master)
 
 all:
 	# Default is no action
 	@exit 0
+
+get-version:
+	@echo $(VERSION)
+
+get-version-latest-master:
+	 @echo $(VERSION_LATEST_MASTER)
 
 devenv-nvidia-cudnn-build:
 	# Image containing Nvidia cuDNN library
@@ -82,3 +89,26 @@ docker-clean-build-cache:
 singularity-clean-cache:
 	# Remove cached images, builds in Singularity
 	singularity cache clean
+
+test:
+	# Run tests on current version of docker image
+	$(MAKE) test-$(VERSION)
+
+test-master:
+	# Run tests on latest master image
+	docker pull clinicalgenomics/rdds:$(VERSION_LATEST_MASTER)
+	$(MAKE) test-$(VERSION_LATEST_MASTER)
+
+test-%:
+	# Target for executing tests on various docker image versions (default flavour)
+	$(DOCKER) run \
+	-i \
+	-l rdds-test:$* \
+	--rm=true \
+	-v $(PWD):/rdds \
+	--entrypoint 'bash' \
+	$(DOCKERHUB)/rdds:$* \
+	-c \
+	"export PYTHONPATH=/rdds/src && \
+	. /opt/conda/bin/activate && \
+	cd /rdds/src/tests && python3 -m pytest -v"
