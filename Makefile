@@ -92,3 +92,17 @@ docker-clean-build-cache:
 singularity-clean-cache:
 	# Remove cached images, builds in Singularity
 	singularity cache clean
+
+test:
+	# Run test suite on default image
+	$(DOCKER) run \
+	-it \
+	-l rdds-test:$(VERSION) \
+	--rm=true \
+	-v $(PWD):/rdds \
+  --entrypoint 'bash' \
+	$(DOCKERHUB)/rdds:$(VERSION)\
+  -c \
+	"export PYTHONPATH=/rdds/src && \
+	. /opt/conda/bin/activate && \
+  cd /rdds/src/tests && python3 -m pytest -v"
