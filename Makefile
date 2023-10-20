@@ -118,4 +118,4 @@ test-%:
   -c \
 	"export PYTHONPATH=/rdds/src && \
 	. /opt/conda/bin/activate && \
-  cd /rdds/src/tests && python3 -m pytest -v"
+  cd /rdds/src/tests && python3 -m pytest -v hdf5 tf process_pool determinism resource_usage"
