@@ -96,7 +96,7 @@ singularity-clean-cache:
 test:
 	# Run test suite on default image
 	$(DOCKER) run \
-	-it \
+	-i \
 	-l rdds-test:$(VERSION) \
 	--rm=true \
 	-v $(PWD):/rdds \
