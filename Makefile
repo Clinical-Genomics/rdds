@@ -27,6 +27,13 @@ devenv-nvidia-cudnn-build:
 devenv-nvidia-cudnn-push:
 	$(DOCKER) push $(DOCKERHUB)/rdds-nvidia-cudnn:$(VERSION)
 
+base-ubuntu-20-04-nvidia-470-build:
+	# Build NVIDIA enabled docker image
+	$(DOCKER) build -t $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia-470:$(VERSION) --force-rm=true --rm=true - < build/devenv/ubuntu-20.04-nvidia-470.Dockerfile
+
+base-ubuntu-20-04-nvidia-470-push:
+	$(DOCKER) push $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia-470:$(VERSION)
+
 devenv-%-build:
 	# Build docker development image
 	# Valid targets are:
