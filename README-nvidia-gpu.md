@@ -134,3 +134,8 @@ cat /proc/driver/nvidia/version
 find / -name cuda* 2>/dev/null
 ```
 and additionally run the [python GPU test script](build/devenv/gputest.py).
+
+## Limiting or Disabling GPU Temporarily
+One can modify the CUDA (Tensorflow) visible GPU devices by modifying the
+environment variable `CUDA_VISIBLE_DEVICES`. `CUDA_VISIBLE_DEVICES=""`
+makes all GPUs invisible to Tensorflow.
