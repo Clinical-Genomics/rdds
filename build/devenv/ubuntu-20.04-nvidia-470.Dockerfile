@@ -19,6 +19,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt-get update && \
   apt-get install -y cuda-libraries-11-8 && \
+  cuda-compiler-11-8 && \
   rm *.deb
 
 # Install NVIDIA cuDNN libraries into CUDA dir (must be compatible with Nvidia Driver, CUDA versions)
