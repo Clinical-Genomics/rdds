@@ -18,8 +18,8 @@ def hd5_file() -> Tuple[str, int]:
     group['dataset1'][()] = ['A', 'B'*2, 'C'*3, 'D'*4, 'E'*5, 'F'*6, 'G'*7, 'H'*8, 'I'*9, 'J'*10]
     group.create_dataset('dataset2', dtype=float, shape=(data_length, ))
     group['dataset2'][()] = list(range(0, data_length))
-    group.create_dataset('label', dtype=float, shape=(DATA_LENGTH, ))
-    group['label'][()] = np.array(list(range(0, DATA_LENGTH))) / DATA_LENGTH
+    group.create_dataset('label', dtype=float, shape=(data_length, ))
+    group['label'][()] = np.array(list(range(0, data_length))) / data_length
     hd5_file.flush()
     hd5_file.close()
     yield file.name, data_length
