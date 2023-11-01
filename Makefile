@@ -118,4 +118,4 @@ test-%:
 	-c \
 	"export PYTHONPATH=/rdds/src && \
 	. /opt/pyenv/bin/activate && \
-	cd /rdds/src/tests && python3 -m pytest -v"
+	cd /rdds/src/tests && python3 -m pytest -v -x"
