@@ -16,7 +16,7 @@ from rdds.lib.tf import TextVectorizationLayer
 from rdds.lib.tf import DnaSequenceTrimmer
 from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import InstanceNormalisation
-from rdds.lib.tf import tfprint
+from rdds.lib.tf import print_tensor_op
 
 # TODO: Determine whether to use GeneticModels_family_id?
 # TODO: Determine whether to use ModelScore_family_id?
@@ -31,7 +31,7 @@ FEATURES_TEXT = ['CSQ_PolyPhen',
                  'CSQ_CLINVAR_CLNSIG',
                  #'FILTER',
                  'most_severe_consequence',
-                 'GeneticModels_model'  # TODO: Drop since clinvar does not contain pedigree information?
+                 #'GeneticModels_model'  # Dropped since clinvar does not contain pedigree information
                  ]
 
 FEATURES_FLOAT = ['CSQ_MaxEntScan_alt',
