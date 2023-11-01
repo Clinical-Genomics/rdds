@@ -18,7 +18,7 @@ RUN apt-get install --no-install-recommends -y nvidia-driver-470=470.199.02-0ubu
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt-get update && \
-  apt-get install -y cuda-libraries-11-8 && \
+  apt-get install -y cuda-libraries-11-8 \
   cuda-compiler-11-8 && \
   rm *.deb
 
