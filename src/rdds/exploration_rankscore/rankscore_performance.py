@@ -1,7 +1,6 @@
 import numpy as np
 from typing import *
 from dataclasses import dataclass
-import matplotlib as mpl; mpl.use('tkagg')
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 

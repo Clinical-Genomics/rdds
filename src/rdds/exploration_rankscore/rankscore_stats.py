@@ -1,7 +1,5 @@
 from h5py import File
 import numpy as np
-import matplotlib as mpl
-mpl.use('tkagg')
 import seaborn as sns
 import pandas as pd
 from typing import List, Dict
