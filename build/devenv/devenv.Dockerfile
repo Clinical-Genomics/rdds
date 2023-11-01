@@ -16,24 +16,14 @@ FROM ${OS_FLAVOUR} as base
 RUN apt-get update && \
     apt-get install -y \
     xorg \
-    xauth
-
-# Install Conda
-WORKDIR /tmp
-
-ENV CONDAVER=py38_23.3.1-0-Linux-x86_64
-
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-$CONDAVER.sh && \
-  sha256sum Miniconda3-$CONDAVER.sh | grep d1f3a4388c1a6fd065e32870f67abc39eb38f4edd36c4947ec7411e32311bd59 && \
-  chmod +x Miniconda3-$CONDAVER.sh && \
-  ./Miniconda3-$CONDAVER.sh -b -p /opt/conda && \
-  rm Miniconda3-$CONDAVER.sh
+    xauth \
+    python3-venv \
+    python3-tk
 
 # Install python deps
-COPY src/requirements-conda.txt /tmp
 COPY src/requirements-pip.txt /tmp
-RUN . /opt/conda/bin/activate && \
-  conda install -y --file /tmp/requirements-conda.txt && \
+RUN python3 -m venv /opt/pyenv
+RUN . /opt/pyenv/bin/activate && \
   pip3 install -r /tmp/requirements-pip.txt
 
 # Setup prompt
@@ -97,7 +87,7 @@ COPY --from=dropbear /opt/dropbear/dropbearkey /usr/bin
 
 # Install login greeting message
 COPY --from=motd /usr/share/base-files/motd /usr/share/base-files/motd
-RUN echo "* Conda installation available at /opt/conda" >> /usr/share/base-files/motd
+RUN echo "* Python venv installation available at /opt/pyenv" >> /usr/share/base-files/motd
 
 # Install pycharm
 COPY --from=pycharm /opt/pycharm /opt/pycharm

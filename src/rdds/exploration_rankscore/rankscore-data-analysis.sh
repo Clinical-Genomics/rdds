@@ -4,7 +4,7 @@
 
 set -e
 
-. /opt/conda/bin/activate
+. /opt/pyenv/bin/activate
 
 export PYTHONPATH=/rdds/src
 export DDIR=/rdds/tmp/exploration-rankscore/data

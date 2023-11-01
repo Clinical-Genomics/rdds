@@ -117,5 +117,5 @@ test-%:
 	$(DOCKERHUB)/rdds:$* \
 	-c \
 	"export PYTHONPATH=/rdds/src && \
-	. /opt/conda/bin/activate && \
+	. /opt/pyenv/bin/activate && \
 	cd /rdds/src/tests && python3 -m pytest -v"

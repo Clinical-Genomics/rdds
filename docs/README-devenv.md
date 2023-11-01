@@ -10,7 +10,7 @@ https://hub.docker.com/repository/docker/clinicalgenomics/rdds
 `docker pull clinicalgenomics/rdds`
 
 Features:
-* Conda install
+* Python virtualenv installation
 * Graphics forwarding via X11 SSH
 
 ## Host Requirements
