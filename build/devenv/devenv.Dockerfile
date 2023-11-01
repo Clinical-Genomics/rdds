@@ -75,11 +75,11 @@ RUN ./configure \
 RUN make -j 4 PROGRAMS="dropbear dropbearkey"
 
 FROM base AS pycharm
-ENV PYCHARMVER=community-2023.1.2
+ENV PYCHARMVER=community-2023.2.3
 RUN mkdir -p /opt
 WORKDIR /opt
 RUN wget https://download.jetbrains.com/python/pycharm-$PYCHARMVER.tar.gz && \
-  sha256sum pycharm-$PYCHARMVER.tar.gz| grep 1445b48b091469176644cb85a0a6f953783920fb1ec9a53bcbdd932ad8c947b0
+  sha256sum pycharm-$PYCHARMVER.tar.gz| grep d59dd88c1eb51cdd756433d415588c573ca944ebf6f08844b8ac8cd2e3d9937b
 RUN tar -xf pycharm-$PYCHARMVER.tar.gz && rm pycharm-$PYCHARMVER.tar.gz
 RUN ln -s pycharm-$PYCHARMVER pycharm
 
