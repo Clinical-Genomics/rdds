@@ -11,7 +11,7 @@ def test_text_vectorization_layer(word_dataset, work_dir):
     # GIVEN a vectorization layer, a word dataset
     text_vectorization_layer = TextVectorizationLayer()
     # WHEN reading the dataset to assemble a dataset
-    text_vectorization_layer.adapt(word_dataset.map(map_func=TextPreprocessingLayer(split_regex='SPLITME')))
+    text_vectorization_layer.adapt(word_dataset.map(map_func=TextPreprocessingLayer(split_regex='splitme')))
 
     input = tf.keras.Input(shape=(1,), dtype=tf.string)
     output: tf.RaggedTensor = text_vectorization_layer(input)
