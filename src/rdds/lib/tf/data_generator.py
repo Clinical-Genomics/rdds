@@ -1,5 +1,5 @@
 import tensorflow as tf
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Iterator
 from rdds.lib.hdf5 import Hd5DataGenerator
 
 
