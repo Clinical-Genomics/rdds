@@ -1,10 +1,11 @@
 import h5py
 import numpy as np
-from typing import Tuple, Union, List, Any
+from typing import Tuple, Union, List, Dict, Type, Iterator, Any
+from logging import INFO
 
 from rdds.lib.logging import get_logger
 _LOGGER = get_logger(__package__)
-_LOGGER.setLevel(logging.INFO)
+_LOGGER.setLevel(INFO)
 
 
 Hdf5DataSetNames = str  # A HDF5 data set name
