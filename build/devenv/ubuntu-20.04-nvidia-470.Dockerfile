@@ -32,6 +32,6 @@ RUN tar -xf cudnn-*.tar.xz && \
   rm *.tar.xz
 
 RUN \
-  echo "# Source this prior to initialising conda environment" > /opt/init-cuda-cudnn && \
+  echo "# Source this prior to initialising python environment" > /opt/init-cuda-cudnn && \
   echo "export PATH=/usr/local/cuda-11.8/bin:\$PATH" >> /opt/init-cuda-cudnn && \
   echo "export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:\$LD_LIBRARY_PATH" >> /opt/init-cuda-cudnn
