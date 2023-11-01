@@ -7,7 +7,7 @@ from rdds.lib.tf import get_tf_dataset_from_hd5_data_generator
 
 
 @pytest.fixture
-def output_signature(): -> Tuple[Union[tf.TensorSpec, tf.RaggedTensorSpec], ...]:
+def output_signature() -> Tuple[Union[tf.TensorSpec, tf.RaggedTensorSpec], ...]:
     """
     Matching data format in hd5_data_generator()
     :return:
