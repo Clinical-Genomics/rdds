@@ -9,7 +9,7 @@ _LOGGER.setLevel(INFO)
 
 
 Hdf5DataSetNames = str  # A HDF5 data set name
-OutputTensorFormat = Union[List[Hdf5DataSetNames] List[List[Hdf5DataSetNames]]]
+OutputTensorFormat = Union[List[Hdf5DataSetNames], List[List[Hdf5DataSetNames]]]
 
 
 class Hd5DataGenerator:
