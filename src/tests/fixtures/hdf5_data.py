@@ -3,6 +3,7 @@ import h5py
 from typing import Tuple
 import tempfile
 import os
+import numpy as np
 
 
 @pytest.fixture
