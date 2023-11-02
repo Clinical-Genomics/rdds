@@ -308,12 +308,14 @@ class VariantRankScoreModel:
             file.write(str(globals()))
             file.write(str(locals()))
 
+        validation_steps = int(np.ceil(float(hd5_data_generator_test.data_length) / float(batch_size)))
+
         history = self._keras_model.fit(x=dataset_train,
                               batch_size=1,
                               epochs=int(1E12),
                               steps_per_epoch=steps_per_epoch,
                               validation_data=dataset_test,
-                              validation_steps=32,
+                              validation_steps=validation_steps,
                               callbacks=[tensorboard_callback,
                                          save_model_callback,
                                          tf.keras.callbacks.TerminateOnNaN()],
