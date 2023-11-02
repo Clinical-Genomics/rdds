@@ -24,6 +24,7 @@ RUN apt-get update && \
 COPY src/requirements-pip.txt /tmp
 RUN python3 -m venv /opt/pyenv
 RUN . /opt/pyenv/bin/activate && \
+  pip3 install --upgrade pip && \
   pip3 install -r /tmp/requirements-pip.txt
 
 # Setup prompt
