@@ -131,11 +131,13 @@ class VariantRankScoreModel:
         # Normalization of numerical features (per feature channel)
         # No need to normalize the embeddings since they're nicely distributed
         # Concatenate word vector and numerical features -> [bdim, n_text * n_embeddings + n_numerical]
-        complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_flat,
-                                                                                              input_numerical])
-        complete_feature_vector = InstanceNormalisation(name='InstanceNormalisation')(complete_feature_vector)
-        complete_feature_vector = tf.keras.layers.BatchNormalization()(complete_feature_vector)
-
+        input_numerical = InstanceNormalisation(name='InstanceNormalisation')(input_numerical)
+        embeddings_branch = tf.keras.layers.Dense(units=128, activation='relu')(embeddings_flat)
+        embeddings_branch = tf.keras.layers.Dense(units=84, activation='relu')(embeddings_branch)
+        numerical_branch = tf.keras.layers.Dense(units=128, activation='relu')(input_numerical)
+        numerical_branch = tf.keras.layers.Dense(units=84, activation='relu')(numerical_branch)
+        complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
+                                                                                              numerical_branch])
         print('Feature vector shape', complete_feature_vector.get_shape())
 
         # Autoencoder dense layer
