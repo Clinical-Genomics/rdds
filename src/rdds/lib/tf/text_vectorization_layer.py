@@ -42,11 +42,13 @@ class TextVectorizationLayer:
 
     def adapt(self,
               dataset: tf.data.Dataset = None,
-              embedding_dimensions: int = 1):
+              embedding_dimensions: int = 1,
+              embeddings_regularizer: tf.keras.regularizers.Regularizer = None):
         """
         "Train" vocabulary using dataset. Construct embeddings for words in dictionary.
         :param dataset: TF dataset generating vectors containing words
         :param embedding_dimensions: The shape of embedding matrix, [N_WORDS, embedding_dimensions]
+        :param embeddings_regularizer: Keras regularizer for this layer
         :return:
         """
         time_start: datetime = datetime.now()
@@ -61,6 +63,7 @@ class TextVectorizationLayer:
         self._vocabulary_size = len(self._vocabulary)
         self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
                                                            output_dim=embedding_dimensions,
+                                                           embeddings_regularizer=embeddings_regularizer,
                                                            name=f'{self._name}{constants.EMBEDDINGS_LAYER_NAME_SUFFIX}')
         LOGGER.info(f'Creating vocabulary took {datetime.now() - time_start}')
 
