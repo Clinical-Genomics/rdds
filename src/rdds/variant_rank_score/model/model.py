@@ -106,13 +106,16 @@ class VariantRankScoreModel:
         preprocessed_dataset = preprocessed_dataset.map(map_func=dna_sequence_trimmer_layer)
         input_text_preprocessed = dna_sequence_trimmer_layer(input_text_preprocessed)  # tensor shape preserved
 
+        feature_selection_regularizer = tf.keras.regularizers.L1(0.0001)  # L1 regularizer to perform feature selection
+
         # Text vectorization
         text_vectorization_layer: TextVectorizationLayer = \
             TextVectorizationLayer(precompiled_vocabulary_file=self._vocabulary_file_path)
         if self._vocabulary_file_path is not None:
             preprocessed_dataset = None  # Don't recompute the vocabulary
         text_vectorization_layer.adapt(dataset=preprocessed_dataset,
-                                       embedding_dimensions=self._embedding_dimensions)
+                                       embedding_dimensions=self._embedding_dimensions,
+                                       embeddings_regularizer=feature_selection_regularizer)
         print(f'Vocabulary length: {len(text_vectorization_layer.vocabulary)} words')
         print(text_vectorization_layer.vocabulary)
         text_vectorization_layer.save_vocabulary_to_file(file_path=os.path.join(self._train_log_dir, 'vocabulary.txt'))
@@ -134,7 +137,9 @@ class VariantRankScoreModel:
         input_numerical = InstanceNormalisation(name='InstanceNormalisation')(input_numerical)
         embeddings_branch = tf.keras.layers.Dense(units=128, activation='relu')(embeddings_flat)
         embeddings_branch = tf.keras.layers.Dense(units=84, activation='relu')(embeddings_branch)
-        numerical_branch = tf.keras.layers.Dense(units=128, activation='relu')(input_numerical)
+        numerical_branch = tf.keras.layers.Dense(units=128,
+                                                 activation='relu',
+                                                 activity_regularizer=feature_selection_regularizer)(input_numerical)
         numerical_branch = tf.keras.layers.Dense(units=84, activation='relu')(numerical_branch)
         complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
                                                                                               numerical_branch])
@@ -145,18 +150,25 @@ class VariantRankScoreModel:
         print('length feature vector', len(self._features))
         units = 512
         delta = int(np.floor(0.1 * units))
+        regularizer = tf.keras.regularizers.L2(0.0001)  # L2; regularisation to deal with multicollinearity
         body = tf.keras.layers.Dense(units=units,
-                                     activation=activation)(complete_feature_vector)
+                                     activation=activation,
+                                     activity_regularizer=regularizer)(complete_feature_vector)
         body = tf.keras.layers.Dense(units=units - delta,
-                                     activation=activation)(body)
+                                     activation=activation,
+                                     activity_regularizer=regularizer)(body)
         body = tf.keras.layers.Dense(units=units - 2 * delta,
-                                     activation=activation)(body)
+                                     activation=activation,
+                                     activity_regularizer=regularizer)(body)
         body = tf.keras.layers.Dense(units=units - 3 * delta,
-                                     activation=activation)(body)
+                                     activation=activation,
+                                     activity_regularizer=regularizer)(body)
         body = tf.keras.layers.Dense(units=units - 4 * delta,
-                                     activation=activation)(body)
+                                     activation=activation,
+                                     activity_regularizer=regularizer)(body)
         body = tf.keras.layers.Dense(units=units - 5 * delta,
-                                     activation=activation)(body)  # -> [bdim, n_units]
+                                     activation=activation,
+                                     activity_regularizer=regularizer)(body)  # -> [bdim, n_units]
 
         # Specify network out shape
         logits = tf.keras.layers.Dense(units=2, name='Logits', activation='linear')(body)  # -> [bdim, 2]
