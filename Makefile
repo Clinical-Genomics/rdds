@@ -67,6 +67,12 @@ devenv-ssh:
 	chmod go-rw build/devenv/devenv-docker.rsakey
 	ssh -F build/devenv/devenv.sshconfig -oUserKnownHostsFile=/dev/null devenv
 
+devenv-ssh-hasta-%:
+	# Connect to devenv at hasta node %, example; devenv-ssh-hasta-compute-0-7
+	ssh -L 2151:$*:2150 -N -n hasta & \
+	sleep 2 && \
+	ssh -F build/devenv/devenv.sshconfig -oUserKnownHostsFile=/dev/null -p 2151 devenv
+
 devenv-%-convert-dockerimage-to-singularity:
 	# Convert docker image to singularity format
 	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
