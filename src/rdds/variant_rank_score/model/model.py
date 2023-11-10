@@ -134,7 +134,6 @@ class VariantRankScoreModel:
         # Normalization of numerical features (per feature channel)
         # No need to normalize the embeddings since they're nicely distributed
         # Concatenate word vector and numerical features -> [bdim, n_text * n_embeddings + n_numerical]
-        input_numerical = InstanceNormalisation(name='InstanceNormalisation')(input_numerical)
         embeddings_branch = tf.keras.layers.Dense(units=128, activation='relu')(embeddings_flat)
         embeddings_branch = tf.keras.layers.Dense(units=84, activation='relu')(embeddings_branch)
         numerical_branch = tf.keras.layers.Dense(units=128,
@@ -143,6 +142,8 @@ class VariantRankScoreModel:
         numerical_branch = tf.keras.layers.Dense(units=84, activation='relu')(numerical_branch)
         complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
                                                                                               numerical_branch])
+        instance_normalisation_layer = InstanceNormalisation(name='FullInstanceNormalisation')
+        complete_feature_vector_normalized = instance_normalisation_layer(complete_feature_vector)
         print('Feature vector shape', complete_feature_vector.get_shape())
 
         # Autoencoder dense layer
@@ -153,7 +154,7 @@ class VariantRankScoreModel:
         regularizer = tf.keras.regularizers.L2(0.0001)  # L2; regularisation to deal with multicollinearity
         body = tf.keras.layers.Dense(units=units,
                                      activation=activation,
-                                     activity_regularizer=regularizer)(complete_feature_vector)
+                                     activity_regularizer=regularizer)(complete_feature_vector_normalized)
         body = tf.keras.layers.Dense(units=units - delta,
                                      activation=activation,
                                      activity_regularizer=regularizer)(body)
