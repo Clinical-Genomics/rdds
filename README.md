@@ -11,12 +11,12 @@ as well as on SLURM.
 .
 ├── build (repo infrastructure)
 ├── docs (documentation)
-├── Makefile (main entrypoint)
+├── Makefile (main entrypoint for infrastructure, development work)
 ├── README.md (this file)
-└── tmp (temporary output directory)
-```
+├── src (repo source code)
+└── tmp (temporary output directory for modules)
 
-The `Makefile` is the main entry point.
-
-## TODOs
-* [ ] CI for unit tests
+./src
+├── rdds
+├── requirements-pip.txt
+└── tests
