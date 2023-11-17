@@ -18,6 +18,14 @@ from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import InstanceNormalisation
 from rdds.lib.tf import print_tensor_op
 
+"""
+NOTE!
+Always make sure to keep a reference to all layers created in the model, i.e.
+layer = tf.keras.layers.MyLayer()
+y = layer(x)
+If this is not the case, the layer might be removed in the graph!
+"""
+
 # TODO: Determine whether to use GeneticModels_family_id?
 # TODO: Determine whether to use ModelScore_family_id?
 
