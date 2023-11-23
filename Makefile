@@ -125,3 +125,20 @@ test-%:
 	"export PYTHONPATH=/rdds/src && \
 	. /opt/pyenv/bin/activate && \
 	cd /rdds/src/tests && python3 -m pytest -v -x"
+
+generate-dataset-statistics-%:
+	# Run dataset statistics module to visualize dataset.
+	# Expects a file in /rdds/tmp/clinvar.hd5
+	# Example: `make generate-dataset-statistics-v1.2.0`
+	$(DOCKER) run \
+	-i \
+	-l rdds-dataset-statistics:$* \
+	--rm=true \
+	-v $(PWD):/rdds \
+	--entrypoint 'bash' \
+	$(DOCKERHUB)/rdds:$* \
+	-c \
+	"export PYTHONPATH=/rdds/src && \
+	. /opt/pyenv/bin/activate && \
+	cd /rdds && \
+	python3 -m rdds.lib.data_exploration tmp/clinvar.hd5"
