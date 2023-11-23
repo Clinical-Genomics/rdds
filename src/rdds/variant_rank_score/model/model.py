@@ -198,7 +198,10 @@ class VariantRankScoreModel:
                    tf.keras.metrics.TrueNegatives(),
                    tf.keras.metrics.FalsePositives(),
                    tf.keras.metrics.FalseNegatives(),
-                   tf.keras.metrics.CategoricalAccuracy()]
+                   tf.keras.metrics.CategoricalAccuracy(),
+                   tf.keras.metrics.AUC(),
+                   tf.keras.metrics.Precision(),
+                   tf.keras.metrics.Recall()]
         optimizer = tf.keras.optimizers.Adam(learning_rate=1E-4)
 
         def loss_wrapper(x, y, y_pred, sample_weight):
