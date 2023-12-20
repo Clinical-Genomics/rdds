@@ -8,8 +8,8 @@ from rdds.lib.checksum import checksum
 class Clinvar:
 
     def __init__(self,
-                 vcf_file: str = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/archive_2.0/2023/clinvar_20230617.vcf.gz',
-                 vcf_file_md5: str = 'da3660095d2061cf350dd670e5d68885',
+                 vcf_file: str = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/archive_2.0/2023/clinvar_20230617.vcf.gz',
+                 vcf_file_md5: str = '0f2762a2ef532e7db04ff4bab2ca49b9',
                  gene_associations: str = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/gene_condition_source_id',
                  gene_associations_md5: str = 'b2b695340baebd0c3ffae90dcff8266c',
                  disease_names: str = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/disease_names',
