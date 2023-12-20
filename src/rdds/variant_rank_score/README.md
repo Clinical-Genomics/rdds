@@ -40,3 +40,11 @@ MTAF
 Frq
 GeneticModels
 ```
+
+## Vocabulary File
+`models/vocabulary.txt` contains the embedding vocabulary.
+This file should *not* contain `[UNK]` token, it's added
+by Tensorflow embeddings layer when importing vocabulary.
+
+However, for visualising the embeddings in Tensorboard,
+please add the `[UNK]` token.
