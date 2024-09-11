@@ -75,6 +75,7 @@ devenv-ssh-hasta-%:
 
 devenv-%-convert-dockerimage-to-singularity:
 	# Convert docker image to singularity format
+	# Example: make devenv-ubuntu_20_04-convert-dockerimage-to-singularity
 	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
 	mkdir -p tmp/devenv
 	docker save $(DOCKERHUB)/rdds${DEVENV_IMAGE_SUFFIX}:$(VERSION) -o tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}-$(VERSION).tar
