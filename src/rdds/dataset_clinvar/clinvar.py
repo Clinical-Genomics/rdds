@@ -4,6 +4,7 @@ from . import WORKDIR
 from typing import *
 from rdds.lib.checksum import checksum
 
+# TODO: Lock down or version control gene_condition_source_id, disease_names files with checksums. Edited on a daily basis.
 
 class Clinvar:
 
@@ -11,17 +12,17 @@ class Clinvar:
                  vcf_file: str = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/archive_2.0/2023/clinvar_20230617.vcf.gz',
                  vcf_file_md5: str = '0f2762a2ef532e7db04ff4bab2ca49b9',
                  gene_associations: str = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/gene_condition_source_id',
-                 gene_associations_md5: str = 'b2b695340baebd0c3ffae90dcff8266c',
+                 gene_associations_md5: str = None,
                  disease_names: str = 'https://ftp.ncbi.nlm.nih.gov/pub/clinvar/disease_names',
-                 disease_names_md5: str = '9ba64343a03899de2e6cfb249caa95ad'):
+                 disease_names_md5: str = None):
         """
         Clinvar database adaptor.
         :param vcf_file: URL to VCF file containing clinvar variants
         :param vcf_file_md5: Checksum
         :param gene_associations: URL to file containing gene associations
-        :param gene_associations_md5: Checksum
+        :param gene_associations_md5: Checksum or None
         :param disease_names: URL to file containing disease names
-        :param disease_names_md5: Checksum
+        :param disease_names_md5: Checksum or None
         """
         self._vcf_file: str = vcf_file
         self._vcf_file_md5: str = vcf_file_md5
@@ -42,5 +43,10 @@ class Clinvar:
             urlretrieve(upstream_file_url, storage_path)
 
             file_checksum: str = checksum(file_path=storage_path, algorithm='md5')
+
+            if expected_checksum is None:
+                print(f'{storage_path}, md5 {file_checksum}')
+                continue
+
             if file_checksum != expected_checksum:
                 raise ValueError(f'Failed md5 checksum: {storage_path}, got {file_checksum} expected {expected_checksum}')
