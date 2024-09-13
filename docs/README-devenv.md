@@ -45,8 +45,8 @@ Then SSH in to it by `make devenv-ssh`.
 The main benefit using the devimage on Hasta is the data access.
 
 ### Image Installation
-Install the `rdds.sif` file from singularity build step above, into
-your repo root on hasta.
+Install the `rdds[FLAVOR_VERSION].sif` file from singularity build step above, into
+your repo on hasta, `[REPO_ROOT]/tmp/devenv/rdds[FLAVOR_VERSION].sif`.
 
 ### Starting Environment
 1. Login to `hasta`
