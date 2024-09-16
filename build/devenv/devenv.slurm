@@ -9,4 +9,4 @@
 #SBATCH --job-name=RDDSdev
 #SBATCH --qos=normal
 
-make devenv-singularity-sshd
+make devenv-ubuntu_20_04-singularity-sshd
