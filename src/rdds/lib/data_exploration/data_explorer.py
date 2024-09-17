@@ -400,6 +400,19 @@ class DataExplorer:
         if self._view_plot_immediately:
             plt.show()
 
+    def count_label_ratio(self):
+        """
+        Compute the ratio of labels in every data set.
+        """
+        print('## Count label ratio ##')
+        data_frame = self._get_numerical_data()
+        for data_set in data_frame['data_set'].unique():
+            labels = data_frame[data_frame.data_set == data_set]['labels']
+            if labels.hasnans:
+                raise ValueError(f'Data set {data_set} labels contains NaNs! This should not happen.')
+            labels_unique_values = labels.unique()
+            print(data_set, labels.value_counts(dropna=False))
+            print(data_set, labels.value_counts(dropna=False, normalize=True))
 
     def print_data_to_stdout(self):
         """
@@ -430,6 +443,7 @@ class DataExplorer:
         self.vocabulary_occurrence()
         self.vocabulary_occurrence(as_percentage_of_dataset_size=True)
         self.feature_correlation()
+        self.count_label_ratio()
 
     def __del__(self):
         try:
