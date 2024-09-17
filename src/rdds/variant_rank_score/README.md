@@ -48,3 +48,13 @@ by Tensorflow embeddings layer when importing vocabulary.
 
 However, for visualising the embeddings in Tensorboard,
 please add the `[UNK]` token.
+
+
+## Generating MUTACC truth data set
+```
+python3 -m \
+rdds.variant_rank_score compile-vcf \
+--vcf tmp/mutacc/mutacc-20230512_gatkcomb_rhocall_norm_af_mt_frqf_cadd_vep_parsed_ranked-labeled.vcf.gz \
+--dataset-file-name mutacc.hd5
+```
+Last known run configuration on Hasta required 5 cores and 120G of RAM.
