@@ -160,11 +160,11 @@ class DataExplorer:
         return data_frame[column_names]
 
 
-    def _get_numerical_data(self, merge_dataset_labels: bool = False) -> pd.DataFrame:
+    def _get_kind_data(self, kind: str, merge_dataset_labels: bool = False) -> pd.DataFrame:
         """
-        Return all numerical data for selected features.
+        Return all data of type kind=[numerical|textual].
         :param merge_dataset_labels: Merge dataset, label columns to new column
-        :returns: pd.DataFrame of numerical features
+        :returns: pd.DataFrame of [kind] features
         """
         complete_data_frame: pd.DataFrame = None
         for data_set_name in self._data_set_names:
@@ -176,8 +176,13 @@ class DataExplorer:
                     feature_data = self._get_data(feature_name=feature_name,
                                                   group_name=data_set_name)
                     data_set_size: float = float(int(len(feature_data)))
-                    self._is_numerical_data(feature_data=feature_data)
-                except (NonNumericalDataException) as e:
+                    if kind == 'numerical':
+                        self._is_numerical_data(feature_data=feature_data)
+                    elif kind == 'textual':
+                        self._is_textual_data(feature_data=feature_data)
+                    else:
+                        raise ValueError(f'Requested unknown data kind {kind}')
+                except (NonNumericalDataException, NonTextualDataException) as e:
                     _LOGGER.debug(f'Skipping {data_set_name}/{feature_name}: {e}')
                     continue
                 data_frame = pd.DataFrame(data={feature_name: feature_data})
@@ -188,6 +193,12 @@ class DataExplorer:
         if merge_dataset_labels:
             return self._merge_dataset_labels(data_frame=complete_data_frame)
         return complete_data_frame
+
+    def _get_numerical_data(self, *args, **kwargs):
+        return self._get_kind_data('numerical', *args, **kwargs)
+
+    def _get_textual_data(self, *args, **kwargs):
+        return self._get_kind_data('textual', *args, **kwargs)
 
     def _get_labels(self,
                     group_name: str) -> np.ndarray:
