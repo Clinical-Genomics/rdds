@@ -425,6 +425,34 @@ class DataExplorer:
             print(data_set, labels.value_counts(dropna=False))
             print(data_set, labels.value_counts(dropna=False, normalize=True))
 
+    def nan_count_per_feature(self):
+        numerical_data = self._get_numerical_data()
+        textual_data = self._get_textual_data()
+        print('###  NaN / Empty String Ratio ###')
+        print('Format: dataset/feature_name: overall_feature_nan_ratio, [per_label_ratio, ...]')
+        def compute_nans_ratio(serie: pd.Series) -> float:
+            len_with_nans = len(serie)
+            # Empty strings not considered NaNs, compute in two ways.
+            try:
+                self._is_textual_data(serie.values)
+                len_without_nans = len(serie[serie != b''])
+            except NonTextualDataException:
+                len_without_nans = serie.notna().sum()
+            return 100 * ((len_with_nans - len_without_nans) / len_with_nans)
+
+        for data_set in textual_data.data_set.unique():
+            for data_frame in [numerical_data, textual_data]:
+                for feature_column in data_frame.columns.values:
+                    s = ''
+                    ratio = compute_nans_ratio(data_frame[data_frame.data_set == data_set][feature_column])
+                    s += f'{data_set}/{feature_column}: {ratio:.1f}%'
+                    for label in data_frame.labels.unique():
+                        data_per_label = data_frame[data_frame.data_set == data_set]
+                        data_per_label = data_per_label[data_per_label.labels == label][feature_column]
+                        ratio = compute_nans_ratio(data_per_label)
+                        s += f', [{label}]={ratio:.1f}%'
+                    print(s)
+
     def print_data_to_stdout(self):
         """
         Print numerical raw data to stdout for visual inspection.
@@ -455,6 +483,7 @@ class DataExplorer:
         self.vocabulary_occurrence(as_percentage_of_dataset_size=True)
         self.feature_correlation()
         self.count_label_ratio()
+        self.nan_count_per_feature()
 
     def __del__(self):
         try:
