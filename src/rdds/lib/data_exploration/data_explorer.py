@@ -251,18 +251,25 @@ class DataExplorer:
                     raise DataNotFoundException(f'Found no numerical data for feature {feature_name}')
                 complete_data_frame['dataset_labels'] = complete_data_frame.dataset + '-' + complete_data_frame.labels.astype(str)
                 fig = plt.figure(figsize=self._fig_size)
-                ax0 = fig.add_subplot(2, 1, 1)
+                unique_labels: list = list(complete_data_frame.labels.unique())
+                n_unique_labels = len(unique_labels)
+                ax0 = fig.add_subplot(1 + n_unique_labels, 1, 1)
                 sb.boxplot(y=complete_data_frame[feature_name].values,
                            x=complete_data_frame.labels.values,
                            hue=complete_data_frame.dataset.values,
                            ax=ax0)
-                ax1 = fig.add_subplot(2, 1, 2)
-                ax1.legend(loc='upper right')
-                sb.histplot(x=complete_data_frame[feature_name].values,
-                            hue=complete_data_frame.dataset_labels.values,
-                            bins=1000,
-                            ax=ax1)
-                plt.suptitle(feature_name)
+                # Plot histograms based on label value, to simplify inspection of
+                # very imbalanced datasets.
+                for (label_idx, label) in enumerate(unique_labels, start=1):
+                    ax = fig.add_subplot(1 + n_unique_labels, 1, 1 + label_idx)
+                    ax.legend(loc='upper right')
+                    # Split data on label
+                    subset_label_data = complete_data_frame[complete_data_frame.labels == label]
+                    sb.histplot(x=subset_label_data[feature_name].values,
+                                hue=subset_label_data.dataset_labels.values,
+                                bins=1000,
+                                ax=ax)
+                    plt.suptitle(feature_name)
                 fname: str = f'{os.path.join(_WORKDIR, feature_name)}-boxplot.png'
                 plt.savefig(fname=fname)
                 if self._view_plot_immediately:
