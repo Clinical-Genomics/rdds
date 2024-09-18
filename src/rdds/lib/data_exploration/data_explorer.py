@@ -164,7 +164,7 @@ class DataExplorer:
         """
         Return all data of type kind=[numerical|textual].
         :param merge_dataset_labels: Merge dataset, label columns to new column
-        :returns: pd.DataFrame of [kind] features
+        :returns: pd.DataFrame of [kind] features or None (in case no [kind] features are in dataset)
         """
         complete_data_frame: pd.DataFrame = None
         for data_set_name in self._data_set_names:
@@ -187,6 +187,9 @@ class DataExplorer:
                     continue
                 data_frame = pd.DataFrame(data={feature_name: feature_data})
                 data_set_data_frame = pd.concat((data_set_data_frame, data_frame), axis=1) if data_set_data_frame is not None else data_frame
+            if data_set_data_frame is None:
+                _LOGGER.debug(f'There was no data fetched for features: {self._feature_names} of kind {kind}')
+                return None
             data_set_data_frame['labels'] = labels
             data_set_data_frame['data_set'] = data_set_name
             complete_data_frame = pd.concat((complete_data_frame, data_set_data_frame), axis=0) if complete_data_frame is not None else data_set_data_frame
@@ -218,6 +221,8 @@ class DataExplorer:
         :param feature_data: Data to check
         :raises NonNumericalDataException: In case data is not numerical type
         """
+        if not type(feature_data) == np.ndarray:
+            raise ValueError(f'Expected np.ndarray, got {type(feature_data)}')
         if not isinstance(feature_data[0], (float, int, np.float32, np.float64)):
             raise NonNumericalDataException(f'Contained non-numerical data: {feature_data}')
 
@@ -229,6 +234,8 @@ class DataExplorer:
         :param feature_data: Data to check
         :raises NonTextualDataException: In case data is not text type
         """
+        if not type(feature_data) == np.ndarray:
+            raise ValueError(f'Expected np.ndarray, got {type(feature_data)}')
         if not isinstance(feature_data[0], (bytes)):
             raise NonTextualDataException(f'Contained non-textual data: {feature_data}')
 
@@ -285,6 +292,9 @@ class DataExplorer:
         :param max_features_per_plot: Amount of features to visualize per matplotlib Figure.
         """
         complete_data_frame = self._get_numerical_data(merge_dataset_labels=True)
+        if complete_data_frame is None:
+            _LOGGER.warn('Found no data to do scatterplot')
+            return
         if n_samples:
             np.random.seed(0)
             index_subset = np.random.randint(low=0, high=len(complete_data_frame), size=n_samples)
@@ -403,6 +413,9 @@ class DataExplorer:
         Visualise feature correlation by means of correlation matrix.
         """
         data_frame = self._get_numerical_data(merge_dataset_labels=True)
+        if data_frame is None:
+            _LOGGER.warn('Found no data to do feature_corr')
+            return
         feature_columns = list(data_frame.columns)
         feature_columns.remove('dataset_labels')
         data_frame_corr = data_frame[feature_columns].corr()
@@ -424,6 +437,9 @@ class DataExplorer:
         """
         print('## Count label ratio ##')
         data_frame = self._get_numerical_data()
+        if data_frame is None:
+            _LOGGER.warn('Found no data to compute label ratio')
+            return
         for data_set in data_frame['data_set'].unique():
             labels = data_frame[data_frame.data_set == data_set]['labels']
             if labels.hasnans:
@@ -433,8 +449,14 @@ class DataExplorer:
             print(data_set, labels.value_counts(dropna=False, normalize=True))
 
     def nan_count_per_feature(self):
+        data_frames = []
         numerical_data = self._get_numerical_data()
+        data_frames.append(numerical_data) if numerical_data is not None else None
         textual_data = self._get_textual_data()
+        data_frames.append(textual_data) if textual_data is not None else None
+        if len(data_frames) == 0:
+            _LOGGER.warning('Found no data to analyze in nan_count_per_feature')
+            return
         print('###  NaN / Empty String Ratio ###')
         print('Format: dataset/feature_name: overall_feature_nan_ratio, [per_label_ratio, ...]')
         def compute_nans_ratio(serie: pd.Series) -> float:
@@ -447,8 +469,8 @@ class DataExplorer:
                 len_without_nans = serie.notna().sum()
             return 100 * ((len_with_nans - len_without_nans) / len_with_nans)
 
-        for data_set in textual_data.data_set.unique():
-            for data_frame in [numerical_data, textual_data]:
+        for data_set in data_frames[0].data_set.unique():
+            for data_frame in data_frames:
                 for feature_column in data_frame.columns.values:
                     s = ''
                     ratio = compute_nans_ratio(data_frame[data_frame.data_set == data_set][feature_column])
