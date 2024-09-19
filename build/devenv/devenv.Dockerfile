@@ -80,7 +80,8 @@ RUN apt-get update && \
  vim \
  git \
  bcftools \
- tabix
+ tabix \
+ top
 
 # Install dropbear SSH server and keygen tool
 COPY --from=dropbear /opt/dropbear/dropbear /usr/bin
