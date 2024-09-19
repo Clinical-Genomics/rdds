@@ -6,14 +6,13 @@ parser = argparse.ArgumentParser(prog='CLINVAR database adaptor',
                                  description='Downloads CLINVAR data')
 
 parser.add_argument('mode',
-                    choices=['data-download'],
+                    choices=['download-preprocess'],
                     help='Main operating mode')
 
 args = parser.parse_args()
+clinvar = Clinvar()
 
-if args.mode == 'data-download':
+if args.mode == 'download-preprocess':
     # TODO: Clean data if already exist
-    clinvar: Clinvar = Clinvar()
     clinvar.download()
-else:
-    raise NotImplemented(f'Unknown mode {args.mode}')
+    clinvar.preprocess()
