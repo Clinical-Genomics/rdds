@@ -7,6 +7,7 @@
 # Only tested with SNVs and INDELs (separate file for DEL dups and SVs).
 # $1: MUTACC data file, bgzipped
 # $2: causative variants data file, bgzipped
+# $3: [--preserve-tns: do not strip negative samples from MUTACC file]
 set -e
 set -x
 export DATAFILE_MUTACC=`realpath $1`
@@ -78,13 +79,20 @@ bcftools isec -p tns --complement -w1 $DATAFILE_MUTACC $DATAFILE_CAUSATIVE
 add_label tps/0000.vcf pathogenic
 add_label tns/0000.vcf benign
 
-# Merge tps, tns files
-concat_tps_tns tps/0000-labeled.vcf.gz tns/0000-labeled.vcf.gz
+if [ "$3" == "--preserve-tns" ]
+then
+  # Merge tps, tns files
+  concat_tps_tns tps/0000-labeled.vcf.gz tns/0000-labeled.vcf.gz
 
-# Check no data loss
-check_no_missing_samples $DATAFILE_MUTACC $OUTFILE
+  # Check no data loss
+  check_no_missing_samples $DATAFILE_MUTACC $OUTFILE
 
-rm -r tns \
+else
+  mv tps/0000-labeled.vcf.gz $OUTFILE
+  reindex_vcf $OUTFILE
+fi
+
+rm -rf tns \
   tps \
   dset-diff \
   $DATAFILE_MUTACC.tbi \
