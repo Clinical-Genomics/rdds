@@ -4,7 +4,7 @@ Previous genmod model used about ~50 parameters for estimating pathogenicity.
 
 ## TODOs
 * [ ] Reduce parameters to about same size as genmod model
-
+* [ ] Use the property of NaN values as a property of unseen, uncharacterized variants
 
 ## Features
 The following features are used in genmod ranking model:
