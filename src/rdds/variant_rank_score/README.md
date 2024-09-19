@@ -49,8 +49,45 @@ by Tensorflow embeddings layer when importing vocabulary.
 However, for visualising the embeddings in Tensorboard,
 please add the `[UNK]` token.
 
+## Generating Datasets
 
-## Generating MUTACC truth data set
+1. Download ClinVar, GIAB and MUTACC datasets as VCF files.
+   Refer to each of the `rdds.dataset_clinvar`, `rdds.dataset_giab` and `rdds/dataset_mutacc` for API usage.
+   These modules will label and strip all additional information in VCF except
+   `CHROM, POS, ID, REF, ALT, QUAL, FILTER and INFO/[LABEL]`.
+3. Concat all VCF files using command `python3 -m rdds.variant_rank_score concat-vcfs [VCF_FILE, ...]`.
+4. Run concatenated VCF file through `MIP` pipeline to annotate the variants.
+5. Compile the `MIP` output VCF to `.hd5` using command `TBD`.
+6. Now you're ready to start training with the data using command `TBD`
+
+The following VCF files are required for model training:
+* [ ] Output from module `rdds.dataset_clinvar` containing True Positives, TPs (train data)
+* [ ] Output from module `rdds.dataset_giab` containing True Negatives,  TNs (train data)
+* [ ] Output from module `rdds.dataset_mutacc` containing True Positives, TPs (test, validation data)
+
+### ClinVar
+This is a dataset containing True Positive (pathogenic) variants.
+
+```
+python3 -m rdds.dataset_clinvar preprocess
+```
+
+### GIAB
+This is a dataset containing True Negative (non-rare-disease causing) variants.
+```
+python3 -m rdds.dataset_giab download-preprocess
+```
+
+### MUTACC
+This is a dataset containing clinically confirmed, rare-disease causing variants from
+Clinical Genomics Stockholm.
+```
+src/rdds/dataset_mutacc/mutacc_formatter.sh \
+tmp/mutacc-data/mutacc-20230512_gatkcomb_rhocall_norm_af_mt_frqf_cadd_vep_parsed_ranked.vcf.gz \
+tmp/mutacc-data/causative-variants.vcf.gz
+```
+
+Compilation to .hd5:
 ```
 python3 -m \
 rdds.variant_rank_score compile-vcf \
