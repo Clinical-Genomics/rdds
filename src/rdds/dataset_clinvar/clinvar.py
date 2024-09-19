@@ -1,7 +1,9 @@
 from urllib.request import urlretrieve
-from os.path import join, basename
+from os import listdir
+from os.path import join, basename, dirname
 from . import WORKDIR
 from typing import *
+import subprocess
 from rdds.lib.checksum import checksum
 
 # TODO: Lock down or version control gene_condition_source_id, disease_names files with checksums. Edited on a daily basis.
@@ -50,3 +52,9 @@ class Clinvar:
 
             if file_checksum != expected_checksum:
                 raise ValueError(f'Failed md5 checksum: {storage_path}, got {file_checksum} expected {expected_checksum}')
+
+    def preprocess(self):
+        module_path: str = dirname(__file__)
+        vcf_file = join(WORKDIR, [file for file in listdir(WORKDIR) if 'vcf.gz' in file][0])
+        subprocess.check_call(f'{module_path}/clinvar_formatter.sh {vcf_file}',
+                                        stderr=subprocess.STDOUT, shell=True)
