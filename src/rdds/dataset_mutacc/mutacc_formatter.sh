@@ -29,12 +29,11 @@ function add_label() {
   local OUTFILE=`echo $1 | sed 's/\.vcf//g'`-labeled.vcf
   ## Add INFO/MUTACC_GROUND_TRUTH definition to header
   bcftools view --header $1 | head -n-1 > $OUTFILE
-  echo "##INFO=<ID=MUTACC_GROUND_TRUTH,Number=.,Type=String,Description="Clinicalgenomics MUTACC label">" >> $OUTFILE
-  bcftools view --header $1 | tail -n 1 >> $OUTFILE
+  echo "##INFO=<ID=MUTACC_GROUND_TRUTH,Number=.,Type=String,Description=\"Clinicalgenomics MUTACC label\">" >> $OUTFILE
+  # Set up custom header required by MIP pipeline
+  echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tNOTASAMPLE" >> $OUTFILE
   ## Add variant data with INFO/MUTACC_GROUND_TRUTH appended
-  # FIXME: Additional fields child, mother father is not defined in header!
-  # Thus these fields are incompatible with bcftools and are consequently dropped.
-  bcftools query -f "%CHROM\t%POS\t%ID\t%REF\t%ALT\t%QUAL\t%FILTER\t%INFO;MUTACC_GROUND_TRUTH=$2;\t%FORMAT\n" $1 >> $OUTFILE
+  bcftools query -f "%CHROM\t%POS\t%ID\t%REF\t%ALT\t%QUAL\t%FILTER\tMUTACC_GROUND_TRUTH=$2\tGT:DP:AD:GQ\t1/1:30:4,26:38\n" $1 >> $OUTFILE
   # Compress it to allow downstream processing by bcftools
   bgzip --threads 4 $OUTFILE
   reindex_vcf $OUTFILE.gz
