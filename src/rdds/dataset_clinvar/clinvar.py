@@ -1,5 +1,5 @@
 from urllib.request import urlretrieve
-from os import listdir
+from os import listdir, remove
 from os.path import join, basename, dirname
 from . import WORKDIR
 from typing import *
@@ -40,6 +40,7 @@ class Clinvar:
         ]
 
     def download(self):
+        [remove(join(WORKDIR, file_path)) for file_path in listdir(WORKDIR)]
         for upstream_file_url, expected_checksum in self._download_files:
             storage_path = join(WORKDIR, basename(upstream_file_url))
             urlretrieve(upstream_file_url, storage_path)
