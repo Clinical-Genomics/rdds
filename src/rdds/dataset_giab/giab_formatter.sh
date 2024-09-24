@@ -24,19 +24,19 @@ function add_label() {
   local OUTFILE=`echo $1 | sed 's/\.vcf\.gz//g'`-labeled.vcf
   bcftools view --header $1 | grep "\#\#fileformat=" > $OUTFILE
   bcftools view --header $1 | grep "\#\#contig=" >> $OUTFILE
-  cat <<EOF >> $OUTFILE
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
-##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
-EOF
+  bcftools view --header $1 | grep "\#\#FORMAT=<ID=GT," >> $OUTFILE
+  bcftools view --header $1 | grep "\#\#FORMAT=<ID=DP," >> $OUTFILE
+  # Some multiallelic sites does not contain proper AD values in dataset.
+  # Allow for missing values when splitting sites with 'bcftools norm' later on. https://github.com/samtools/bcftools/issues/823
+  echo "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Net allele depths across all unfiltered datasets with called genotype\">" >> $OUTFILE
+  bcftools view --header $1 | grep "\#\#FORMAT=<ID=GQ," >> $OUTFILE
   ## Add INFO/GIAB_GROUND_TRUTH definition to header
   echo "##INFO=<ID=GIAB_GROUND_TRUTH,Number=.,Type=String,Description=\"Genome In A Bottle - ClinicalGenomics inferred label\">" >> $OUTFILE
   # Set up custom header required by MIP pipeline
   echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tNOTASAMPLE" >> $OUTFILE
   ## Add variant data with INFO/GIAB_GROUND_TRUTH appended
   # Thus these fields are incompatible with bcftools and are consequently dropped.
-  bcftools query -f "%CHROM\t%POS\t%ID\t%REF\t%ALT\t.\t.\tGIAB_GROUND_TRUTH=$2\tGT:DP:AD:GQ\t1/1:30:4,26:38\n" $1 >> $OUTFILE
+  bcftools query -f "%CHROM\t%POS\t%ID\t%REF\t%ALT\t.\t.\tGIAB_GROUND_TRUTH=$2\tGT:DP:AD:GQ\t[%GT:%DP:%AD:%GQ]\n" $1 >> $OUTFILE
   # Compress it to allow downstream processing by bcftools
   bgzip --threads 4 $OUTFILE
   reindex_vcf $OUTFILE.gz
@@ -56,11 +56,20 @@ function check_no_missing_samples() {
   fi
 }
 
+function split_multiallelic_sites() {
+  local OUTFILE=`echo $1 | sed 's/\.gz//g'`
+  bcftools norm -m-both $1 > $OUTFILE
+  bgzip --threads 4 $OUTFILE
+  reindex_vcf $OUTFILE.gz
+}
+
 # Add label to variants
 add_label $DATAFILE benign
 
 # Check no data loss
 check_no_missing_samples $DATAFILE $OUTFILE
+
+split_multiallelic_sites $OUTFILE
 
 rm -r dset-diff
 
