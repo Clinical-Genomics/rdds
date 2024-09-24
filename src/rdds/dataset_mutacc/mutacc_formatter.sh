@@ -27,8 +27,15 @@ function add_label() {
   # $1: Path to VCF to label
   # $2: String to add to INFO/MUTACC_GROUND_TRUTH field
   local OUTFILE=`echo $1 | sed 's/\.vcf//g'`-labeled.vcf
+  bcftools view --header $1 | grep "\#\#fileformat=" > $OUTFILE
+  bcftools view --header $1 | grep "\#\#contig=" >> $OUTFILE
+  cat <<EOF >> $OUTFILE
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+EOF
   ## Add INFO/MUTACC_GROUND_TRUTH definition to header
-  bcftools view --header $1 | head -n-1 > $OUTFILE
   echo "##INFO=<ID=MUTACC_GROUND_TRUTH,Number=.,Type=String,Description=\"Clinicalgenomics MUTACC label\">" >> $OUTFILE
   # Set up custom header required by MIP pipeline
   echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tNOTASAMPLE" >> $OUTFILE
