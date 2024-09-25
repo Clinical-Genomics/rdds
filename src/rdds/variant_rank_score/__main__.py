@@ -22,8 +22,10 @@ subparser.set_defaults(func=lambda args: VCFDataSet().concat_datasets(args.vcfs)
 subparser = subparsers.add_parser('compile-vcf', help='Compile a .vcf to .hd5 file')
 subparser.add_argument('vcf', help='Path to VCF file')
 subparser.add_argument('--dataset-file-name', default='dataset-%s.hdf5' % int(time()), help='output file name')
+subparser.add_argument('--n-workers', default=os.cpu_count(), help='Maximum amount of concurrent workers (processes) allowed')
 def compile_vcf(args):
-    dataset: Dataset = Dataset(file_path=os.path.join(WORKDIR, args.dataset_file_name))
+    dataset: Dataset = Dataset(file_path=os.path.join(WORKDIR, args.dataset_file_name),
+                               max_n_workers=int(args.n_workers))
     print(f'Compiling {args.vcf} -> {dataset.out_file_path}')
     dataset.compile(vcf_file=args.vcf)
     dataset.view()

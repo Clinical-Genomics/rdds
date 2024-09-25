@@ -60,12 +60,15 @@ class Dataset:
     """
 
     def __init__(self,
-                 file_path: str):
+                 file_path: str,
+                 max_n_workers: int = os.cpu_count()):
         """
-        Args:
-            file_path: Path to dataset
+        param file_path: Path to VCF file to compile
+        param max_n_workers: During processing, use max N concurrent process workers.
+        NOTE: cpu_count() returns total count on SLURM node, not amount allowed by SLURM scheduler.
         """
         self.out_file_path: str = file_path
+        self._max_n_workers = max_n_workers
 
     @staticmethod
     def resize_dataset(hd5_group: Hd5Group,
@@ -287,7 +290,8 @@ class Dataset:
         # Assign every process a separate result_queue to avoid pipe fill-up locking up all processes.
         process_pool: ProcessPool = ProcessPool(function=self._parse_collect_vcf_field,
                                                 args=[(task, ) for task in tasks],  # Pool expects tuple arguments per process
-                                                process_names=[task.parsed_field_name_regexp_fmt for task in tasks])
+                                                process_names=[task.parsed_field_name_regexp_fmt for task in tasks],
+                                                workers=self._max_n_workers)
 
         hd5_out_file: Hd5File = Hd5File(name=self.out_file_path, mode='w')
         # Setup a dataset with dimensions [n_variants, feature_dimension]
