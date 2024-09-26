@@ -125,7 +125,7 @@ class ParsableVariant:
     def _parse_store_data(self,
                           key: str,
                           data: Any,
-                          expected_dtype: Type = None):
+                          expected_dtype: Union[Type, Tuple[Type, ...]] = None):
         """
         Parse and store data in instance.
 
@@ -194,7 +194,7 @@ class ParsableVariant:
         parts: list = data.split(':')
         self._parse_store_data(key='RankScore_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScore_family_id']],
-                               expected_dtype=str)
+                               expected_dtype=(int, float, str))
         self._parse_store_data(key='RankScore_value',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScore_value']],
                                expected_dtype=float)
@@ -209,7 +209,7 @@ class ParsableVariant:
         parts: list = data.split(':')
         self._parse_store_data(key='RankScoreNormalized_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScoreNormalized_family_id']],
-                               expected_dtype=str)
+                               expected_dtype=(int, float, str))
         self._parse_store_data(key='RankScoreNormalized_value',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScoreNormalized_value']],
                                expected_dtype=float)
@@ -224,7 +224,7 @@ class ParsableVariant:
         parts: list = data.split(':')
         self._parse_store_data(key='RankScoreMinMax_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScoreMinMax_family_id']],
-                               expected_dtype=str)
+                               expected_dtype=(int, float, str))
         self._parse_store_data(key='RankScoreMinMax_min',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScoreMinMax_min']],
                                expected_dtype=float)
@@ -253,7 +253,7 @@ class ParsableVariant:
             raise ValueError('Expected len of two')
         self._parse_store_data(key='Compounds_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['Compounds_family_id']],
-                               expected_dtype=str)
+                               expected_dtype=(int, float, str))
         self._parse_store_data(key='Compounds_value',
                                    data=parts[_NESTED_NAME_TO_POSITION['Compounds_value']],
                                    expected_dtype=str)
@@ -266,9 +266,10 @@ class ParsableVariant:
         :data: Str containing data
         """
         parts: list = data.split(':')
+        # In some VCF files, family_id is an integer instead of sample name.
         self._parse_store_data(key='GeneticModels_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['GeneticModels_family_id']],
-                               expected_dtype=str)
+                               expected_dtype=(int, float, str))
         self._parse_store_data(key='GeneticModels_model',
                                data=parts[_NESTED_NAME_TO_POSITION['GeneticModels_model']],
                                expected_dtype=str)
@@ -283,7 +284,7 @@ class ParsableVariant:
         parts: list = data.split(':')
         self._parse_store_data(key='ModelScore_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['ModelScore_family_id']],
-                               expected_dtype=str)
+                               expected_dtype=(int, float, str))
         self._parse_store_data(key='ModelScore_value',
                                data=parts[_NESTED_NAME_TO_POSITION['ModelScore_value']],
                                expected_dtype=float)
