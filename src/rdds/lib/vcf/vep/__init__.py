@@ -1,0 +1,3 @@
+from .rank_vep_predictions import rank_vep_predictions
+from .so_terms import SO_TERMS
+from .variant_effect_predictor_entry import VariantEffectPredictorEntry
