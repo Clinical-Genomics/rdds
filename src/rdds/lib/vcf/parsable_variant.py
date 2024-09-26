@@ -84,8 +84,8 @@ class ParsableVariant:
                 continue
             parsing_fn: callable = self._parse_store_data  # fallback parsing function
             try:  # custom parser
-                parsing_fn = vars(self)['_parse_fn_%s' % field_name]
-            except KeyError:
+                parsing_fn = self.__getattribute__('_parse_fn_%s' % field_name)
+            except (AttributeError):
                 pass
             parsing_fn(key=field_name, data=field_value)
 
@@ -185,8 +185,13 @@ class ParsableVariant:
         return self._parsed_fields
 
     def _parse_fn_RankScore(self,
-                            text: str):
-        parts: list = text.split(':')
+                            key: str,
+                            data: str):
+        """
+        param key: Unused (hardcoded)
+        param text: Contains data
+        """
+        parts: list = data.split(':')
         self._parse_store_data(key='RankScore_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScore_family_id']],
                                expected_dtype=str)
@@ -195,8 +200,13 @@ class ParsableVariant:
                                expected_dtype=float)
 
     def _parse_fn_RankScoreNormalized(self,
-                                      text: str):
-        parts: list = text.split(':')
+                                      key: str,
+                                      data: str):
+        """
+        param key: Unused (hardcoded)
+        param text: Contains data
+        """
+        parts: list = data.split(':')
         self._parse_store_data(key='RankScoreNormalized_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScoreNormalized_family_id']],
                                expected_dtype=str)
@@ -205,8 +215,13 @@ class ParsableVariant:
                                expected_dtype=float)
 
     def _parse_fn_RankScoreMinMax(self,
-                                  text: str):
-        parts: list = text.split(':')
+                                  key: str,
+                                  data: str):
+        """
+        param key: Unused (hardcoded)
+        param text: Contains data
+        """
+        parts: list = data.split(':')
         self._parse_store_data(key='RankScoreMinMax_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['RankScoreMinMax_family_id']],
                                expected_dtype=str)
@@ -218,12 +233,22 @@ class ParsableVariant:
                                expected_dtype=float)
 
     def _parse_fn_RankResult(self,
-                             text: str):
-        self._parse_store_data(key='RankResult', data=text)
+                             key: str,
+                             data: str):
+        """
+        param key: Unused (hardcoded)
+        param text: Contains data
+        """
+        self._parse_store_data(key='RankResult', data=data)
 
     def _parse_fn_Compounds(self,
-                            text: str):
-        parts: List[str] = text.split(':')
+                            key: str,
+                            data: str):
+        """
+        :param key: Unused
+        :data: Str containing data
+        """
+        parts: List[str] = data.split(':')
         if len(parts) != 2:
             raise ValueError('Expected len of two')
         self._parse_store_data(key='Compounds_family_id',
@@ -234,8 +259,13 @@ class ParsableVariant:
                                    expected_dtype=str)
 
     def _parse_fn_GeneticModels(self,
-                             text: str):
-        parts: list = text.split(':')
+                                key: str,
+                                data: str):
+        """
+        :param key: Unused
+        :data: Str containing data
+        """
+        parts: list = data.split(':')
         self._parse_store_data(key='GeneticModels_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['GeneticModels_family_id']],
                                expected_dtype=str)
@@ -244,8 +274,13 @@ class ParsableVariant:
                                expected_dtype=str)
 
     def _parse_fn_ModelScore(self,
-                             text: str):
-        parts: list = text.split(':')
+                             key: str,
+                             data: str):
+        """
+        param key: Unused (hardcoded)
+        param text: Contains data
+        """
+        parts: list = data.split(':')
         self._parse_store_data(key='ModelScore_family_id',
                                data=parts[_NESTED_NAME_TO_POSITION['ModelScore_family_id']],
                                expected_dtype=str)
@@ -254,16 +289,19 @@ class ParsableVariant:
                                expected_dtype=float)
 
     def _parse_fn_MitomapSomaticMutations(self,
-                                          text: str):
+                                          key: str,
+                                          data: str):
         # TODO: Split on & char
         self._parse_store_data(key='MitomapSomaticMutations',
-                               data=self._hack_bugfix_ensemble_vep_430(text))
+                               data=self._hack_bugfix_ensemble_vep_430(data))
 
     def _parse_fn_CSQ(self,
-                      text: str):
+                      key: str,
+                      data: str):
         """
         # TODO: Missing, NAN values represented as '-', don't store it as string if it's observed
         Parse CSQ INFO field according to vep_csq_format, e.g. 'Format: Allele|Consequence|IMPACT|SYMBOL|Gene|...'
+        :param key: Unused
         :param text: String containing format spec
         :return: parsed CSQ fields as dict
         """
@@ -271,7 +309,7 @@ class ParsableVariant:
             return {}
         keys = self._vep_csq_description.split('Format: ')[1].replace('"', '').split('|')
         keys = ['CSQ_%s' % key for key in keys]
-        data = text.split('|')
+        data = data.split('|')
         for key, value in zip(keys, data):
             if key == 'CSQ_HGVSp':
                 self._parse_store_data(key=key,
