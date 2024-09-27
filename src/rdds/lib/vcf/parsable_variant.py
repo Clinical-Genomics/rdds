@@ -3,6 +3,8 @@ import numpy as np
 from typing import *
 from collections import Iterator
 
+from .vep import rank_vep_predictions
+
 _NUMERICAL_DATA_TYPES = [int, float, np.float32, np.float64, np.int32, np.int64]
 
 _VCF_BASE_HEADER: List[str] = ['CHROM', 'POS', 'ID', 'REF', 'ALT']
@@ -309,10 +311,14 @@ class ParsableVariant:
         if self._vep_csq_description is None:
             return {}
         keys = self._vep_csq_description.split('Format: ')[1].replace('"', '').split('|')
-        keys = ['CSQ_%s' % key for key in keys]
-        data = data.split('|')
-        for key, value in zip(keys, data):
-            if key == 'CSQ_HGVSp':
+
+        most_significant_vep_entry = rank_vep_predictions(vep_csq_keys=keys,
+                                                          csq_data=data)
+
+        for key in keys:
+            value = most_significant_vep_entry.__getattribute__(key)
+            key = f'CSQ_{key}'  # Prefix all CSQ fields on store
+            if key == 'HGVSp':
                 self._parse_store_data(key=key,
                                        data=self._hack_bugfix_ensemble_vep_430(value))
             else:
