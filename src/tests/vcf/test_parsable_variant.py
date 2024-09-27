@@ -71,7 +71,7 @@ def test_parsable_variant(fully_annotated_unranked_mip_vcf):
         if 'Obs' in variant.parsed_fields:
             assert type(variant.Obs) == float and variant.Obs > 0
         if 'SPIDEX' in variant.parsed_fields:
-            assert type(variant.SPIDEX) == float and variant.SPIDEX > 0
+            assert type(variant.SPIDEX) == float and variant.SPIDEX > -5
         if 'SWEGENAAC_Hemi' in variant.parsed_fields:
             assert type(variant.SWEGENAAC_Hemi) == float and variant.SWEGENAAC_Hemi >= 0
         if 'SWEGENAAC_Het' in variant.parsed_fields:

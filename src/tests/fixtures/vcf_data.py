@@ -17,7 +17,7 @@ def fully_annotated_unranked_mip_vcf() -> Tuple[int, str]:
     Example data file containing fully annotated variants (excluding rank scores)
     :returns number of variants and path to file as tuple
     """
-    _VCF_LENGTH = 500
+    _VCF_LENGTH = 1000
     _VCF_HEADER_LENGTH = 110
     _VCF_NR_VARIANTS = _VCF_LENGTH - _VCF_HEADER_LENGTH
     return _VCF_NR_VARIANTS, dirname(__file__) + '/fully_annotated_unranked_mip.vcf.gz'
