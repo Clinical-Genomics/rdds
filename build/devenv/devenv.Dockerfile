@@ -81,7 +81,7 @@ RUN apt-get update && \
  git \
  bcftools \
  tabix \
- top
+ htop
 
 # Install dropbear SSH server and keygen tool
 COPY --from=dropbear /opt/dropbear/dropbear /usr/bin
