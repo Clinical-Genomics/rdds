@@ -454,6 +454,8 @@ class Dataset:
         """
         Drops data samples according to mask_function.
 
+        NOTE: This method requires that all data fits into RAM!
+
         :param hd5_file_path: Path to the HD5 file to apply masking to
         :param group_name: The group where data resides
         :param mask_function: Function that computes a mask.
