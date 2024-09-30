@@ -18,6 +18,8 @@ from rdds.lib.resource_usage import ProcessResourceUsage
 from rdds.lib.vcf import VCFReader, Variant
 from rdds.lib.vcf import ParsableVariant
 from .clinvar_label_mapping import CLINVAR_CLNSIG_DROP_LABELS, CLINVAR_LABEL_MAPPING
+from .giab_label_mapping import GIAB_LABEL_MAPPING
+from .mutacc_label_mapping import MUTACC_LABEL_MAPPING
 
 # Types definitions
 info_meta_field = Dict[str, str]
@@ -391,32 +393,76 @@ class Dataset:
         return categorical_label
 
     @staticmethod
+    def _giab_ground_truth_to_categorical_label(byte_string: bytes) -> float:
+        """
+        Translate a byte (string) representing a GIAB ground truth label to categorical label.
+        """
+        return GIAB_LABEL_MAPPING[byte_string.decode('utf-8')]
+
+    @staticmethod
+    def _mutacc_ground_truth_to_categorical_label(byte_string: bytes) -> float:
+        """
+        Translate a byte (string) representing a MUTACC ground truth label to categorical label.
+        """
+        return MUTACC_LABEL_MAPPING[byte_string.decode('utf-8')]
+
+    @staticmethod
     def _postprocess_ground_truth(hd5_file_path: str,
                                   group_name: str,
-                                  ground_truth_dataset_name: str,
-                                  mapping_fn: Callable):
+                                  ground_truth_to_label_fns: List[Tuple[str, Callable]]):
         """
         Convert values in ground_truth_column_name to numerical values, i.e.
         categorical label.
 
-        Supports only 1D labels, 1:1 mapping.
+        Supports only 1D labels, 1:1 mapping, i.e. only 1 mapping per sample is accepted, example:
+            variant n: [LABEL_CAT_0: N/A, LABEL_CAT_1: N/A, LABEL_CAT_2: 1.0]
+
+        Empty str {'' : float} label mappings not allowed due to the nature of the data.
 
         :param group_name: The group where the labels are found
-        :param ground_truth_dataset_name: The name of the column where the labels are found
-        :param mapping_fn: A function that translates bytestring to floating point value.
+        :param ground_truth_to_label_fns: List of [(ground_truth_dataset_name, mapping_fn), (...), ...]
+          ground_truth_dataset_name: The name of the column where the labels are found
+          mapping_fn: A function that translates bytestring to floating point value.
+          NOTE: Only functions translating into label range (0, 1) is allowed!
         """
         hd5_out_file = h5py.File(hd5_file_path, 'r+')
         group: h5py.Group = hd5_out_file[group_name]
-        ground_truth: np.ndarray = group[ground_truth_dataset_name][:]
-        if len(ground_truth.shape) > 1:
-            raise ValueError(f'Only 1D labels are supported. Got {ground_truth.shape}')
-        dlen = ground_truth.shape[0]
-        categorical_label = np.zeros(dlen)
+
+        # Load labels into RAM
+        ground_truths: Dict[str, np.ndarray] = dict()
+        for ground_truth_dataset_name, _ in ground_truth_to_label_fns:
+            ground_truth: np.ndarray = group[ground_truth_dataset_name][:]
+            if len(ground_truth.shape) > 1:
+                raise ValueError(f'Only 1D labels are supported. Got {ground_truth.shape}')
+            ground_truths.update({ground_truth_dataset_name: ground_truth})
+
+        dlen = ground_truth.shape[0]  # Use last labels outer dimension as data length
+        categorical_label = np.zeros(dlen)  # Categorical label translation result vector
         categorical_label_dset = group.create_dataset(name='label',
                                                       shape=dlen,
                                                       dtype=np.float32)
+
+        # For every sample, there are n possible label mappings, only one can be used per sample
+        # Preallocate, reuse vector for speed
+        sample_labels = np.zeros(len(ground_truth_to_label_fns))
         for i in range(0, dlen):
-            categorical_label[i] = mapping_fn(ground_truth[i])
+            sample_label_was_interpreted = False
+            for j, (ground_truth_dataset_name, mapping_fn) in enumerate(ground_truth_to_label_fns):
+                sample_label_value = ground_truths[ground_truth_dataset_name][i]
+                if len(sample_label_value) > 0:
+                    sample_labels[j] = mapping_fn(sample_label_value)
+                    if not sample_label_was_interpreted:
+                        sample_label_was_interpreted = True
+                    else:
+                        raise ValueError(f'Multiple, possibly ambiguous label mappings at idx {i},\
+{[val[i] for val in list(ground_truths.values())]}')
+            if not sample_label_was_interpreted:
+                raise ValueError(f'Sample label was never interpreted by any mapping_fn,\
+sample idx {i}, {[val[i] for val in list(ground_truths.values())]}')
+            sample_label = np.sum(sample_labels, axis=None)
+            sample_label = np.clip(sample_label, a_min=0.0, a_max=1.0)
+            categorical_label[i] = sample_label
+            sample_labels = [0, 0, 0]  # Reset
         categorical_label_dset[:] = categorical_label
         hd5_out_file.flush()
         hd5_out_file.close()
@@ -536,8 +582,11 @@ class Dataset:
                                                        mask_function=self._mask_use_only_clinvar_benign_pathogenic)
         self._postprocess_ground_truth(hd5_file_path=self.out_file_path,
                                        group_name=group_name,
-                                       ground_truth_dataset_name='CLINVAR_GROUND_TRUTH',
-                                       mapping_fn=self._clinvar_ground_truth_to_categorical_label)
+                                       ground_truth_to_label_fns=[
+                                           ('CLINVAR_GROUND_TRUTH', self._clinvar_ground_truth_to_categorical_label),
+                                           ('GIAB_GROUND_TRUTH', self._giab_ground_truth_to_categorical_label),
+                                           ('MUTACC_GROUND_TRUTH', self._mutacc_ground_truth_to_categorical_label)
+                                       ])
         self._split_to_train_test_sets(hd5_file_path=self.out_file_path,
                                        group_name=group_name,
                                        ratio_test=0.25)
