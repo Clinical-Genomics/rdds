@@ -19,7 +19,8 @@ subparser = subparsers.add_parser('concat-vcfs', help='Concatenate VCFs to a sin
 subparser.add_argument('vcfs', nargs='+', help='List of paths to VCFs separated by ,')
 subparser.set_defaults(func=lambda args: VCFDataSet().concat_datasets(args.vcfs))
 
-subparser = subparsers.add_parser('compile-vcf', help='Compile a .vcf to .hd5 file')
+subparser = subparsers.add_parser('compile-vcf',
+                                   help='Compile a .vcf to .hd5 file. All of VCF dataset must fit in available RAM.')
 subparser.add_argument('vcf', help='Path to VCF file')
 subparser.add_argument('--dataset-file-name', default='dataset-%s.hdf5' % int(time()), help='output file name')
 subparser.add_argument('--n-workers', default=os.cpu_count(), help='Maximum amount of concurrent workers (processes) allowed')
