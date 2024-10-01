@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from re import match, Match
 from os import remove
 import re
+from math import isclose
 
 from rdds.lib.resource_usage import ProcessResourceUsage
 from rdds.lib.vcf import VCFReader, Variant
@@ -20,6 +21,7 @@ from rdds.lib.vcf import ParsableVariant
 from .clinvar_label_mapping import CLINVAR_CLNSIG_DROP_LABELS, CLINVAR_LABEL_MAPPING
 from .giab_label_mapping import GIAB_LABEL_MAPPING
 from .mutacc_label_mapping import MUTACC_LABEL_MAPPING
+from .label_to_dataset_mapping import DATASET_TYPE, LABEL_TO_DATASET_MAPPING
 
 # Types definitions
 info_meta_field = Dict[str, str]
@@ -534,34 +536,100 @@ sample idx {i}, {[val[i] for val in list(ground_truths.values())]}')
         return masked_group_name
 
     @staticmethod
-    def _split_to_train_test_sets(hd5_file_path: str,
-                                  group_name: str,
-                                  ratio_test: float):
+    def _compute_sample_origin_fn(position_idx: int,
+                                  dataset_names: List[str],
+                                  datasets: Dict[str, h5py.Dataset]) -> DATASET_TYPE:
         """
-        Split group_name into two new groups /train and /test transferring
-        all datasets.
-
-        Data samples are randomly selected from the datasets.
-
-        :param hd5_file_path: The HD5 file to work with
-        :param group_name: The group to be split (all datasets are transferred)
-        :param ratio_test: The ratio of the test dataset [0, 1].
-        :return:
+        :param position_idx: Sample index, to be computed
+        :param dataset_names: List of hd5py group members containing bytestring labels.
+            Refer to LABEL_TO_DATASET_MAPPING for allowed values.
+        :param datasets: A dict[dataset_name: dataset] containing the data
+        :return DATASET_TYPE:
         """
+        dataset_type: DATASET_TYPE = None
+        for column_name in dataset_names:
+            if len(datasets[column_name][position_idx]) > 0:  # Non-empty bytestring considered MATCH
+                if dataset_type is None:
+                    dataset_type: DATASET_TYPE = LABEL_TO_DATASET_MAPPING[column_name.replace('_GROUND_TRUTH', '')]
+                else:
+                    raise ValueError(
+                        f'Multiple source assignments for sample {position_idx}, {column_name}, {dataset_type}')
+        if dataset_type is None:
+            raise ValueError(f'Unable to deduce dataset source for sample {position_idx}')
+        return dataset_type
+
+    @staticmethod
+    def _split_to_train_test_based_on_data_source(hd5_file_path: str,
+                                                  group_name: str,
+                                                  ratio_test: float,
+                                                  label_column_names: List[str],
+                                                  compute_sample_origin_fn: Callable):
+        """
+        Based on the origin of the sample, it place it in either train or test set.
+
+        Sample origin are inferred from compute_sample_origin_fn.
+
+        This is done to avoid data leakage.
+
+        :param hd5_file_path: Path to HD5 file
+        :param group_name: Name of group where data resides and to split
+        :param ratio_test: Float in range [0, 0.5]
+        :param label_column_names: Are names in group_name containing the data to be fed to Callable.
+        :param compute_sample_origin_fn: Tuple containing ([COLUMN_NAMES, ...], Callable).
+            compute_sample_origin_fn function with signature arguments:
+            (position_idx: int, dataset_names: List[str], datasets: Dict[str, h5py.Dataset])
+        """
+
+        if ratio_test > 0.5:
+            raise ValueError(f'Expected a test set that is smaller than the train set')
+
         hd5_out_file = h5py.File(hd5_file_path, 'r+')
         group: h5py.Group = hd5_out_file[group_name]
+        labels: Dict[str, h5py.Dataset] = dict()
+        for column_name in label_column_names:
+            labels.update({column_name: group[column_name][:]})  # Load labels into RAM for performance
 
-        # Setup array with sample index that will be split into train, test
+        # Initialize range of samples and shuffle data
         dlen = group[list(group.keys())[0]].shape[0]
         sample_idx = np.arange(0, dlen)
         rng: np.random.Generator = np.random.default_rng(seed=0)
         rng.shuffle(sample_idx)
-        split_idx: int = int(np.ceil(ratio_test * dlen))
-        sample_idxs_test: np.ndarray = np.sort(sample_idx[0:split_idx])
-        sample_idxs_train: np.ndarray = np.sort(sample_idx[split_idx:])
 
+        # Allocate samples based on dataset origin (data leakage prevention)
+        train_set_idx: List[int] = []
+        test_set_idx: List[int] = []
+        unmapped_set_idx: List[int] = []  # Samples that can belong to any set
+        for i in sample_idx:
+            dataset_type: DATASET_TYPE = compute_sample_origin_fn(position_idx=i,
+                                                                  dataset_names=label_column_names,
+                                                                  datasets=labels)
+            if dataset_type == DATASET_TYPE.TRAIN:
+                train_set_idx.append(i)
+            elif dataset_type == DATASET_TYPE.TEST:
+                test_set_idx.append(i)
+            elif dataset_type == DATASET_TYPE.BOTH:
+                unmapped_set_idx.append(i)
+            else:
+                raise ValueError(f'Unknown DATASET type: {dataset_type}, expected {DATASET_TYPE}')
+
+        # Allocate unmapped samples based on desired test set data size
+        expected_samples_test: int = int(np.ceil(ratio_test * dlen))
+        for i in unmapped_set_idx:
+            # For every unallocated sample, add it to test set if it's not of expected size. Remainder goes to train.
+            if len(test_set_idx) < expected_samples_test:
+                test_set_idx.append(i)
+            else:
+                train_set_idx.append(i)
+
+        final_test_set_ratio = float(len(test_set_idx)) / float(dlen)
+        if not isclose(final_test_set_ratio, ratio_test, abs_tol=1E-2):
+            print(f'WARNING: Test set not expected size: {100 * final_test_set_ratio:.2f} % (desired {100*ratio_test:.2f}')
+
+        # Create train, test data sets and distribute data
+        train_set_idx = np.sort(train_set_idx)
+        test_set_idx = np.sort(test_set_idx)
         datasets_to_split: List[str] = list(group.keys())
-        for group_name, dataset_idx in zip(['train', 'test'], [sample_idxs_train, sample_idxs_test]):
+        for group_name, dataset_idx in zip(['train', 'test'], [train_set_idx, test_set_idx]):
             group_split = hd5_out_file.create_group(name=group_name)
             for dataset_name in datasets_to_split:
                 group_split.create_dataset(name=dataset_name,
@@ -571,6 +639,9 @@ sample idx {i}, {[val[i] for val in list(ground_truths.values())]}')
                 group_split[dataset_name][:] = data[dataset_idx]
         hd5_out_file.flush()
         hd5_out_file.close()
+
+        print(f'Dataset split config: {LABEL_TO_DATASET_MAPPING}')
+        print(f'Dataset split: train={len(train_set_idx) / dlen:.2f}, test={len(test_set_idx)/dlen:.2f}')
 
     def compile(self,
                 vcf_file: str):
@@ -587,9 +658,13 @@ sample idx {i}, {[val[i] for val in list(ground_truths.values())]}')
                                            ('GIAB_GROUND_TRUTH', self._giab_ground_truth_to_categorical_label),
                                            ('MUTACC_GROUND_TRUTH', self._mutacc_ground_truth_to_categorical_label)
                                        ])
-        self._split_to_train_test_sets(hd5_file_path=self.out_file_path,
-                                       group_name=group_name,
-                                       ratio_test=0.25)
+        self._split_to_train_test_based_on_data_source(hd5_file_path=self.out_file_path,
+                                                       group_name=group_name,
+                                                       ratio_test=0.25,
+                                                       label_column_names=['CLINVAR_GROUND_TRUTH',
+                                                                           'MUTACC_GROUND_TRUTH',
+                                                                           'GIAB_GROUND_TRUTH'],
+                                                       compute_sample_origin_fn=self._compute_sample_origin_fn)
         print(f'Dataset {self.out_file_path} generation complete')
         print(f'Took {datetime.now() - time_start}')
 
