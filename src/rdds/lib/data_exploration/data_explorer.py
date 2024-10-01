@@ -64,6 +64,7 @@ class DataExplorationException(Exception): pass
 class DataNotFoundException(DataExplorationException): pass
 class NonNumericalDataException(DataExplorationException): pass
 class NonTextualDataException(DataExplorationException): pass
+class TooHighCardinalityException(DataExplorationException): pass
 
 
 class DataExplorer:
@@ -79,12 +80,14 @@ class DataExplorer:
                  data_set_names: List[str] = ['train', 'test'],
                  ground_truth_feature_name: str = 'label',
                  view_plot_immediately: bool = False,
-                 fig_size: Tuple[int, int] = (25, 10)):
+                 fig_size: Tuple[int, int] = (25, 10),
+                 vocabulary_occurrence_max_unique_word_count: int = 500):
         """
         NOTE: Upon initialisation, this class will clear _WORKSPACE from images.
 
         :param hd5_file_path: File path to HDF5 file to analyse
         :param data_set_names: List of hdf5 groups to analyze
+        :param vocabulary_occurrence_max_unique_word_count: Only view features with less than N unique words.
         """
         self._hd5_file_path = hd5_file_path
         self._hd5_file = h5py.File(self._hd5_file_path, 'r')
@@ -94,6 +97,7 @@ class DataExplorer:
         self._ground_truth_feature_name = ground_truth_feature_name
         self._view_plot_immediately = view_plot_immediately
         self._fig_size = fig_size
+        self._vocab_occurrence_max_word_count = vocabulary_occurrence_max_unique_word_count
 
         try:
             os.mkdir(_WORKDIR)
@@ -375,8 +379,11 @@ class DataExplorer:
                                                   group_name=data_set_name)
                     data_set_size: float = float(int(len(feature_data)))
                     self._is_textual_data(feature_data=feature_data)
-                    unique_words_or_sentences: Set[byte] = set(feature_data)  # Might contain single, multiple words
-                    unique_labels: Set[byte] = set(labels)
+                    unique_words_or_sentences: Set[bytes] = set(feature_data)  # Might contain single, multiple words
+                    if len(unique_words_or_sentences) > self._vocab_occurrence_max_word_count:
+                        raise TooHighCardinalityException(f'Feature {data_set_name}/{feature_name} '
+                                                          f'contains {len(unique_words_or_sentences)} unique words. '
+                                                          f'limit={self._vocab_occurrence_max_word_count}')
                     for word_sentence in unique_words_or_sentences:
                         df_counts: pd.DataFrame = self._count_word_occurrence(word=word_sentence, data=feature_data, labels=labels)
                         df_counts['dataset'] = data_set_name
@@ -388,6 +395,9 @@ class DataExplorer:
                             complete_data_frame = pd.concat((complete_data_frame, df_counts), axis=0)
             except (NonTextualDataException) as e:
                 _LOGGER.debug(f'No word occurence for {feature_name}: {e}')
+                continue
+            except(TooHighCardinalityException) as e:
+                _LOGGER.info(f'Not visualizing feature due to {e}')
                 continue
 
             # Assemble a mixed column of dataset-label to allow grouping
