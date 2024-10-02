@@ -409,12 +409,14 @@ class DataExplorer:
                          hue=complete_data_frame.dataset_labels,
                          errorbar=None,
                          ax=ax)
+            ax.tick_params(axis='x', labelrotation=45)
             suptitle: str = f'{feature_name} word count'
             suptitle += '\nas % of dataset)' if as_percentage_of_dataset_size else ''
             plt.suptitle(suptitle)
             fname: str = f'{os.path.join(_WORKDIR, feature_name)}-word-occurrence.png'
             fname = fname.replace('.png', '-normalized.png') if as_percentage_of_dataset_size else fname
             plt.savefig(fname=fname)
+            complete_data_frame.to_csv(path_or_buf=fname.replace('.png', '.csv'))
             if self._view_plot_immediately:
                 plt.show()
 
