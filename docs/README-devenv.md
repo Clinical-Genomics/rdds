@@ -50,10 +50,10 @@ your repo on hasta, `[REPO_ROOT]/tmp/devenv/rdds[FLAVOR_VERSION].sif`.
 
 ### Starting Environment
 1. Login to `hasta`
-1. On hasta, start development environment by `sbatch build/devenv/devenv.slurm`
+1. On hasta, start development environment by `make devenv-slurm-ubuntu_20_04-singularity-sshd`
 2. Find what node the job runs on: `squeue -u $USER`
    To have the DNS name for this node, append `.local` to the node name, e.g `compute-0-6.local`.
-3. Forward the SSH port to your local machine, eg `ssh -N -L 2150:compute-0-6.local:2150`
+3. Forward the SSH port to your local machine, eg `ssh -N -L 2150:compute-0-6.local:2150 hasta`
 4. Login to container using `make devenv-ssh`
 
 ## Known Issues and Quirks
