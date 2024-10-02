@@ -82,7 +82,7 @@ devenv-%-convert-dockerimage-to-singularity:
 	singularity build -F tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}-$(VERSION).sif docker-archive://tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}-$(VERSION).tar
 	rm -f tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}-$(VERSION).tar
 
-devenv-%-singularity-sshd:
+devenv-local-%-singularity-sshd:
 	# Start singularity development image locally
 	# Use --fakeroot to start as uid 0 and -w (required for sshd)
 	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
@@ -90,6 +90,12 @@ devenv-%-singularity-sshd:
 	SINGULARITY_CACHEDIR=$(SINGULARITY_CACHEDIR_DEVENV) singularity exec --nv -w \
 	--fakeroot --no-home --cleanenv --contain --containall \
 	-B $(PWD):/rdds tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}-$(VERSION).sif /entrypoint.sh
+
+devenv-slurm-%-singularity-sshd:
+	# Start singularity development on SLURM
+	# Example: make devenv-slurm-ubuntu_20_04-singularity-sshd
+	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
+	SIF_IMAGE_PATH=tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}-${VERSION}.sif sbatch job.slurm /entrypoint.sh
 
 docker-clean-images:
 	# Remove all docker dangling images and stopped containers
