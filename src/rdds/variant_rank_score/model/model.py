@@ -294,7 +294,7 @@ class VariantRankScoreModel:
                                                                                 output_signature=input_signature)
         dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
-        dataset_train = dataset_train.shuffle(buffer_size=int(hd5_data_generator_train.data_length),
+        dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
                                               seed=1)  # FIXME: Seed
         #dataset_train = rejection_resample(dataset=dataset_train,
         #                                   desired_class_ratio=[0.5, 0.5],
@@ -311,7 +311,7 @@ class VariantRankScoreModel:
                                                                                output_signature=input_signature)
         dataset_test = dataset_test.cache()
         dataset_test = dataset_test.repeat(-1)
-        dataset_test = dataset_test.shuffle(buffer_size=int(hd5_data_generator_test.data_length),
+        dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
                                             seed=1)  # FIXME: Seed
         #dataset_test = rejection_resample(dataset=dataset_test,
         #                                  desired_class_ratio=[0.5, 0.5],
