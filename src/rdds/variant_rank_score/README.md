@@ -102,6 +102,12 @@ Enable the hyperparameter tuning flag when running training, example:
 python3 -m rdds.variant_rank_score train /rdds/tmp/variant-rank-score/clinvar.hd5 --tune-hyperparams=1
 ```
 
+## Run Inference on VCF
+See the `predict-on-vcf` command.
+
+Recommended CPU, RAM configuration is 10 cores and 150GB
+of RAM.
+
 ## Inspecting Model Performance
 ```bash
 python3 -m rdds.variant_rank_score inference_exploration [KERAS_MODEL_PATH] [HD5_TRAIN_TEST_FILE_PATH]
