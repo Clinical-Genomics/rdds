@@ -1,4 +1,15 @@
-# Hasta GPUs
+# Hasta
+
+## Submitting Multiple Jobs To Hasta
+
+```bash
+export SIF_IMAGE_PATH=tmp/devenv/[IMAGE_VERSION]
+for dir in `find -name "[REGEX]"`; do
+  sbatch --test-only job.slurm [PYTHON_CMD];
+done
+```
+
+## Hasta GPUs
 This is the current native Hasta `gpu-compute-0-0`, `gpu-compute-0-1` node set-up:  
 `Tesla V100-PCIE-32GB`
 running on a kernel version
