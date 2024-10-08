@@ -82,7 +82,7 @@ class VariantRankScoreModel:
         self._features_text: List[str] = features_text
         self._features_numerical = features_numerical
         self._features: List[str] = self._features_text + self._features_numerical
-        print(f'Total amount of features: {len(self._features)}')
+        _LOGGER.info(f'Total amount of features: {len(self._features)}')
         self._embedding_dimensions: int = embedding_dimensions
         self._vocabulary_file_path = vocabulary_file_path
         self._numerical_normalisation_weights_file_path = numerical_normalisation_weights_file_path
@@ -132,8 +132,8 @@ class VariantRankScoreModel:
         text_vectorization_layer.adapt(dataset=preprocessed_dataset,
                                        embedding_dimensions=self._embedding_dimensions,
                                        embeddings_regularizer=feature_selection_regularizer)
-        print(f'Vocabulary length: {len(text_vectorization_layer.vocabulary)} words')
-        print(text_vectorization_layer.vocabulary)
+        _LOGGER.info(f'Vocabulary length: {len(text_vectorization_layer.vocabulary)} words')
+        _LOGGER.info(text_vectorization_layer.vocabulary)
         text_vectorization_layer.save_vocabulary_to_file(file_path=os.path.join(self._train_log_dir, 'vocabulary.txt'))
         embeddings = text_vectorization_layer(input_text_preprocessed)  # -> [bdim, n_features, n_words, n_embeddings]
 
@@ -171,11 +171,11 @@ class VariantRankScoreModel:
         numerical_branch = tf.keras.layers.Dense(units=84, activation='relu', kernel_regularizer=None)(numerical_branch)
         complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
                                                                                               numerical_branch])
-        print('Feature vector shape', complete_feature_vector.get_shape())
+        _LOGGER.info(f'Feature vector shape {complete_feature_vector.get_shape()}')
 
         # Autoencoder dense layer
         activation = 'relu'
-        print('length feature vector', len(self._features))
+        _LOGGER.info(f'length feature vector {len(self._features)}')
         units = 512
         delta = int(np.floor(0.1 * units))
         body = tf.keras.layers.Dense(units=units,
@@ -318,7 +318,7 @@ class VariantRankScoreModel:
         #                                  seed=1)
         dataset_test = dataset_test.batch(batch_size)
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
-        print(f'Model Input data mapping: {input_signature}')
+        _LOGGER.info(f'Model Input data mapping: {input_signature}')
         self._build(text_dataset=dataset_vocabulary,
                     numerical_dataset=dataset_numerical)
 
@@ -338,10 +338,10 @@ class VariantRankScoreModel:
             :param epoch: Current epoch
             :param logs: Dictionary of batch statistics
             """
-            print(epoch, logs)
+            _LOGGER.info(epoch, logs)
             # TODO: Save not into keras format but into TF native
             filepath = self._train_log_dir + '/saved-models/%d-%.2f.savedmodel' % (epoch, logs['val_loss'])
-            print(f'Saving model to {filepath}')
+            _LOGGER.info(f'Saving model to {filepath}')
             self._keras_model.save(filepath=filepath,
                                    save_format='tf')
 
@@ -385,8 +385,8 @@ class VariantRankScoreModel:
         # Fails in kwargs referenced before assignment, deep inside keras lib
         # self._keras_model = tf.keras.models.load_model(filepath=model_path)
         model = tf.saved_model.load(model_path)
-        print(f'Model input: {model.signatures["serving_default"].structured_input_signature}')
-        print(f'Model output: {model.signatures["serving_default"].outputs}')
+        _LOGGER.info(f'Model input: {model.signatures["serving_default"].structured_input_signature}')
+        _LOGGER.info(f'Model output: {model.signatures["serving_default"].outputs}')
         self._tf_model = model  # FIXME: Don't hack it like this, load to self._keras_model
 
     def predict(self, input_data: Dict[str, np.ndarray]) -> np.ndarray:
@@ -440,6 +440,6 @@ class VariantRankScoreModel:
                 formatted += f'{r.numpy()[batch_idx, 1]}\n'
                 output_file.write(formatted)
                 processed_samples += 1
-            print("%.2f" % (100.0 * (processed_samples / nr_samples)))
+            _LOGGER.info("%.2f" % (100.0 * (processed_samples / nr_samples)))
             output_file.flush()
         output_file.close()
