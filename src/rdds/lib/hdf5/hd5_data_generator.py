@@ -53,10 +53,12 @@ class Hd5DataGenerator:
         self._group: h5py.Group = self._hd5_file[self._group_name]
         if load_data_into_ram:
             # Load all data into RAM as numpy arrays.
+            _LOGGER.info(f'Loading data to RAM.')
             in_ram_group: Dict[str, np.ndarray] = {}  # Mock the Group dictionary API by using a dict
             for dataset_name in self._group.keys():
                 in_ram_group.update({dataset_name: self._group[dataset_name][:]})
             self._group: Dict[str, np.ndarray] = in_ram_group
+            _LOGGER.info('RAM loading complete.')
 
         if not output_tensor_format:
             # TODO: Deterministic output format
