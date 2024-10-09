@@ -20,6 +20,8 @@ from rdds.lib.tf import InstanceNormalisationLayer
 from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
 
+tf.debugging.enable_check_numerics()  # Raises exception on +/- INF and NaNs in tensors
+
 """
 NOTE!
 Always make sure to keep a reference to all layers created in the model, i.e.
