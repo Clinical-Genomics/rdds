@@ -230,9 +230,10 @@ class VariantRankScoreModel:
             Wrapper function to inspect loss function.
             """
             y, = y  # unpack tuple
-            #x = tfprint(x, 'x')
-            #y_pred = tfprint(y_pred, 'y_pred')
-            #y = tfprint(y, 'y')
+            # Uncomment below to view input data, labels and predictions in raw format
+            #x = print_tensor_op(x, 'x', 5)
+            #y_pred = print_tensor_op(y_pred, 'y_pred')
+            #y = print_tensor_op(y, 'y')
             return self._keras_model.default_loss(x, y, y_pred, sample_weight)
 
         self._keras_model.default_loss = self._keras_model.compute_loss  # Save loss computation method as default_loss
