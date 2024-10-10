@@ -1,7 +1,8 @@
 from fixtures.text_vectorization import (
     work_dir,
     word_dataset,
-    vocabulary_file
+    vocabulary_file,
+    feature_columns_dataset
     )
 
 from fixtures.hdf5_data import (

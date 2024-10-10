@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 import tempfile
 import shutil
@@ -25,6 +26,31 @@ def word_dataset() -> tf.data.Dataset:
     """
     words: List[str] = ['SomeSPLITMEnicely', 'formatted', 'sentence']
     return tf.data.Dataset.from_tensor_slices(words)
+
+
+@pytest.fixture()
+def feature_columns_dataset() -> tf.data.Dataset:
+    # Two textual features with varying length contents depending on data row
+    # 10 rows of data
+    # Dataset yields one tensor with shape [BATCH_SIZE, N_FEATURES] = [4, 2]
+    x = [
+        ['first feature', 'next_feature'],
+        ['bar', 'that contains some new data'],
+        ['cat', 'with a'],
+        ['jazz sense', '4th data row!'],
+        ['lots of glitter', ''],
+        ['cake and champagne', 'that\'s'],
+        ['pretty nice', 'coming'],
+        ['to an end', ''],
+        ['this is', 'the'],
+        ['', 'end.']
+    ]
+    x = np.asarray(x)
+    x = tf.constant(x)
+    x = tf.RaggedTensor.from_tensor(x)
+    dataset = tf.data.Dataset.from_tensor_slices(x)
+    dataset = dataset.batch(4)
+    return dataset
 
 
 @pytest.fixture
