@@ -20,6 +20,7 @@ class TextVectorizationLayer:
     """
 
     def __init__(self,
+                 embedding_dimensions: int = 1,
                  name: str = None,
                  precompiled_vocabulary_file: str = None):
         """
@@ -29,6 +30,7 @@ class TextVectorizationLayer:
         if not name:
             name = constants.TEXT_VECTORIZATION_LAYER_NAME
         self._name = name
+        self._embedding_dimensions = embedding_dimensions
         self._precompiled_vocabulary_file = precompiled_vocabulary_file
         self._vocabulary_layer: tf.keras.layers.StringLookup = \
             tf.keras.layers.StringLookup(max_tokens=None,
@@ -40,9 +42,12 @@ class TextVectorizationLayer:
         self._vocabulary_size: int = None
         self._embeddings_layer: tf.keras.layers.Embedding = None
 
+    @property
+    def embedding_dimension(self) -> int:
+        return self._embedding_dimensions
+
     def adapt(self,
               dataset: tf.data.Dataset = None,
-              embedding_dimensions: int = 1,
               embeddings_regularizer: tf.keras.regularizers.Regularizer = None):
         """
         "Train" vocabulary using dataset. Construct embeddings for words in dictionary.
@@ -62,7 +67,7 @@ class TextVectorizationLayer:
         self._vocabulary = self._vocabulary_layer.get_vocabulary(include_special_tokens=True)
         self._vocabulary_size = len(self._vocabulary)
         self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
-                                                           output_dim=embedding_dimensions,
+                                                           output_dim=self._embedding_dimensions,
                                                            embeddings_regularizer=embeddings_regularizer,
                                                            name=f'{self._name}{constants.EMBEDDINGS_LAYER_NAME_SUFFIX}')
         LOGGER.info(f'Creating vocabulary took {datetime.now() - time_start}')
@@ -72,9 +77,13 @@ class TextVectorizationLayer:
         For ragged_tensor, lookup words in vocabulary and return word embeddings for this tensor.
         :param ragged_tensor: Tensor containing words
         :return: Embedding matrix for words in ragged_tensor
+
+        NOTE: This method should NOT be called as the first layer in a model, with tf.keras.Input as ragged_tensor
         """
         vocabulary_indices: tf.RaggedTensor = self._vocabulary_layer(ragged_tensor)
-        return self._embeddings_layer(vocabulary_indices)
+        embeddings: tf.RaggedTensor = self._embeddings_layer(vocabulary_indices)
+
+        return embeddings
 
     @property
     def vocabulary(self) -> List[str]:
