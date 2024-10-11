@@ -153,10 +153,6 @@ class VariantRankScoreModel:
         numerical_normalisation_layer.save_weights_to_file(file_path=normalisation_weights_file_path)
         _LOGGER.info(f'Saved normalisation weights to {normalisation_weights_file_path}')
 
-        # Automagically convert empty Ragged dimensions to zero-padded Tensors.
-        # Required because reduce_prod adds 1.0 to empty Ragged dimensions.
-        embeddings = embeddings.to_tensor()
-
         # Reduce dimensions by computing the maximum of all words per every feature vector
         # This is an permutation invariant downsampling method for the embeddings
         embeddings = tf.math.reduce_max(embeddings, axis=2, keepdims=True)  # -> [bdim, n_features, 1, n_embeddings]
