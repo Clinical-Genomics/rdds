@@ -37,3 +37,20 @@ def test_preprocessing_layer_multi_tensor():
     assert t0.numpy()[0][0] == b'foo'
     assert t1.shape == (1, None)
     assert t1.numpy()[0][1] == b'cat'
+
+
+def test_text_preprocessing_saving(work_dir):
+    """
+    Test for serializing and saving TextPreprocessingLayer
+    """
+    # GIVEN a model with TextPreprocessingLayer
+    input = tf.keras.Input(shape=(1,), dtype=tf.string, name='strinput')
+    text_preprocessing_layer = TextPreprocessingLayer(split_regex='splitme')
+    output = text_preprocessing_layer(input)
+    model = tf.keras.Model(input, output)
+    model.compile()
+    # WHEN serializing it for saving
+    # THEN expect it to succeed
+    tf.keras.models.Model.from_config(model.get_config())
+    model.save(filepath=work_dir)
+    tf.keras.saving.load_model(work_dir)
