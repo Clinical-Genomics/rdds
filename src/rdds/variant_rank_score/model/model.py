@@ -202,6 +202,7 @@ class VariantRankScoreModel:
         self._keras_model = tf.keras.Model(inputs=[input_text, input_numerical],
                                            outputs=confidences)
 
+        @tf.keras.saving.register_keras_serializable()
         def loss_fn(y_true, y_pred) -> tf.Tensor:
             c = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False)
             return c
