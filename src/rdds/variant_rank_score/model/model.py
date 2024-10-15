@@ -14,7 +14,7 @@ from rdds.lib.logging import get_logger
 from rdds.lib.hdf5 import Hd5DataGenerator
 from rdds.lib.tf import get_tf_dataset_from_hd5_data_generator
 from rdds.lib.tf import TextPreprocessingLayer
-from rdds.lib.tf import TextVectorizationLayer
+from rdds.lib.tf import EmbeddingsReductionLayer
 from rdds.lib.tf import DnaSequenceTrimmer
 from rdds.lib.tf import InstanceNormalisationLayer
 from rdds.lib.tf import rejection_resample
@@ -127,17 +127,18 @@ class VariantRankScoreModel:
         feature_selection_regularizer = tf.keras.regularizers.L1(0.00001)  # L1 regularizer to perform feature selection
 
         # Text vectorization
-        text_vectorization_layer: TextVectorizationLayer = \
-            TextVectorizationLayer(precompiled_vocabulary_file=self._vocabulary_file_path)
+        embeddings_layer: EmbeddingsReductionLayer = \
+            EmbeddingsReductionLayer(precompiled_vocabulary_file=self._vocabulary_file_path,
+                                     embedding_dimensions=self._embedding_dimensions)
         if self._vocabulary_file_path is not None:
             preprocessed_dataset = None  # Don't recompute the vocabulary
-        text_vectorization_layer.adapt(dataset=preprocessed_dataset,
-                                       embedding_dimensions=self._embedding_dimensions,
-                                       embeddings_regularizer=feature_selection_regularizer)
-        _LOGGER.info(f'Vocabulary length: {len(text_vectorization_layer.vocabulary)} words')
-        _LOGGER.info(text_vectorization_layer.vocabulary)
-        text_vectorization_layer.save_vocabulary_to_file(file_path=os.path.join(self._train_log_dir, 'vocabulary.txt'))
-        embeddings = text_vectorization_layer(input_text_preprocessed)  # -> [bdim, n_features, n_words, n_embeddings]
+        embeddings_layer.adapt(dataset=preprocessed_dataset,
+                               embeddings_regularizer=feature_selection_regularizer)
+        _LOGGER.info(f'Vocabulary length: {len(embeddings_layer.vocabulary)} words')
+        _LOGGER.info(embeddings_layer.vocabulary)
+        embeddings_layer.save_vocabulary_to_file(file_path=os.path.join(self._train_log_dir, 'vocabulary.txt'))
+        # Lookup embeddings and perform word reduction
+        embeddings = embeddings_layer(input_text_preprocessed)  # -> [bdim, n_features, n_words=1, n_embeddings]
 
         # Numerical preprocessing
         numerical_normalisation_layer = InstanceNormalisationLayer(axis=-1,
@@ -152,10 +153,6 @@ class VariantRankScoreModel:
         normalisation_weights_file_path: str = os.path.join(self._train_log_dir, 'normalisation.tar')
         numerical_normalisation_layer.save_weights_to_file(file_path=normalisation_weights_file_path)
         _LOGGER.info(f'Saved normalisation weights to {normalisation_weights_file_path}')
-
-        # Reduce dimensions by computing the maximum of all words per every feature vector
-        # This is an permutation invariant downsampling method for the embeddings
-        embeddings = tf.math.reduce_max(embeddings, axis=2, keepdims=True)  # -> [bdim, n_features, 1, n_embeddings]
 
         # Flatten word vector to -> [bdim, n_features * n_embeddings]
         embeddings_flat = tf.reshape(embeddings, (-1, len(self._features_text) * self._embedding_dimensions))
