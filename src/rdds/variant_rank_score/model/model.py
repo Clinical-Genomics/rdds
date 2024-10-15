@@ -332,16 +332,15 @@ class VariantRankScoreModel:
 
         def save_model_fn(epoch: int, logs=Optional[dict]):
             """
-            Saves model to TF saved-model format.
+            Saves model to Keras saved model format
             :param epoch: Current epoch
             :param logs: Dictionary of batch statistics
             """
             _LOGGER.info(epoch, logs)
-            # TODO: Save not into keras format but into TF native
-            filepath = self._train_log_dir + '/saved-models/%d-%.2f.savedmodel' % (epoch, logs['val_loss'])
+            # NOTE: The suffix .keras is important to tf.keras.saving.load_model()
+            filepath = self._train_log_dir + '/saved-models/%d-%.4f.keras' % (epoch, logs['val_loss'])
             _LOGGER.info(f'Saving model to {filepath}')
-            self._keras_model.save(filepath=filepath,
-                                   save_format='tf')
+            self._keras_model.save(filepath=filepath)
 
         save_model_callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=save_model_fn)
 
@@ -375,17 +374,15 @@ class VariantRankScoreModel:
     def load_saved_model(self, model_path: str):
         """
         Load trained model from model_path
-        :param model_path: Path to TF saved model directory
-
-        # TODO: Use the VariantRankScoreModel.from_saved_model(path)
+        :param model_path: Path to Keras saved model (*.keras) zip file
         """
-        # FIXME: Load model with Keras native API, instead of TF saved model
-        # Fails in kwargs referenced before assignment, deep inside keras lib
-        # self._keras_model = tf.keras.models.load_model(filepath=model_path)
-        model = tf.saved_model.load(model_path)
-        _LOGGER.info(f'Model input: {model.signatures["serving_default"].structured_input_signature}')
-        _LOGGER.info(f'Model output: {model.signatures["serving_default"].outputs}')
-        self._tf_model = model  # FIXME: Don't hack it like this, load to self._keras_model
+        if self._keras_model is not None:
+            raise ValueError('The model already contains a loaded keras model!')
+        model = tf.keras.saving.load_model(model_path)
+        _LOGGER.info(f'Model input: {model.inputs}')
+        _LOGGER.info(f'Model output: {model.outputs}')
+        model.summary(line_length=160)
+        self._keras_model = model
 
     def predict(self, input_data: Dict[str, np.ndarray]) -> np.ndarray:
         """
@@ -428,7 +425,7 @@ class VariantRankScoreModel:
         for data, labels in dataset.as_numpy_iterator():
             label, = labels
             tensor_str, tensor_numerical = data
-            r = self._tf_model([tensor_str, tensor_numerical])
+            r = self._keras_model([tensor_str, tensor_numerical])
             batch_size = tensor_str.shape[0]
             for batch_idx in range(0, batch_size):
                 formatted = ''
