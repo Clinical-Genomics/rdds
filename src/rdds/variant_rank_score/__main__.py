@@ -38,9 +38,14 @@ subparser.set_defaults(func=lambda args: Hdf5Viewer(args.hd5)())
 
 subparser = subparsers.add_parser('train', help='Run model training')
 subparser.add_argument('hd5', help='Path to .hd5 file to be used as training, validation data')
+subparser.add_argument('--compile-vocabulary-normalisation-factors',
+                       help='Generate new vocabulary file and normalisation factors from supplied data',
+                       type=bool,
+                       default=False)
 def train(args):
     from .model import VariantRankScoreModel
-    VariantRankScoreModel().train(args.hd5)
+    VariantRankScoreModel().train(hd5_file_path=args.hd5,
+                                  compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors)
 subparser.set_defaults(func=train)
 
 subparser = subparsers.add_parser('predict', help='Load model and run inference on data')
