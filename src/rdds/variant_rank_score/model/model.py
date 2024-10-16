@@ -202,13 +202,6 @@ class VariantRankScoreModel:
         self._keras_model = tf.keras.Model(inputs=[input_text, input_numerical],
                                            outputs=confidences)
 
-        @tf.keras.saving.register_keras_serializable()
-        def loss_fn(y_true, y_pred) -> tf.Tensor:
-            c = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False)
-            return c
-
-        loss = loss_fn
-
         metrics = [tf.keras.metrics.TruePositives(),
                    tf.keras.metrics.TrueNegatives(),
                    tf.keras.metrics.FalsePositives(),
@@ -233,9 +226,15 @@ class VariantRankScoreModel:
         self._keras_model.default_loss = self._keras_model.compute_loss  # Save loss computation method as default_loss
         self._keras_model.compute_loss = loss_wrapper  # Replace model loss computation with wrapper
         self._keras_model.compile(optimizer=optimizer,
-                                  loss=loss,
+                                  loss=self.loss_fn,
                                   metrics=metrics)
         self._keras_model.summary(line_length=160)
+
+    @staticmethod
+    @tf.keras.saving.register_keras_serializable()
+    def loss_fn(y_true, y_pred) -> tf.Tensor:
+        c = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False)
+        return c
 
     @staticmethod
     def count_feature_types(hd5_output_dtypes: Dict[str, Type]) -> Tuple[int, int]:
