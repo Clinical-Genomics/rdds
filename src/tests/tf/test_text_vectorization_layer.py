@@ -122,8 +122,8 @@ def test_save_load_vocabulary_file(vocabulary_file):
     Test loading of precompiled vocabulary file.
     """
     # GIVEN a precompiled vocabulary file
-    text_vectorization_layer = TextVectorizationLayer(precompiled_vocabulary_file=vocabulary_file)
-    text_vectorization_layer.adapt()
     # WHEN building the layer
+    text_vectorization_layer = TextVectorizationLayer(precompiled_vocabulary_file=vocabulary_file)
     # THEN expect it to load the vocabulary file
     assert text_vectorization_layer.vocabulary == ['[UNK]', 'foo', 'bar']
+    assert text_vectorization_layer._embeddings_layer.get_config()['input_dim'] == 3

@@ -106,8 +106,12 @@ class VariantRankScoreModel:
         return text_feature_tensors
 
     def _build(self,
-               text_dataset: tf.data.Dataset,
-               numerical_dataset: tf.data.Dataset):
+               text_dataset: tf.data.Dataset = None,
+               numerical_dataset: tf.data.Dataset = None):
+        """
+        :param text_dataset: Optional datset to use for compiling vocabulary
+        :param numerical_dataset: Optional dataset to compile normalisation factors
+        """
         input_text: tf.keras.Input = tf.keras.Input(shape=len(self._features_text),
                                                     ragged=True,
                                                     dtype=tf.string,
@@ -118,24 +122,27 @@ class VariantRankScoreModel:
         # Text preprocessing
         split_regex = '\s|\n|_|&|/|\||:|,|-|0|1|2|3|4|5|6|7|8|9'
         text_preprocessing_layer = TextPreprocessingLayer(split_regex=split_regex)
-        preprocessed_dataset = text_dataset.map(map_func=text_preprocessing_layer)
+        preprocessed_dataset = \
+            text_dataset.map(map_func=text_preprocessing_layer) if text_dataset else None
         input_text_preprocessed = text_preprocessing_layer(input_text)  # -> [bdim, n_words, n_features]
         dna_sequence_trimmer_layer = DnaSequenceTrimmer()
-        preprocessed_dataset = preprocessed_dataset.map(map_func=dna_sequence_trimmer_layer)
+        preprocessed_dataset = \
+            preprocessed_dataset.map(map_func=dna_sequence_trimmer_layer) if preprocessed_dataset else None
         input_text_preprocessed = dna_sequence_trimmer_layer(input_text_preprocessed)  # tensor shape preserved
 
         feature_selection_regularizer = tf.keras.regularizers.L1(0.00001)  # L1 regularizer to perform feature selection
 
         # Text vectorization
+        precompiled_vocabulary_file = None if preprocessed_dataset else self._vocabulary_file_path
         embeddings_layer: EmbeddingsReductionLayer = \
-            EmbeddingsReductionLayer(precompiled_vocabulary_file=self._vocabulary_file_path,
-                                     embedding_dimensions=self._embedding_dimensions)
-        if self._vocabulary_file_path is not None:
-            preprocessed_dataset = None  # Don't recompute the vocabulary
-        embeddings_layer.adapt(dataset=preprocessed_dataset,
-                               embeddings_regularizer=feature_selection_regularizer)
+            EmbeddingsReductionLayer(precompiled_vocabulary_file=precompiled_vocabulary_file,
+                                     embedding_dimensions=self._embedding_dimensions,
+                                     embeddings_regularizer=feature_selection_regularizer)
+        if preprocessed_dataset:
+            embeddings_layer.adapt(dataset=preprocessed_dataset)
         _LOGGER.info(f'Vocabulary length: {len(embeddings_layer.vocabulary)} words')
         _LOGGER.info(embeddings_layer.vocabulary)
+        # Store vocabulary to training output dir
         embeddings_layer.save_vocabulary_to_file(file_path=os.path.join(self._train_log_dir, 'vocabulary.txt'))
         # Lookup embeddings and perform word reduction
         embeddings = embeddings_layer(input_text_preprocessed)  # -> [bdim, n_features, n_words=1, n_embeddings]
@@ -143,13 +150,16 @@ class VariantRankScoreModel:
         # Numerical preprocessing
         numerical_normalisation_layer = InstanceNormalisationLayer(axis=-1,
                                                                    name='NumericalNormalisation')
-        if numerical_dataset and not self._numerical_normalisation_weights_file_path:
+        # Make sure InstanceNormalisationLayer.build() is implicitly called before (potentially) loading weights.
+        # If not, number of internal weights are zero.
+        input_numerical_normalized = numerical_normalisation_layer(input_numerical)
+        if numerical_dataset:
             _LOGGER.info('Adapting normalisation layer from dataset')
             numerical_normalisation_layer.adapt_from_dataset(data=numerical_dataset)
-        input_numerical_normalized = numerical_normalisation_layer(input_numerical)
-        if self._numerical_normalisation_weights_file_path:
+        else:
             _LOGGER.info(f'Loading normalisation weights from file {self._numerical_normalisation_weights_file_path}')
             numerical_normalisation_layer.load_saved_weights_file(file_path=self._numerical_normalisation_weights_file_path)
+        # Store normalisation weights to training output dir
         normalisation_weights_file_path: str = os.path.join(self._train_log_dir, 'normalisation.tar')
         numerical_normalisation_layer.save_weights_to_file(file_path=normalisation_weights_file_path)
         _LOGGER.info(f'Saved normalisation weights to {normalisation_weights_file_path}')
@@ -256,19 +266,14 @@ class VariantRankScoreModel:
 
     def train(self,
               hd5_file_path: str,
+              compile_vocabulary_normalisation_factors: bool = True,
               batch_size=128):
 
         # Set up a training directory for this run
         self._train_log_dir = os.path.join(WORKDIR, 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         os.makedirs(self._train_log_dir)
 
-        # Training and vocabulary generation setup
-        hd5_data_generator_vocabulary: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
-                                                                           group_name='train',
-                                                                           output_tensor_format=[self._features_text])
-        hd5_data_generator_numerical: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
-                                                                           group_name='train',
-                                                                           output_tensor_format=self._features_numerical)
+        # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                       group_name='train',
                                                                       output_tensor_format=[self._features_text,
@@ -278,15 +283,6 @@ class VariantRankScoreModel:
         input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
                            tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
                            (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
-        # Text preprocessing dataset
-        input_signature_vocabulary = (tf.TensorSpec((n_text_features, ), dtype=tf.string, name='input_text_vocabulary'), )
-        dataset_vocabulary: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_vocabulary,
-                                                                                     output_signature=input_signature_vocabulary)
-        dataset_vocabulary = dataset_vocabulary.prefetch(buffer_size=1024)
-        # Numerical preprocessing dataset
-        input_signature_numerical_normalisation = tf.TensorSpec((n_numerical_features,), dtype=tf.float32, name='input_numerical_normalisation')
-        dataset_numerical: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_numerical,
-                                                                                    output_signature=input_signature_numerical_normalisation)
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
                                                                                 output_signature=input_signature)
         dataset_train = dataset_train.cache()
@@ -298,6 +294,32 @@ class VariantRankScoreModel:
         #                                   seed=1)
         dataset_train = dataset_train.batch(batch_size)
         dataset_train = dataset_train.prefetch(buffer_size=tf.data.AUTOTUNE)
+
+        # Vocabulary and normalisation setup
+        dataset_vocabulary: tf.data.Dataset = None
+        dataset_numerical: tf.data.Dataset = None
+        if compile_vocabulary_normalisation_factors:
+            _LOGGER.info('Compiling new vocabulary and normalisation factors')
+            # Text preprocessing
+            hd5_data_generator_vocabulary: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                                               group_name='train',
+                                                                               output_tensor_format=[self._features_text])
+            input_signature_vocabulary: Tuple[tf.TensorSpec] = \
+                (tf.TensorSpec((n_text_features,), dtype=tf.string, name='input_text_vocabulary'),)
+            dataset_vocabulary = get_tf_dataset_from_hd5_data_generator(
+                hd5_data_generator=hd5_data_generator_vocabulary,
+                output_signature=input_signature_vocabulary)
+            dataset_vocabulary = dataset_vocabulary.prefetch(buffer_size=1024)
+            # Numerical preprocessing
+            hd5_data_generator_numerical = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                            group_name='train',
+                                                            output_tensor_format=self._features_numerical)
+            input_signature_numerical_normalisation = \
+                tf.TensorSpec((n_numerical_features,), dtype=tf.float32, name='input_numerical_normalisation')
+            dataset_numerical: tf.data.Dataset = \
+                get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_numerical,
+                                                       output_signature=input_signature_numerical_normalisation)
+
         # Testing setup
         hd5_data_generator_test: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                      group_name='test',
