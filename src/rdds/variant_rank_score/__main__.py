@@ -44,7 +44,7 @@ def train(args):
 subparser.set_defaults(func=train)
 
 subparser = subparsers.add_parser('predict', help='Load model and run inference on data')
-subparser.add_argument('saved-model', help='Path to saved model directory')
+subparser.add_argument('saved_model', help='Path to saved model directory')
 subparser.add_argument('hd5', help='Path to .hd5 data file')
 def predict(args):
     from .model import VariantRankScoreModel
