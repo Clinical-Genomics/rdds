@@ -80,3 +80,4 @@ class InstanceNormalisationLayer(tf.keras.layers.Normalization):
             loaded_weights.append(np.load(weight_file))
         self.set_weights(loaded_weights)
         _LOGGER.info(f'Loaded weights from {file_path}')
+        _LOGGER.info(f'Normalisation weights:\n{self.weights}')
