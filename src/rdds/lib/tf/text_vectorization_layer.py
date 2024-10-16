@@ -20,12 +20,15 @@ class TextVectorizationLayer:
     """
 
     def __init__(self,
-                 embedding_dimensions: int = 1,
                  name: str = None,
-                 precompiled_vocabulary_file: str = None):
+                 embedding_dimensions: int = 1,
+                 precompiled_vocabulary_file: str = None,
+                 embeddings_regularizer: tf.keras.regularizers.Regularizer = None):
         """
         :param name: Layer name
+        :param embedding_dimensions: The shape of embedding matrix, [N_WORDS, embedding_dimensions]
         :param precompiled_vocabulary_file: A plain text file path with words to be used as vocabulary, separated by '\n'
+        :param embeddings_regularizer: Keras regularizer for this layer
         """
         if not name:
             name = constants.TEXT_VECTORIZATION_LAYER_NAME
@@ -38,39 +41,43 @@ class TextVectorizationLayer:
                                          output_mode='int',
                                          vocabulary=precompiled_vocabulary_file,
                                          name=f'{self._name}{constants.VOCABULARY_LAYER_NAME_SUFFIX}')
-        self._vocabulary: List[str] = None
         self._vocabulary_size: int = None
+        self._embeddings_regularizer: tf.keras.regularizers.Regularizer = embeddings_regularizer
         self._embeddings_layer: tf.keras.layers.Embedding = None
+        if self._precompiled_vocabulary_file:
+            # A vocabulary is present, it's possible to also set up the embeddings
+            self._create_embeddings_layer()
+        else:
+            LOGGER.debug('Deferring creation of embeddings layer to adapt())')
+
+    def _create_embeddings_layer(self):
+        """
+        Create an embeddings layer, which is dependent on the vocabulary size.
+        """
+        if self.vocabulary_size <= 1:
+            raise ValueError('Expected a vocabulary but it\'s empty.')
+        self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self.vocabulary_size,
+                                                           output_dim=self._embedding_dimensions,
+                                                           embeddings_regularizer=self._embeddings_regularizer,
+                                                           name=f'{self._name}{constants.EMBEDDINGS_LAYER_NAME_SUFFIX}')
 
     @property
     def embedding_dimension(self) -> int:
         return self._embedding_dimensions
 
-    def adapt(self,
-              dataset: tf.data.Dataset = None,
-              embeddings_regularizer: tf.keras.regularizers.Regularizer = None):
+    def adapt(self, dataset: tf.data.Dataset):
         """
         "Train" vocabulary using dataset. Construct embeddings for words in dictionary.
         :param dataset: TF dataset generating vectors containing words
-        :param embedding_dimensions: The shape of embedding matrix, [N_WORDS, embedding_dimensions]
-        :param embeddings_regularizer: Keras regularizer for this layer
-        :return:
         """
         time_start: datetime = datetime.now()
-        if dataset is not None and self._precompiled_vocabulary_file is not None:
+        if self._precompiled_vocabulary_file is not None:
             raise ValueError('Setting both dataset and precompiled_vocabulary_file is invalid. Choose one option.')
         self._vocabulary_layer.compile()
-        if dataset is not None:
-            LOGGER.info('Compiling vocabulary from dataset...')
-            self._vocabulary_layer.adapt(dataset)
-        LOGGER.info('Vocabulary is complete!')
-        self._vocabulary = self._vocabulary_layer.get_vocabulary(include_special_tokens=True)
-        self._vocabulary_size = len(self._vocabulary)
-        self._embeddings_layer = tf.keras.layers.Embedding(input_dim=self._vocabulary_size,
-                                                           output_dim=self._embedding_dimensions,
-                                                           embeddings_regularizer=embeddings_regularizer,
-                                                           name=f'{self._name}{constants.EMBEDDINGS_LAYER_NAME_SUFFIX}')
-        LOGGER.info(f'Creating vocabulary took {datetime.now() - time_start}')
+        LOGGER.info('Compiling vocabulary from dataset...')
+        self._vocabulary_layer.adapt(dataset)
+        LOGGER.info(f'Vocabulary is complete! It took {datetime.now() - time_start}')
+        self._create_embeddings_layer()
 
     def __call__(self, ragged_tensor: tf.RaggedTensor) -> tf.RaggedTensor:
         """
@@ -91,7 +98,11 @@ class TextVectorizationLayer:
         Return the words in the vocabulary
         :return: The vocabulary as strings in a List
         """
-        return self._vocabulary.copy()
+        return self._vocabulary_layer.get_vocabulary(include_special_tokens=True).copy()
+
+    @property
+    def vocabulary_size(self) -> int:
+        return len(self.vocabulary)
 
     def save_vocabulary_to_file(self, file_path: str):
         """
