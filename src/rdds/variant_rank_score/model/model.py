@@ -365,6 +365,10 @@ class VariantRankScoreModel:
 
         save_model_callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=save_model_fn)
 
+        early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                                   mode='min',
+                                                                   verbose=1)
+
         # TODO: A keras.save_model callback
         compile_config: Dict[str, Any] = self._keras_model.get_compile_config()
         network_config: str = self._keras_model.to_json()
@@ -389,7 +393,8 @@ class VariantRankScoreModel:
                               validation_steps=validation_steps,
                               callbacks=[tensorboard_callback,
                                          save_model_callback,
-                                         tf.keras.callbacks.TerminateOnNaN()],
+                                         tf.keras.callbacks.TerminateOnNaN(),
+                                         early_stopping_callback],
                               verbose=2)
 
     def load_saved_model(self, model_path: str):
