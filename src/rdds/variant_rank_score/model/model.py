@@ -8,6 +8,7 @@ import os
 import datetime
 from json import dumps
 import logging
+from dataclasses import dataclass
 
 from .. import WORKDIR
 from rdds.lib.logging import get_logger
@@ -19,8 +20,21 @@ from rdds.lib.tf import DnaSequenceTrimmer
 from rdds.lib.tf import InstanceNormalisationLayer
 from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
+from rdds.lib.hpt import HyperParameters
 
 tf.debugging.enable_check_numerics()  # Raises exception on +/- INF and NaNs in tensors
+
+
+@dataclass
+class InitializedDatasets:
+    dataset_train: tf.data.Dataset
+    dataset_test: tf.data.Dataset
+    train_data_length: int
+    test_data_length: int
+    batch_size: int
+    dataset_train_numerical: tf.data.Dataset = None
+    dataset_train_vocabulary:  tf.data.Dataset = None
+
 
 """
 NOTE!
@@ -80,16 +94,26 @@ class VariantRankScoreModel:
                  features_numerical: List[str] = FEATURES_FLOAT,
                  vocabulary_file_path: str = _DEFAULT_VOCABULARY_FILE,
                  numerical_normalisation_weights_file_path: str = _DEFAULT_NUMERICAL_NORMALISATION_WEIGHTS,
-                 embedding_dimensions: int = 10):
+                 workdir: str = WORKDIR):
+        """
+
+        :param features_text:
+        :param features_numerical:
+        :param vocabulary_file_path:
+        :param numerical_normalisation_weights_file_path:
+        :param workdir: Path where model build and training output is stored
+        """
         self._features_text: List[str] = features_text
         self._features_numerical = features_numerical
         self._features: List[str] = self._features_text + self._features_numerical
         _LOGGER.info(f'Total amount of features: {len(self._features)}')
-        self._embedding_dimensions: int = embedding_dimensions
         self._vocabulary_file_path = vocabulary_file_path
         self._numerical_normalisation_weights_file_path = numerical_normalisation_weights_file_path
         self._keras_model: tf.keras.Model = None
-        self._train_log_dir: str = None
+        self._workdir = workdir
+        self._train_log_dir: str = \
+            os.path.join(self._workdir, 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        self._datasets: InitializedDatasets = None
 
     @staticmethod
     def preprocess_filter_textual_features(*tensors: Tuple[tf.RaggedTensor]) -> Tuple[tf.RaggedTensor]:
@@ -105,12 +129,10 @@ class VariantRankScoreModel:
                 text_feature_tensors += (tensor, )
         return text_feature_tensors
 
-    def _build(self,
-               text_dataset: tf.data.Dataset = None,
-               numerical_dataset: tf.data.Dataset = None):
+    def _build_model(self,
+                     hparams: HyperParameters) -> tf.keras.models.Model:
         """
-        :param text_dataset: Optional datset to use for compiling vocabulary
-        :param numerical_dataset: Optional dataset to compile normalisation factors
+        :param hparams: Hyperparameters for the model
         """
         input_text: tf.keras.Input = tf.keras.Input(shape=len(self._features_text),
                                                     ragged=True,
@@ -123,20 +145,39 @@ class VariantRankScoreModel:
         split_regex = '\s|\n|_|&|/|\||:|,|-|0|1|2|3|4|5|6|7|8|9'
         text_preprocessing_layer = TextPreprocessingLayer(split_regex=split_regex)
         preprocessed_dataset = \
-            text_dataset.map(map_func=text_preprocessing_layer) if text_dataset else None
+            self._datasets.dataset_train_vocabulary.map(map_func=text_preprocessing_layer) \
+            if self._datasets.dataset_train_vocabulary else None
         input_text_preprocessed = text_preprocessing_layer(input_text)  # -> [bdim, n_words, n_features]
         dna_sequence_trimmer_layer = DnaSequenceTrimmer()
         preprocessed_dataset = \
             preprocessed_dataset.map(map_func=dna_sequence_trimmer_layer) if preprocessed_dataset else None
         input_text_preprocessed = dna_sequence_trimmer_layer(input_text_preprocessed)  # tensor shape preserved
 
-        feature_selection_regularizer = tf.keras.regularizers.L1(0.00001)  # L1 regularizer to perform feature selection
+        with_feature_selection_regularisation = hparams.Boolean('feature_selection_regularisation',
+                                                                default=True)
+        with hparams.conditional_scope('feature_selection_regularisation',  [True]):
+            if with_feature_selection_regularisation:
+                # L1 regularizer to perform feature selection
+                penalty = hparams.Float('feature_selection_regularisation_penalty',
+                                        min_value=1E-5,
+                                        max_value=1E-2,
+                                        default=1E-5,
+                                        step=10,
+                                        sampling='log')
+                feature_selection_regularizer = tf.keras.regularizers.L1(penalty)
+            else:
+                feature_selection_regularizer = None
 
         # Text vectorization
         precompiled_vocabulary_file = None if preprocessed_dataset else self._vocabulary_file_path
+        embedding_dimensions = hparams.Int('embedding-dimensions',
+                                           min_value=1,
+                                           max_value=20,
+                                           default=10,
+                                           step=1)
         embeddings_layer: EmbeddingsReductionLayer = \
             EmbeddingsReductionLayer(precompiled_vocabulary_file=precompiled_vocabulary_file,
-                                     embedding_dimensions=self._embedding_dimensions,
+                                     embedding_dimensions=embedding_dimensions,
                                      embeddings_regularizer=feature_selection_regularizer)
         if preprocessed_dataset:
             embeddings_layer.adapt(dataset=preprocessed_dataset)
@@ -153,9 +194,9 @@ class VariantRankScoreModel:
         # Make sure InstanceNormalisationLayer.build() is implicitly called before (potentially) loading weights.
         # If not, number of internal weights are zero.
         input_numerical_normalized = numerical_normalisation_layer(input_numerical)
-        if numerical_dataset:
+        if self._datasets.dataset_train_numerical:
             _LOGGER.info('Adapting normalisation layer from dataset')
-            numerical_normalisation_layer.adapt_from_dataset(data=numerical_dataset)
+            numerical_normalisation_layer.adapt_from_dataset(data=self._datasets.dataset_train_numerical)
         else:
             _LOGGER.info(f'Loading normalisation weights from file {self._numerical_normalisation_weights_file_path}')
             numerical_normalisation_layer.load_saved_weights_file(file_path=self._numerical_normalisation_weights_file_path)
@@ -165,46 +206,79 @@ class VariantRankScoreModel:
         _LOGGER.info(f'Saved normalisation weights to {normalisation_weights_file_path}')
 
         # Flatten word vector to -> [bdim, n_features * n_embeddings]
-        embeddings_flat = tf.reshape(embeddings, (-1, len(self._features_text) * self._embedding_dimensions))
+        embeddings_flat = tf.reshape(embeddings, (-1, len(self._features_text) * embedding_dimensions))
 
         # Normalization of numerical features (per feature channel)
         # No need to normalize the embeddings since they're nicely distributed
         # Concatenate word vector and numerical features -> [bdim, n_text * n_embeddings + n_numerical]
-        regularizer = tf.keras.regularizers.L2(0.000000001)  # L2; regularisation to deal with multicollinearity
-        embeddings_branch = tf.keras.layers.Dense(units=128, activation='relu', kernel_regularizer=None)(embeddings_flat)
-        embeddings_branch = tf.keras.layers.Dense(units=84, activation='relu', kernel_regularizer=None)(embeddings_branch)
-        numerical_branch = tf.keras.layers.Dense(units=128,activation='relu',kernel_regularizer=feature_selection_regularizer)(input_numerical_normalized)
-        numerical_branch = tf.keras.layers.Dense(units=84, activation='relu', kernel_regularizer=None)(numerical_branch)
+        branch_dense_0 = hparams.Int('branch_dense_0',
+                                     min_value=32,
+                                     max_value=256,
+                                     step=32,
+                                     default=128)
+        branch_dense_1 = hparams.Int('branch_dense_1',
+                                     min_value=32,
+                                     max_value=256,
+                                     step=32,
+                                     default=84)
+        embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
+                                                  activation='relu',
+                                                  kernel_regularizer=None)(embeddings_flat)
+        embeddings_branch = tf.keras.layers.Dense(units=branch_dense_1,
+                                                  activation='relu',
+                                                  kernel_regularizer=None)(embeddings_branch)
+        numerical_branch = tf.keras.layers.Dense(units=branch_dense_0,
+                                                 activation='relu',
+                                                 kernel_regularizer=feature_selection_regularizer)(input_numerical_normalized)
+        numerical_branch = tf.keras.layers.Dense(units=branch_dense_1,
+                                                 activation='relu',
+                                                 kernel_regularizer=None)(numerical_branch)
         complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
                                                                                               numerical_branch])
         _LOGGER.info(f'Feature vector shape {complete_feature_vector.get_shape()}')
 
         # Autoencoder dense layer
-        activation = 'relu'
+        with_feature_multicollinearity_regularizer = hparams.Boolean('feature_multicollinearity_regularisation',
+                                                                     default=True)
+        with hparams.conditional_scope('feature_multicollinearity_regularisation', [True]):
+            if with_feature_multicollinearity_regularizer:
+                # L2; regularisation to deal with multicollinearity
+                correlation_penalty = hparams.Float('feature_multicollinearity_regularisation_penalty',
+                                                    min_value=1E-9,
+                                                    max_value=1E-2,
+                                                    default=1E-9,
+                                                    step=10,
+                                                    sampling='log')
+                regularizer = tf.keras.regularizers.L2(correlation_penalty)
+            else:
+                regularizer = None
+        activation = hparams.Choice('dense-activation',
+                                    values=['relu', 'sigmoid', 'linear'],
+                                    default='relu')
         _LOGGER.info(f'length feature vector {len(self._features)}')
-        units = 512
-        delta = int(np.floor(0.1 * units))
-        body = tf.keras.layers.Dense(units=units,
-                                     activation=activation,
-                                     kernel_regularizer=regularizer)(complete_feature_vector)
-        body = tf.keras.layers.Dense(units=units - delta,
-                                     activation=activation,
-                                     kernel_regularizer=regularizer)(body)
-        body = tf.keras.layers.Dense(units=units - 2 * delta,
-                                     activation=activation,
-                                     kernel_regularizer=regularizer)(body)
-        body = tf.keras.layers.Dense(units=units - 3 * delta,
-                                     activation=activation,
-                                     kernel_regularizer=regularizer)(body)
-        body = tf.keras.layers.Dense(units=units - 4 * delta,
-                                     activation=activation,
-                                     kernel_regularizer=regularizer)(body)
-        body = tf.keras.layers.Dense(units=units - 5 * delta,
-                                     activation=activation,
-                                     kernel_regularizer=regularizer)(body)  # -> [bdim, n_units]
+        layers: int = hparams.Int('dense-layers',
+                                  min_value=1,
+                                  max_value=6,
+                                  default=6,
+                                  step=1)
+        units: int = hparams.Int('dense-units',
+                                 min_value=32,
+                                 max_value=1024,
+                                 default=512,
+                                 step=32)
+        delta_factor: float = hparams.Float('dense-units-reduction',
+                                            min_value=0.1,
+                                            max_value=0.2,  # Must match 1 / max(n_layers - 1)
+                                            default=0.1,
+                                            step=0.01)
+        x = complete_feature_vector
+        for layer_idx in range(0, layers):
+            x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
+                                      activation=activation,
+                                      kernel_regularizer=regularizer)(x)    # -> [bdim, n_units]
 
         # Specify network out shape
-        logits = tf.keras.layers.Dense(units=2, name='Logits', activation='linear')(body)  # -> [bdim, 2]
+        logits = tf.keras.layers.Dense(units=2, name='Logits', activation='linear')(x)  # -> [bdim, 2]
 
         # Softmax layer
         confidences = tf.keras.layers.Softmax(name='Confidences')(logits)  # -> [bdim, 2]
@@ -220,7 +294,22 @@ class VariantRankScoreModel:
                    tf.keras.metrics.AUC(),
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall()]
-        optimizer = tf.keras.optimizers.Adam(learning_rate=1E-4)
+        optimizer_algo = hparams.Choice('optimizer',
+                                        ['Adam', 'Adadelta'],
+                                        default='Adam')
+        # TODO: Rework this snippet using tf.keras.optimizers.get() with custom kwargs (buggy)
+        if optimizer_algo == 'Adam':
+            optimizer_cls = tf.keras.optimizers.Adam
+        elif optimizer_algo == 'Adadelta':
+            optimizer_cls = tf.keras.optimizers.Adadelta
+        else:
+            raise ValueError(f'Undefined optimizer: {optimizer_algo}')
+        optimizer = optimizer_cls(learning_rate=hparams.Float('learning-rate',
+                                                              min_value=1E-5,
+                                                              max_value=1E-3,
+                                                              default=1E-4,
+                                                              step=10,
+                                                              sampling='log'))
 
         def loss_wrapper(x, y, y_pred, sample_weight):
             """
@@ -239,6 +328,8 @@ class VariantRankScoreModel:
                                   loss=self.loss_fn,
                                   metrics=metrics)
         self._keras_model.summary(line_length=160)
+
+        return self._keras_model
 
     @staticmethod
     @tf.keras.saving.register_keras_serializable()
@@ -264,14 +355,28 @@ class VariantRankScoreModel:
                 raise ValueError('Unknown feature dtype', feature_dtype)
         return n_text_features, n_numerical_features
 
-    def train(self,
-              hd5_file_path: str,
-              compile_vocabulary_normalisation_factors: bool = True,
-              batch_size=128):
+    def save_model_fn(self, epoch: int, logs=Optional[dict]):
+        """
+        Saves model to Keras saved model format
+        :param epoch: Current epoch
+        :param logs: Dictionary of batch statistics
+        """
+        _LOGGER.info(epoch, logs)
+        # NOTE: The suffix .keras is important to tf.keras.saving.load_model()
+        filepath = self._train_log_dir + '/saved-models/%d-%.4f.keras' % (epoch, logs['val_loss'])
+        _LOGGER.info(f'Saving model to {filepath}')
+        self._keras_model.save(filepath=filepath)
 
-        # Set up a training directory for this run
-        self._train_log_dir = os.path.join(WORKDIR, 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        os.makedirs(self._train_log_dir)
+    def _init_datasets(self,
+                       hd5_file_path: str,
+                       hparams: HyperParameters,
+                       compile_vocabulary_normalisation_factors: bool = True) -> InitializedDatasets:
+
+        batch_size: int = hparams.Int('batch_size',
+                                      min_value=64,
+                                      max_value=256,
+                                      step=32,
+                                      default=128)
 
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
@@ -338,38 +443,79 @@ class VariantRankScoreModel:
         dataset_test = dataset_test.batch(batch_size)
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
         _LOGGER.info(f'Model Input data mapping: {input_signature}')
-        self._build(text_dataset=dataset_vocabulary,
-                    numerical_dataset=dataset_numerical)
 
-        steps_per_epoch = int(np.ceil(float(hd5_data_generator_train.data_length) / float(batch_size)))
+        self._datasets = InitializedDatasets(dataset_train_numerical=dataset_numerical,
+                                             dataset_train_vocabulary=dataset_vocabulary,
+                                             dataset_train=dataset_train,
+                                             dataset_test=dataset_test,
+                                             train_data_length=hd5_data_generator_train.data_length,
+                                             test_data_length=hd5_data_generator_test.data_length,
+                                             batch_size=batch_size)
+        _LOGGER.info(f'Datasets init complete: {self._datasets}')
+
+    @staticmethod
+    def get_uninitialized_hyperparameters() -> HyperParameters:
+        """
+        Uninitialized (empty) hparams confers hparam configuration to the model build step.
+        """
+        return HyperParameters()
+
+    def build(self,
+              hd5_file_path: str,
+              hparams: HyperParameters,
+              compile_vocabulary_normalisation_factors: bool,
+              train_log_dir_already_exist: bool = False) -> tf.keras.Model:
+        """
+        Main method to initialize datasets and build model based on hyperparameter config.
+        :param hd5_file_path: The HDF5 file path used for training, test
+        :param hparams: hyperparameter config (new empty instance or as created by hyperparameter tuner)
+          Supplying a new instance of Hyperparameters creates a model with default hyperparam configs.
+        :param compile_vocabulary_normalisation_factors: Compile new vocabulary and normalisation factors from data
+        :param train_log_dir_already_exist: Reuse existing directory for this build-training run
+        :return: built keras model
+        """
+        # Set up a directory containing model build and training output
+        os.makedirs(self._train_log_dir, exist_ok=train_log_dir_already_exist)
+        self._init_datasets(hd5_file_path=hd5_file_path,
+                            hparams=hparams,
+                            compile_vocabulary_normalisation_factors=compile_vocabulary_normalisation_factors)
+        self._build_model(hparams=hparams)
+        _LOGGER.info(f'Hyperparameters: {hparams.values}')
+        with open(os.path.join(self._train_log_dir, 'hyperparams.txt'), 'w') as file:
+            for key, value in hparams.values.items():
+                file.write(f'{key}={value}\n')
+        return self._keras_model
+
+    def train(self,
+              hparam_tuning_callbacks: List[tf.keras.callbacks.Callback] = None) -> tf.keras.callbacks.History:
+        """
+        Execute training and evaluation of pre built model.
+        :param hparam_tuning_callbacks: List of keras tuner callbacks to be appended to fit() call
+        :return: A History object containing the training progress
+        """
+
+        if self._datasets is None:
+            raise ValueError('Expected initialized datasets, but got None')
+
+        steps_per_epoch = int(np.ceil(float(self._datasets.train_data_length) / float(self._datasets.batch_size)))
 
         # Setup logging and store configuration files
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=self._train_log_dir,
-                                                              histogram_freq=1,
-                                                              embeddings_freq=1)  # FIXME: Bug in Keras
-        save_model_callback = tf.keras.callbacks.ModelCheckpoint(filepath=self._train_log_dir + '/saved-models/{epoch:02d}-{val_loss:.2f}.hdf5',
-                                                                 save_freq='epoch',  # At end of epoch, validation metrics are available
-                                                                 verbose=1)
+        callbacks: List[tf.keras.callbacks.Callback] = list()
+        if hparam_tuning_callbacks is not None:
+            callbacks.extend(hparam_tuning_callbacks)
+        if 'TensorBoard' in [cb.__class__ for cb in callbacks]:
+            pass
+        else:
+            # Setup default monitoring in Tensorboard
+            callbacks.append(tf.keras.callbacks.TensorBoard(log_dir=self._train_log_dir,
+                                                            histogram_freq=1,
+                                                            embeddings_freq=1))  # FIXME: Bug in Keras
+        callbacks.append(tf.keras.callbacks.LambdaCallback(on_epoch_end=self.save_model_fn))
+        callbacks.append(tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                          mode='min',
+                                                          verbose=1))
+        callbacks.append(tf.keras.callbacks.TerminateOnNaN())
 
-        def save_model_fn(epoch: int, logs=Optional[dict]):
-            """
-            Saves model to Keras saved model format
-            :param epoch: Current epoch
-            :param logs: Dictionary of batch statistics
-            """
-            _LOGGER.info(epoch, logs)
-            # NOTE: The suffix .keras is important to tf.keras.saving.load_model()
-            filepath = self._train_log_dir + '/saved-models/%d-%.4f.keras' % (epoch, logs['val_loss'])
-            _LOGGER.info(f'Saving model to {filepath}')
-            self._keras_model.save(filepath=filepath)
-
-        save_model_callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=save_model_fn)
-
-        early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                                   mode='min',
-                                                                   verbose=1)
-
-        # TODO: A keras.save_model callback
         compile_config: Dict[str, Any] = self._keras_model.get_compile_config()
         network_config: str = self._keras_model.to_json()
         with open(os.path.join(self._train_log_dir, 'compile-config.txt'), 'w') as file:
@@ -377,25 +523,23 @@ class VariantRankScoreModel:
         with open(os.path.join(self._train_log_dir, 'network-config.txt'), 'w') as file:
             file.write(network_config)
         with open(os.path.join(self._train_log_dir, 'dataset-config.txt'), 'w') as file:
-            file.write('Dataset train:\n' + str(vars(dataset_train)))
-            file.write('Dataset test:\n' + str(vars(dataset_test)))
+            file.write('Dataset train:\n' + str(vars(self._datasets.dataset_train)))
+            file.write('Dataset test:\n' + str(vars(self._datasets.dataset_test)))
         with open(os.path.join(self._train_log_dir, 'build-config.txt'), 'w') as file:
             file.write(str(globals()))
             file.write(str(locals()))
 
-        validation_steps = int(np.ceil(float(hd5_data_generator_test.data_length) / float(batch_size)))
+        validation_steps = int(np.ceil(float(self._datasets.test_data_length) / float(self._datasets.batch_size)))
 
-        history = self._keras_model.fit(x=dataset_train,
-                              batch_size=1,
-                              epochs=int(1E12),
-                              steps_per_epoch=steps_per_epoch,
-                              validation_data=dataset_test,
-                              validation_steps=validation_steps,
-                              callbacks=[tensorboard_callback,
-                                         save_model_callback,
-                                         tf.keras.callbacks.TerminateOnNaN(),
-                                         early_stopping_callback],
-                              verbose=2)
+        history = self._keras_model.fit(x=self._datasets.dataset_train,
+                                        batch_size=1,
+                                        epochs=int(1E2),
+                                        steps_per_epoch=steps_per_epoch,
+                                        validation_data=self._datasets.dataset_test,
+                                        validation_steps=validation_steps,
+                                        callbacks=callbacks,
+                                        verbose=2)
+        return history
 
     def load_saved_model(self, model_path: str):
         """

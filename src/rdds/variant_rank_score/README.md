@@ -95,3 +95,9 @@ rdds.variant_rank_score compile-vcf \
 --dataset-file-name mutacc.hd5
 ```
 Last known run configuration on Hasta required 5 cores and 120G of RAM.
+
+## Hyperparameter Tuning
+Enable the hyperparamter tuning flag when running training, example:
+```
+python3 -m rdds.variant_rank_score train /rdds/tmp/variant-rank-score/clinvar.hd5 --tune-hyperparams=1
+```
