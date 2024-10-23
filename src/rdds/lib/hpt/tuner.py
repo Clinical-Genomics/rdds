@@ -87,7 +87,9 @@ class CustomTuner(keras_tuner.Tuner):
         if keras_tuner_backend.config.backend() != "tensorflow":
             # Below code requires that Tensorflow is the backend (excerpt from super class)
             raise ValueError('Required tensorflow backend is not used.')
-        callbacks = [tf.keras.callbacks.TensorBoard(log_dir=self.get_trial_log_dir(trial))]  # modified by _configure_tensorboard_dir
+        callbacks = [tf.keras.callbacks.TensorBoard(log_dir=self.get_trial_log_dir(trial),
+                                                    embeddings_freq=1,
+                                                    histogram_freq=1)]
         hparams = tuner_utils.convert_hyperparams_to_hparams(
             trial.hyperparameters,
             hparams_api,
