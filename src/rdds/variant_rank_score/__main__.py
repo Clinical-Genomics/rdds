@@ -42,10 +42,25 @@ subparser.add_argument('--compile-vocabulary-normalisation-factors',
                        help='Generate new vocabulary file and normalisation factors from supplied data',
                        type=bool,
                        default=False)
+subparser.add_argument('--tune-hyperparams',
+                       help='Tune model hyperparameters',
+                       type=bool,
+                       default=False)
 def train(args):
     from .model import VariantRankScoreModel
-    VariantRankScoreModel().train(hd5_file_path=args.hd5,
-                                  compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors)
+    from .hyperparameter_tuner import VRSBayesianTuner
+
+    if args.tune_hyperparams:
+        tuner = VRSBayesianTuner(hd5_file_path=args.hd5,
+                                 log_dir=WORKDIR)
+        tuner.search_space_summary()
+        tuner.search()
+    else:
+        model = VariantRankScoreModel()
+        model.build(hd5_file_path=args.hd5,
+                    hparams=model.get_uninitialized_hyperparameters(),
+                    compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors)
+        model.train()
 subparser.set_defaults(func=train)
 
 subparser = subparsers.add_parser('predict', help='Load model and run inference on data')
