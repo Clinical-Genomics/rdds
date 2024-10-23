@@ -115,20 +115,6 @@ class VariantRankScoreModel:
             os.path.join(self._workdir, 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         self._datasets: InitializedDatasets = None
 
-    @staticmethod
-    def preprocess_filter_textual_features(*tensors: Tuple[tf.RaggedTensor]) -> Tuple[tf.RaggedTensor]:
-        """
-        Select Tensors with dtype tf.string in dataset for further downstream processing.
-        :param tensors: Tuple of RaggedTensor
-        :return: Tuple of RaggedTensors, only tf.string dtype tensors
-        """
-        text_feature_tensors = tuple()
-        for tensor in tensors:
-            is_text_feature: bool = True if tensor.dtype == tf.string else False
-            if is_text_feature:
-                text_feature_tensors += (tensor, )
-        return text_feature_tensors
-
     def _build_model(self,
                      hparams: HyperParameters) -> tf.keras.models.Model:
         """
