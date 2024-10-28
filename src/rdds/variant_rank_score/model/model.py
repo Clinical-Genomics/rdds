@@ -94,7 +94,8 @@ class VariantRankScoreModel:
                  features_numerical: List[str] = FEATURES_FLOAT,
                  vocabulary_file_path: str = _DEFAULT_VOCABULARY_FILE,
                  numerical_normalisation_weights_file_path: str = _DEFAULT_NUMERICAL_NORMALISATION_WEIGHTS,
-                 workdir: str = WORKDIR):
+                 workdir: str = WORKDIR,
+                 workdir_suffix: str = 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")):
         """
 
         :param features_text:
@@ -102,6 +103,7 @@ class VariantRankScoreModel:
         :param vocabulary_file_path:
         :param numerical_normalisation_weights_file_path:
         :param workdir: Path where model build and training output is stored
+        :param workdir_suffix: Subdirectory used for stratifying model training runs
         """
         self._features_text: List[str] = features_text
         self._features_numerical = features_numerical
@@ -111,8 +113,7 @@ class VariantRankScoreModel:
         self._numerical_normalisation_weights_file_path = numerical_normalisation_weights_file_path
         self._keras_model: tf.keras.Model = None
         self._workdir = workdir
-        self._train_log_dir: str = \
-            os.path.join(self._workdir, 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        self._train_log_dir: str = os.path.join(self._workdir, workdir_suffix)
         self._datasets: InitializedDatasets = None
 
     def _build_model(self,
