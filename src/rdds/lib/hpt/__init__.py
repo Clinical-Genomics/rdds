@@ -1,1 +1,1 @@
-from rdds.lib.hpt.tuner import HyperParameters, GridSearchTuner, BayesianTuner, RandomSearchTuner
+from rdds.lib.hpt.tuner import HyperParameters, CustomTuner, GridSearchTuner, BayesianTuner, RandomSearchTuner
