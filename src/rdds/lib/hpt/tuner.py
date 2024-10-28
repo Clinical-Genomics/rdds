@@ -1,10 +1,12 @@
 import tensorflow as tf
+import os
 import keras_tuner
 from keras_tuner.src import backend as keras_tuner_backend
-from keras_tuner import HyperParameters
 from tensorboard.plugins.hparams import api as hparams_api
 from keras_tuner.src.engine import tuner_utils
 from typing import Callable
+# Used as module API
+from keras_tuner import HyperParameters
 
 from rdds.lib.logging import get_logger
 _LOGGER = get_logger('keras_tuner', 'info')
@@ -36,15 +38,18 @@ class CustomTuner(keras_tuner.Tuner):
     """
 
     def __init__(self,
-                 build_fn: Callable,
-                 fit_fn: Callable,
                  log_dir: str,
                  *args,
+                 build_fn: Callable = None,
+                 fit_fn: Callable = None,
                  objective_metric: str = 'val_loss',
                  **kwargs):
         """
-        :param build_fn: A function that has the signature build_fn(hparams: keras_tuner.HyperParameters)
-          that returns a compiled instance of keras.model.Model
+        :param build_fn: A function that has the signature
+          build_fn(hparams: keras_tuner.HyperParameters, trial_work_dir: str)
+          that returns a compiled instance of keras.model.Model.
+          hparams is the currently used hparams for the trial (empty at build time)
+          and trial_work_dir is the directory to store trial output.
         :param fit_fn: A function that runs model training and evaluation on N epochs, with signature
           fit(model: tf.keras.models.Model, fit_callbacks: List[tf.keras.callbacks.Callback])
           that returns a tf.keras.callbacks.History object.
@@ -52,6 +57,8 @@ class CustomTuner(keras_tuner.Tuner):
         :param args: Args to keras_tuner.Tuner subclass
         :param kwargs: Kwargs to keras_tuner.Tuner subclass
         :param objective_metric: The metric in history object to use as objective metric
+        :param project_name: Subdirectory that contains the hpt file output,
+          created as [LOG_DIR]/[PROJECT_NAME]. Defaults to __class__.__name__.
 
         As this subclass overrides run_trial, the hypermodel argument is invalid.
         """
@@ -76,7 +83,9 @@ class CustomTuner(keras_tuner.Tuner):
         del args
         del kwargs
 
-        model = self._build_fn(hparams=trial.hyperparameters)
+        # Trial related output files to be stored in trial_work_dir
+        model = self._build_fn(hparams=trial.hyperparameters,
+                               trial_work_dir=self.get_trial_log_dir(trial))
 
         if len(trial.hyperparameters.values.keys()) == 0:
             raise ValueError('Expected that some hyperparameters were set, but got none.')

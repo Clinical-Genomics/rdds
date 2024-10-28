@@ -20,7 +20,8 @@ def bootstrap_model(mnist_dataset) -> Tuple[Callable, Callable]:
 
     (x_train, y_train), (x_test, y_test) = mnist_dataset
 
-    def build_model(hparams: HyperParameters = None):
+    def build_model(hparams: HyperParameters = None,
+                    trial_work_dir = None):
         model = tf.keras.models.Sequential([
         tf.keras.layers.Flatten(),
         tf.keras.layers.Dense(hparams.Int('dense', 32, 128, 32), activation=tf.nn.relu),
@@ -88,10 +89,34 @@ def test_capture_training_errors(bootstrap_model, work_dir):
         raise RuntimeError('Error by design')
 
     tuner = GridSearchTuner(build_fn=build_model,
-                  fit_fn=faulty_fn,
-                  log_dir=work_dir,
-                  max_trials=2)
+                            fit_fn=faulty_fn,
+                            log_dir=work_dir,
+                            max_trials=2)
 
     # WHEN searching for hyperparams
     # THEN don't expect a bad training session to fail all runs
+    tuner.search()
+
+
+def test_logdir(work_dir):
+    """
+    Test for checking trial log dir generation
+    """
+
+    class DummyHistory:
+        @property
+        def history(self):
+            return {'val_loss': [-1.0]}
+
+    def check_logdir_fn(hparams: HyperParameters, trial_work_dir: str):
+        assert trial_work_dir == f'{work_dir}/{GridSearchTuner.__name__}/trial_0'
+        hparams.Int('dummyInt', 0, 1)
+
+    # GIVEN a tuner
+    # WHEN running a trial
+    # THEN make sure a trial work dir is set
+    tuner = GridSearchTuner(build_fn=check_logdir_fn,
+                            fit_fn=lambda *args, **kwargs: DummyHistory(),
+                            log_dir=work_dir,
+                            max_trials=1)
     tuner.search()
