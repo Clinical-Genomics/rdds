@@ -70,6 +70,7 @@ def test_tuners(bootstrap_model, work_dir, Tuner):
     # THEN expect the data to be logged to log dir
     # keras_tuner Oracle logging
     assert os.path.exists(os.path.join(work_dir, Tuner.__name__, 'oracle.json'))
+    assert os.path.exists(os.path.join(work_dir, Tuner.__name__, 'hyperparameter-search-space-summary.txt'))
     assert os.path.exists(os.path.join(work_dir, Tuner.__name__, 'tuner0.json'))
     for trial_id in ['trial_0', 'trial_1']:
         assert os.path.exists(os.path.join(work_dir, Tuner.__name__, trial_id, 'trial.json'))

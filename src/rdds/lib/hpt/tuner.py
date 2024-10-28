@@ -74,6 +74,19 @@ class CustomTuner(keras_tuner.Tuner):
         self._log_dir = log_dir
         self._objective_metric = objective_metric
 
+    def _save_search_space_summary(self):
+        """
+        Save a file containing the hparam search space
+        """
+        with open(os.path.join(self.project_dir, 'hyperparameter-search-space-summary.txt'), 'w') as summary_file:
+            hp = self.oracle.get_space()
+            summary_file.write(f"Default search space size: {len(hp.space)}\n")
+            for p in hp.space:
+                config = p.get_config()
+                name = config.pop("name")
+                summary_file.write(f"{name} ({p.__class__.__name__})")
+                summary_file.write(f'{config}\n')
+
     def get_trial_log_dir(self, trial: keras_tuner.engine.trial.Trial) -> str:
         # Helper function to generate a log dir path that matches with keras_tuner.oracle logging
         return self._log_dir + f'/{self.__class__.__name__}/trial_{trial.trial_id}'
@@ -86,6 +99,9 @@ class CustomTuner(keras_tuner.Tuner):
         # Trial related output files to be stored in trial_work_dir
         model = self._build_fn(hparams=trial.hyperparameters,
                                trial_work_dir=self.get_trial_log_dir(trial))
+
+        # hparams not defined until build_fn is called, now snapshot the search space to file
+        self._save_search_space_summary()
 
         if len(trial.hyperparameters.values.keys()) == 0:
             raise ValueError('Expected that some hyperparameters were set, but got none.')
