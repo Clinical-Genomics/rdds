@@ -16,7 +16,10 @@ CUDA® Toolkit 11.8.
 cuDNN SDK 8.6.0.
 ```
 
+
 See [tested GPU versions](https://www.tensorflow.org/install/source#gpu) for more information.
+
+Additionally see the [Nvidia Driver Version - CUDA Toolkit compatibility matrix](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)
 
 ## Host - Container Integration
 In general, the host kernel exposes the Nvidia GPU to the container OS.
