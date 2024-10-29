@@ -79,6 +79,32 @@ def test_tuners(bootstrap_model, work_dir, Tuner):
         assert os.path.exists(os.path.join(work_dir, Tuner.__name__, trial_id, 'validation'))
 
 
+@pytest.mark.parametrize('Tuner',
+                         [GridSearchTuner,
+                          BayesianTuner,
+                          RandomSearchTuner])
+@pytest.mark.parametrize('seed',
+                         [None,
+                          0,
+                          1,
+                          2])
+def test_tuner_seed(work_dir, Tuner, seed):
+    """
+    Test for setting seed.
+    """
+    # GIVEN a tuner
+    # WHEN setting the seed
+    tuner = Tuner(build_fn=None,
+                  fit_fn=None,
+                  log_dir=work_dir,
+                  seed=seed)
+    # THEN expect it to be properly set in the oracle
+    if seed is None or seed == 0:
+        assert tuner.oracle.seed >= 0
+    else:
+        assert tuner.oracle.seed == seed
+
+
 def test_capture_training_errors(bootstrap_model, work_dir):
     """
     Test for erroneous training

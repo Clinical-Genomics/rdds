@@ -44,6 +44,7 @@ class CustomTuner(keras_tuner.Tuner):
                  build_fn: Callable = None,
                  fit_fn: Callable = None,
                  objective_metric: str = 'val_loss',
+                 seed: int = 1,
                  **kwargs):
         """
         :param build_fn: A function that has the signature
@@ -60,6 +61,7 @@ class CustomTuner(keras_tuner.Tuner):
         :param objective_metric: The metric in history object to use as objective metric
         :param project_name: Subdirectory that contains the hpt file output,
           created as [LOG_DIR]/[PROJECT_NAME]. Defaults to __class__.__name__.
+        :param seed: The seed for hyperparameter optimisation
 
         As this subclass overrides run_trial, the hypermodel argument is invalid.
         """
@@ -69,6 +71,8 @@ class CustomTuner(keras_tuner.Tuner):
         kwargs.update({'directory': directory})
         project_name = kwargs.pop('project_name', self.__class__.__name__)
         kwargs.update({'project_name': project_name})
+        seed = kwargs.pop('seed', seed)
+        kwargs.update({'seed': seed})
         super().__init__(*args, **kwargs)
         self._build_fn = build_fn
         self._fit_fn = fit_fn
