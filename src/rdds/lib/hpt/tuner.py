@@ -5,6 +5,7 @@ from keras_tuner.src import backend as keras_tuner_backend
 from tensorboard.plugins.hparams import api as hparams_api
 from keras_tuner.src.engine import tuner_utils
 from typing import Callable
+import gc
 # Used as module API
 from keras_tuner import HyperParameters
 
@@ -128,6 +129,8 @@ class CustomTuner(keras_tuner.Tuner):
         )
         history: tf.keras.callbacks.History = self._fit_fn(model, tuning_callbacks=callbacks)
         metric: list = history.history[self._objective_metric]
+        del model
+        self._cleanup_ram()
         return metric[-1]
 
     def search(self, *args, **kwargs):
@@ -138,6 +141,11 @@ class CustomTuner(keras_tuner.Tuner):
         del args
         del kwargs
         super().search()
+
+    @staticmethod
+    def _cleanup_ram():
+        tf.keras.backend.clear_session()
+        gc.collect()
 
 
 class GridSearchTuner(CustomTuner, keras_tuner.GridSearch):
