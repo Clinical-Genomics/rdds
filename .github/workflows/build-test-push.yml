@@ -30,7 +30,9 @@ jobs:
 
       - name: Build Docker Images
         run: |
-          make devenv-ubuntu_20_04-build
+          make devenv-ubuntu_20_04-build && \
+          make base-ubuntu-20-04-nvidia-build && \
+          make devenv-ubuntu_20_04_nvidia-build
 
       - name: Run Tests
         run: |
@@ -38,4 +40,5 @@ jobs:
 
       - name: Push Docker Images
         run: |
-          make devenv-ubuntu_20_04-push
+          make devenv-ubuntu_20_04-push && \
+          make devenv-ubuntu_20_04_nvidia-push
