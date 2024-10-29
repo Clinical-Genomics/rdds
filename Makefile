@@ -27,18 +27,18 @@ devenv-nvidia-cudnn-build:
 devenv-nvidia-cudnn-push:
 	$(DOCKER) push $(DOCKERHUB)/rdds-nvidia-cudnn:$(VERSION)
 
-base-ubuntu-20-04-nvidia-470-build:
+base-ubuntu-20-04-nvidia-build:
 	# Build NVIDIA enabled docker image
-	$(DOCKER) build -t $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia-470:$(VERSION) --force-rm=true --rm=true - < build/devenv/ubuntu-20.04-nvidia-470.Dockerfile
+	$(DOCKER) build -t $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia:$(VERSION) --force-rm=true --rm=true - < build/devenv/ubuntu-20.04-nvidia.Dockerfile
 
-base-ubuntu-20-04-nvidia-470-push:
-	$(DOCKER) push $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia-470:$(VERSION)
+base-ubuntu-20-04-nvidia-push:
+	$(DOCKER) push $(DOCKERHUB)/rdds-ubuntu-20.04-nvidia:$(VERSION)
 
 devenv-%-build:
 	# Build docker development image
 	# Valid targets are:
 	# devenv-ubuntu_20_04-build (default)
-	# devenv-ubuntu_20_04_nvidia_470-build (GPU enabled)
+	# devenv-ubuntu_20_04_nvidia-build (GPU enabled)
 	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
 	$(DOCKER) build \
 	--build-arg="OS_FLAVOUR=$*" \

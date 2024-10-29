@@ -10,10 +10,6 @@ RUN apt-get update && \
 
 WORKDIR /tmp
 
-# Install NVIDIA GPU driver
-# Additionally install meta package linux-modules-nvidia-520-generic as well?
-RUN apt-get install --no-install-recommends -y nvidia-driver-470=470.199.02-0ubuntu0.20.04.1
-
 # Install NVIDIA CUDA library
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb && \
   dpkg -i cuda-keyring_1.1-1_all.deb && \
