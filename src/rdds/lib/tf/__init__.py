@@ -6,3 +6,4 @@ from rdds.lib.tf.dna_sequence_trimmer import DnaSequenceTrimmer
 from rdds.lib.tf.dataset_rejection_resample import rejection_resample
 from rdds.lib.tf.instance_normalisation_layer import InstanceNormalisationLayer
 from rdds.lib.tf.embeddings_reduction import EmbeddingsReductionLayer
+from rdds.lib.tf.check_numerics import enable_check_numerics
