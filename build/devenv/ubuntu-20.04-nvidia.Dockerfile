@@ -27,7 +27,9 @@ RUN tar -xf cudnn-*.tar.xz && \
   chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*  && \
   rm *.tar.xz
 
+# Provide paths for loading libraris
+# /.singularity.d/libs is the dir where host nvidia driver libs are loaded if --nv flag is provided
 RUN \
   echo "# Source this prior to initialising python environment" > /opt/init-cuda-cudnn && \
   echo "export PATH=/usr/local/cuda-11.8/bin:\$PATH" >> /opt/init-cuda-cudnn && \
-  echo "export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:\$LD_LIBRARY_PATH" >> /opt/init-cuda-cudnn
+  echo "export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:/.singularity.d/libs:\$LD_LIBRARY_PATH" >> /opt/init-cuda-cudnn
