@@ -281,9 +281,7 @@ class VariantRankScoreModel:
                    tf.keras.metrics.AUC(),
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall()]
-        optimizer_algo = hparams.Choice('optimizer',
-                                        ['Adam', 'Adadelta'],
-                                        default='Adam')
+        optimizer_algo = hparams.Fixed('optimizer', 'Adam')
         # TODO: Rework this snippet using tf.keras.optimizers.get() with custom kwargs (buggy)
         if optimizer_algo == 'Adam':
             optimizer_cls = tf.keras.optimizers.Adam
