@@ -1,6 +1,9 @@
 # Make sure to set all seeds
 from rdds.lib.determinism import enable_determinism; enable_determinism()
 
+# Add NaN, +-Inf checks
+from rdds.lib.tf import enable_check_numerics; enable_check_numerics()
+
 from typing import *
 import numpy as np
 import tensorflow as tf
@@ -22,7 +25,6 @@ from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
 from rdds.lib.hpt import HyperParameters
 
-tf.debugging.enable_check_numerics()  # Raises exception on +/- INF and NaNs in tensors
 
 
 @dataclass
