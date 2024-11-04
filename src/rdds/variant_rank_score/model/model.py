@@ -162,7 +162,7 @@ class VariantRankScoreModel:
         embedding_dimensions = hparams.Int('embedding-dimensions',
                                            min_value=1,
                                            max_value=20,
-                                           default=10,
+                                           default=5,
                                            step=1)
         embeddings_layer: EmbeddingsReductionLayer = \
             EmbeddingsReductionLayer(precompiled_vocabulary_file=precompiled_vocabulary_file,
@@ -204,12 +204,12 @@ class VariantRankScoreModel:
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=128)
+                                     default=160)
         branch_dense_1 = hparams.Int('branch_dense_1',
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=84)
+                                     default=224)
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
                                                   activation='relu',
                                                   kernel_regularizer=None)(embeddings_flat)
@@ -228,7 +228,7 @@ class VariantRankScoreModel:
 
         # Autoencoder dense layer
         with_feature_multicollinearity_regularizer = hparams.Boolean('feature_multicollinearity_regularisation',
-                                                                     default=True)
+                                                                     default=False)
         with hparams.conditional_scope('feature_multicollinearity_regularisation', [True]):
             if with_feature_multicollinearity_regularizer:
                 # L2; regularisation to deal with multicollinearity
@@ -248,17 +248,17 @@ class VariantRankScoreModel:
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
                                   max_value=6,
-                                  default=6,
+                                  default=3,
                                   step=1)
         units: int = hparams.Int('dense-units',
                                  min_value=32,
                                  max_value=1024,
-                                 default=512,
+                                 default=608,
                                  step=32)
         delta_factor: float = hparams.Float('dense-units-reduction',
                                             min_value=0.1,
                                             max_value=0.2,  # Must match 1 / max(n_layers - 1)
-                                            default=0.1,
+                                            default=0.14,
                                             step=0.01)
         x = complete_feature_vector
         for layer_idx in range(0, layers):
@@ -294,7 +294,7 @@ class VariantRankScoreModel:
         optimizer = optimizer_cls(learning_rate=hparams.Float('learning-rate',
                                                               min_value=1E-5,
                                                               max_value=1E-3,
-                                                              default=1E-4,
+                                                              default=1E-5,
                                                               step=10,
                                                               sampling='log'))
 
@@ -363,7 +363,7 @@ class VariantRankScoreModel:
                                       min_value=64,
                                       max_value=256,
                                       step=32,
-                                      default=128)
+                                      default=64)
 
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
