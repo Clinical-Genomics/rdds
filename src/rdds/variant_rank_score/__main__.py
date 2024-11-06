@@ -1,6 +1,7 @@
 import argparse
 from time import time
 import os
+import gc
 
 from . import WORKDIR
 from rdds.lib.hdf5 import Hdf5Viewer
@@ -63,15 +64,20 @@ def train(args):
         model.train()
 subparser.set_defaults(func=train)
 
-subparser = subparsers.add_parser('predict', help='Load model and run inference on data')
+subparser = subparsers.add_parser('inference_exploration', help='Visualize model performance on .hd5 dataset')
 subparser.add_argument('saved_model', help='Path to saved model directory')
-subparser.add_argument('hd5', help='Path to .hd5 data file')
-def predict(args):
+subparser.add_argument('hd5', help='Path to .hd5 data file containing data for computing inferences')
+def inference_exploration(args):
     from .model import VariantRankScoreModel
+    from .inference_exploration import InferenceExplorer
     variant_rank_score_model: VariantRankScoreModel = VariantRankScoreModel()
     variant_rank_score_model.load_saved_model(model_path=args.saved_model)
-    variant_rank_score_model.predict_on_hd5(args.hd5)
-subparser.set_defaults(func=predict)
+    inferences_file_path = variant_rank_score_model.predict_on_hd5(args.hd5)
+    del variant_rank_score_model
+    gc.collect()
+    inference_explorer = InferenceExplorer(hd5_file_path=inferences_file_path)
+    inference_explorer()
+subparser.set_defaults(func=inference_exploration)
 
 args = parser.parse_args()
 args.func(args)  # Callback to trigger func with args
