@@ -12,6 +12,8 @@ import datetime
 from json import dumps
 import logging
 from dataclasses import dataclass
+from h5py import File as Hdf5File, string_dtype
+import gc
 
 from .. import WORKDIR
 from rdds.lib.logging import get_logger
@@ -553,46 +555,82 @@ class VariantRankScoreModel:
 
     def predict_on_hd5(self,
                        hd5_file_path: str,
-                       group_name: str = 'train'):
+                       group_names: Set[str] = {'train', 'test'}) -> str:
 
-        np.set_printoptions(linewidth=128, precision=6, floatmode='fixed')
+        """
+        Creates a .hd5 file containing inpute feature data, ground truth and inferences side-by-side.
+        :param hd5_file_path: The file to the input data file for creating inferences
+        :param group_names: The group names in the hd5 to load data and to compute inferences for
+        :returns: The path to the .hd5 file containing data and inferences
+        """
 
-        # TODO: Make sure config to Hd5DataGenerator is identical to train time setup
-        datagen: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
-                                                     group_name=group_name,
-                                                     output_tensor_format=[self._features_text,
-                                                                           self._features_numerical],
-                                                     label='label',
-                                                     expand_1d_categorical_to_2d=True)
-        n_text_features, n_numerical_features = \
-            self.count_feature_types(hd5_output_dtypes=datagen.data_types)
-        input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
-                           tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
-                           (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
-        dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=datagen,
-                                                         output_signature=input_signature)
-        dataset = dataset.batch(10000)
-        dataset = dataset.prefetch(buffer_size=10)
+        # Set up output file
+        if not '.hd5' in hd5_file_path:
+            raise ValueError('Expected a .hd5 file as input')
+        output_file_path = hd5_file_path.replace('.hd5', '-inferences.hd5')
+        if output_file_path == hd5_file_path:
+            raise ValueError('Won\'t overwrite input data')
+        output_file = Hdf5File(name=output_file_path,
+                               mode='w')
 
-        output_file = open('/rdds/preds.tsv', 'w')  # FIXME: path
-        output_file.write('Data features: ' + str(datagen._output_tensor_format)+'\n')
-        output_file.write('feature_text\tfeature_numerical\ttruth\tpredicted\n')
+        for group_name in group_names:
+            # TODO: Make sure config to Hd5DataGenerator is identical to train time setup
+            output_tensor_format = [self._features_text, self._features_numerical]
+            datagen: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                         group_name=group_name,
+                                                         output_tensor_format=output_tensor_format,
+                                                         label='label',
+                                                         expand_1d_categorical_to_2d=True)
+            n_text_features, n_numerical_features = \
+                self.count_feature_types(hd5_output_dtypes=datagen.data_types)
+            input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
+                               tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
+                               (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
+            dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=datagen,
+                                                             output_signature=input_signature)
+            dataset = dataset.batch(10000)
+            dataset = dataset.prefetch(buffer_size=10)
+            data_length = datagen.data_length
 
-        nr_samples = float(datagen.data_length)
-        processed_samples: float = 0.0
-        for data, labels in dataset.as_numpy_iterator():
-            label, = labels
-            tensor_str, tensor_numerical = data
-            r = self._keras_model([tensor_str, tensor_numerical])
-            batch_size = tensor_str.shape[0]
-            for batch_idx in range(0, batch_size):
-                formatted = ''
-                formatted += f'{tensor_str[batch_idx]}\t'.replace('\n', '')
-                formatted += f'{tensor_numerical[batch_idx]}\t'.replace('\n', '')
-                formatted += f'{label[batch_idx, 1]}\t'
-                formatted += f'{r.numpy()[batch_idx, 1]}\n'
-                output_file.write(formatted)
-                processed_samples += 1
-            _LOGGER.info("%.2f" % (100.0 * (processed_samples / nr_samples)))
+            output_group = output_file.create_group(group_name)
+            # TODO: Mimic data set settings in ../dataset/dataset.py
+            for dataset_name in self._features_numerical:
+                output_group.create_dataset(name=dataset_name,
+                                            dtype=np.float32,
+                                            fillvalue=np.nan,
+                                            shape=(data_length, ))
+            for dataset_name in self._features_text:
+                output_group.create_dataset(name=dataset_name,
+                                            dtype=string_dtype(),
+                                            fillvalue=b'\0',
+                                            shape=(data_length, ))
+            output_group.create_dataset(name='ground-truth',
+                                        dtype=np.float32,
+                                        fillvalue=np.nan,
+                                        shape=(data_length, ))
+            output_group.create_dataset(name='prediction',
+                                        dtype=np.float32,
+                                        fillvalue=np.nan,
+                                        shape=(data_length, ))
+
+            processed_sample_idx = 0
+            for data, labels in dataset.as_numpy_iterator():
+                label, = labels
+                label_class_pathogenic = label[:, 1]
+                tensor_str, tensor_numerical = data
+                r = self._keras_model([tensor_str, tensor_numerical])
+                r = r.numpy()
+                prediction_class_pathogenic = r[:, 1]
+                batch_size = tensor_str.shape[0]
+                for feature_names, features_data in [(self._features_text, tensor_str),
+                                                     (self._features_numerical, tensor_numerical)]:
+                    for feature_idx, feature_name in enumerate(feature_names):
+                        output_group[feature_name][processed_sample_idx:processed_sample_idx+batch_size] = features_data[:, feature_idx]
+                output_group['ground-truth'][processed_sample_idx:processed_sample_idx+batch_size] = label_class_pathogenic
+                output_group['prediction'][processed_sample_idx:processed_sample_idx + batch_size] = prediction_class_pathogenic
+                processed_sample_idx += batch_size
+                _LOGGER.info(f"Progress {group_name}: %.2f%%" % (100.0 * (processed_sample_idx / data_length)))
             output_file.flush()
+            gc.collect()
         output_file.close()
+        return output_file_path

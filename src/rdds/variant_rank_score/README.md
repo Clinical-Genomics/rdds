@@ -97,7 +97,13 @@ rdds.variant_rank_score compile-vcf \
 Last known run configuration on Hasta required 5 cores and 120G of RAM.
 
 ## Hyperparameter Tuning
-Enable the hyperparamter tuning flag when running training, example:
+Enable the hyperparameter tuning flag when running training, example:
 ```
 python3 -m rdds.variant_rank_score train /rdds/tmp/variant-rank-score/clinvar.hd5 --tune-hyperparams=1
+```
+
+## Inspecting Model Performance
+```bash
+python3 -m rdds.variant_rank_score inference_exploration [KERAS_MODEL_PATH] [HD5_TRAIN_TEST_FILE_PATH]
+cd tmp/variant-rank-score/inference_viz/
 ```
