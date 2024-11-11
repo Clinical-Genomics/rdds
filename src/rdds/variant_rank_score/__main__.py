@@ -49,7 +49,7 @@ subparser.add_argument('--tune-hyperparams',
                        default=False)
 def train(args):
     from .model import VariantRankScoreModel
-    from .hyperparameter_tuner import VRSBayesianTuner
+    from .hyperparameter_tuner import VRSBayesianTuner, HyperParameters
 
     if args.tune_hyperparams:
         tuner = VRSBayesianTuner(hd5_file_path=args.hd5,
