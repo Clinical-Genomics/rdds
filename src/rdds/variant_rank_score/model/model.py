@@ -263,11 +263,20 @@ class VariantRankScoreModel:
                                             max_value=0.2,  # Must match 1 / max(n_layers - 1)
                                             default=0.14,
                                             step=0.01)
+        dropout_rate = hparams.Float(name='dropout_rate',
+                                     min_value=0,
+                                     max_value=0.9,
+                                     step=0.1,
+                                     default=0.2)
         x = complete_feature_vector
         for layer_idx in range(0, layers):
             x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
                                       activation=activation,
                                       kernel_regularizer=regularizer)(x)    # -> [bdim, n_units]
+            if dropout_rate >= 0:
+                x = tf.keras.layers.Dropout(rate=dropout_rate,
+                                            seed=1)(x)
+
 
         # Specify network out shape
         logits = tf.keras.layers.Dense(units=2, name='Logits', activation='linear')(x)  # -> [bdim, 2]
