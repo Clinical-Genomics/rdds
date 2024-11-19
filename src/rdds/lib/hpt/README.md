@@ -18,3 +18,17 @@ hparams.Int(...)
 tuner = Tuner(..., hyperparameters=hparams, tune_new_entries=False)
 tuner.search()
 ``
+
+## Known Issues
+### hparams.Conditional_scope and Scoped Hyperparameters
+Using sub-hparams in a conditional_scope is prone to errors like
+`ValueError: multiple values specified for hparam '[HPT_NAME]'` if using the hyperparameter scope limitation:
+```python
+Tuner(hparams=limited_hparams, tune_new_entries=False)
+```
+if hparams is created like this in a model:
+```python
+feature_flag = hparams.Boolean('feature_a', default=True)
+with hparams.conditional_scope('feature_a', [True]):
+    hparams.Float(....)
+```
