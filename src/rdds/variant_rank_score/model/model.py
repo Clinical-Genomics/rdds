@@ -26,6 +26,7 @@ from rdds.lib.tf import InstanceNormalisationLayer
 from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
 from rdds.lib.hpt import HyperParameters
+from rdds.lib.vcf import ParsableVariant
 
 
 
@@ -634,3 +635,44 @@ class VariantRankScoreModel:
             gc.collect()
         output_file.close()
         return output_file_path
+
+    def score_variant(self, variants: List[ParsableVariant]) -> List[float]:
+        """
+        Run model inference step on ParsableVariant instance.
+        :param variants: The variants to score
+        :return: Rank scores, (0, 1), the higher the more pathogenic.
+          Input-output order is preserved.
+        """
+        # TODO: store input config in model training step
+        # TODO: Sanity check that the VCF file is actually annotated with expected VCF data
+        def get_str_feature(variant: ParsableVariant,
+                            name: str) -> bytes:
+            if name in variant.parsed_fields:
+                return variant.__getattribute__(name)
+            else:
+                return b''
+
+        def get_num_feature(variant: ParsableVariant,
+                            name: str) -> float:
+            if name in variant.parsed_fields:
+                value = variant.__getattribute__(name)
+                if isinstance(value, (bytes, str)) and len(value) == 0:
+                    pass
+                else:
+                    return value
+            return 0.0
+
+        text_features_batch: List[List[bytes]] = []
+        numerical_features_batch: List[List[float]] = []
+        for variant in variants:
+            text_features = [get_str_feature(variant, feature_name) for feature_name in self._features_text]
+            text_features_batch.append(text_features)
+            numerical_features = [get_num_feature(variant, feature_name) for feature_name in self._features_numerical]
+            numerical_features_batch.append(numerical_features)
+        tensor_text = tf.constant(text_features_batch, dtype=tf.string)
+        tensor_numerical = tf.constant(numerical_features_batch, dtype=tf.float32)
+        batch_scores = self._keras_model([tensor_text, tensor_numerical]).numpy()
+        pathogenicity_scores = batch_scores[:, 1]
+        if len(pathogenicity_scores) != len(variants):
+            raise ValueError(f'Expected same amount of predictions as input data')
+        return list(pathogenicity_scores)
