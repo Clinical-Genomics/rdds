@@ -1,0 +1,1 @@
+from .predict_on_vcf import predict_on_vcf

@@ -16,6 +16,9 @@ h5py==3.7.0
 # For improved debugging speed
 cython==0.29.33
 
+# UI
+progressbar2==4.5.0
+
 # Analytics and ML
 scikit-learn==1.2.2
 

@@ -79,5 +79,18 @@ def inference_exploration(args):
     inference_explorer()
 subparser.set_defaults(func=inference_exploration)
 
+subparser = subparsers.add_parser('predict-on-vcf', help='Run pretrained model on VCF to generate inferences')
+subparser.add_argument('pretrained_model_path', help='Path to VRS pretrained model to load')
+subparser.add_argument('vcf_file_path', help='Path to VCF file to generate inferences for')
+subparser.add_argument('--cpu_cores',
+                       help='Number of CPU cores to allocate for processing',
+                       default=os.cpu_count() - 1)
+def predict_on_vcf(args):
+    from .vcf_inference import predict_on_vcf
+    predict_on_vcf(vrs_model_file_path=args.pretrained_model_path,
+                   vcf_file_path=args.vcf_file_path,
+                   cpu_cores=int(args.cpu_cores))
+subparser.set_defaults(func=predict_on_vcf)
+
 args = parser.parse_args()
 args.func(args)  # Callback to trigger func with args
