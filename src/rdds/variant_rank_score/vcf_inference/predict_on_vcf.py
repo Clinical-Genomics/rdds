@@ -21,8 +21,7 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
                                     vrs_model_file_path: str,
                                     subprocess_work_dir: str,
                                     variant_index_start: int,
-                                    variant_index_stop: int,
-                                    completion_notification_queue: SimpleQueue):
+                                    variant_index_stop: int):
     from ..model import VariantRankScoreModel
     vcf_reader = VCFReader(vcf_file_path)
     vcf_reader.add_info_to_header({'ID': 'VrsModelPrediction',
@@ -59,7 +58,6 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
     vcf_writer.close()
     vcf_reader.close()
     gc.collect()
-    completion_notification_queue.put(subprocess_output_file_name)
 
 
 def predict_on_vcf(vrs_model_file_path: str,
@@ -100,14 +98,12 @@ def predict_on_vcf(vrs_model_file_path: str,
     batch_size = max_batch_size_per_worker if batch_size > max_batch_size_per_worker else batch_size
     subprocess_args = []
     worker_names = []
-    completion_notification_queue = ProcessPool.get_context().SimpleQueue()
     for variant_idx in range(0, n_variants, batch_size):
         subprocess_args.append((vcf_file_path,
                                 vrs_model_file_path,
                                 subprocess_work_dir,
                                 variant_idx,
-                                variant_idx + batch_size,
-                                completion_notification_queue))
+                                variant_idx + batch_size))
         worker_names.append(f"{variant_idx}-{variant_idx+batch_size}")
     _LOGGER.info(f'Worker load: {n_workers} workers \
 with {batch_size:.0E} variants per worker, \
@@ -119,12 +115,17 @@ totalling {len(subprocess_args)} worker tasks')
     task_queue = pool.run_async()
     pbar = progressbar.ProgressBar(max_value=len(subprocess_args),
                                    prefix='Total processing progress ')
-    for job_idx in range(0, len(subprocess_args)):
-        worker_message = completion_notification_queue.get()
-        pbar.update(job_idx)
-    for _ in range(0, len(subprocess_args)):
-        task = task_queue.get(timeout=1)
-        assert task.process.exitcode == 0
+    completed_tasks = []
+    while True:
+        task = task_queue.get(timeout=60*60)  # Raises Empty exception if no data after timeout
+        if task.process.exitcode != 0:
+            raise ValueError(f'Task failed: {task}')
+            break
+        completed_tasks.append(task)
+        if len(completed_tasks) == len(subprocess_args):
+            break
+        pbar.update(len(completed_tasks))
+    pbar.finish()
     pool.close()
 
     # Merge VCFs to produce final output file
