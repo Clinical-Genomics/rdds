@@ -1,1 +1,3 @@
 from .inference_explorer import InferenceExplorer
+from .view_vcf_rank_results import view_vcf_rank_results
+from .aggregate_vcf_rank_results import aggregate_vcf_rank_results
