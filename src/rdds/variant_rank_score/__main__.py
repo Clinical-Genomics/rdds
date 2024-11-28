@@ -2,6 +2,7 @@ import argparse
 from time import time
 import os
 import gc
+from typing import List
 
 from . import WORKDIR
 from rdds.lib.hdf5 import Hdf5Viewer
@@ -106,6 +107,43 @@ def post_train_explainer(args):
     model.post_train_explainer(model_path=args.pretrained_model_path,
                                hd5_file_path=args.hd5_file_path)
 subparser.set_defaults(func=post_train_explainer)
+
+subparser = subparsers.add_parser('view-ranked-vcf', help='Visualize ranked variants in VCF')
+subparser.add_argument('vcf_file_path', nargs='*',
+                       help='Path to ranked VCF to analyze. [CASENAME_suffix[es].vcf]. Globbing supported *-predictions.vcf')
+subparser.add_argument('--pathogenic_vcf_suffix',
+                       help='Suffix identifying pathogenic variant VCF file',
+                       default='_pathogenic.vcf')
+def view_ranked_vcf(args):
+    """
+    Analyse real case VCF files and view model performance.
+    Input files are ordered as such:
+    - [CATALOG]
+        - [case_name]_gatkcomb_rhocall_norm_af_mt_frqf_cadd_vep_parsed_ranked-[model_inference_suffix; -predictions].vcf
+            (all case variants, annotated)
+        - [case_name]_pathogenic.vcf
+            (MUTACC confirmed positive pathogenic variant(s) for this particular case).
+            Excerpt from above complete case data file.
+        - ... Additional files
+    Multiple files can be selected at the same time, by globbing on commandline: ./test_cases/*-predictions.vcf
+    """
+    from .inference_exploration import view_vcf_rank_results, aggregate_vcf_rank_results
+    case_names: List[str] = []
+    for vcf_file_path in args.vcf_file_path:
+        print(f'Processing {vcf_file_path}')
+        # Case name is the initial prefix in the VCF file name, separated by underscore
+        case_name = os.path.basename(vcf_file_path).split('_')[0]
+        case_names.append(case_name)
+        vcf_pathogenic_path = os.path.join(os.path.dirname(vcf_file_path), f'{case_name}{args.pathogenic_vcf_suffix}')
+        work_dir = os.path.dirname(vcf_file_path)
+        output_dir = os.path.join(work_dir, os.path.basename(vcf_file_path).split('_')[0])  # Case name as sub dir
+        view_vcf_rank_results(vcf_file_path=vcf_file_path,
+                              vcf_pathogenic_path=vcf_pathogenic_path,
+                              workdir=output_dir)
+        gc.collect()
+    aggregate_vcf_rank_results(view_rank_result_output_dir=work_dir,
+                               case_names=case_names)
+subparser.set_defaults(func=view_ranked_vcf)
 
 args = parser.parse_args()
 args.func(args)  # Callback to trigger func with args
