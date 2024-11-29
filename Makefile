@@ -7,6 +7,7 @@ DEFAULT_DEVENV_OS_FLAVOUR=ubuntu_20_04
 DOCKER := DOCKER_BUILDKIT=1 docker
 SINGULARITY_CACHEDIR_DEVENV=$(PWD)/tmp/devenv/singularity-cache-dir
 
+# Any changes to versioning method, please update rdds.lib.git as well
 VERSION=$(shell git describe --tags --dirty --always)
 VERSION_LATEST_MASTER=$(shell git describe --tags --abbrev=0 origin/master)
 
