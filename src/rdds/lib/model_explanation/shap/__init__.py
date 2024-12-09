@@ -1,0 +1,3 @@
+from .shap_explainer import ShapExplainer
+from .shap_compatible_serializable_model import ShapCompatibleSerializableModel
+from .shap_kernel import ShapKernel
