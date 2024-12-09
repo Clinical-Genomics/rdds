@@ -5,6 +5,8 @@ cyvcf2==0.30.22
 tensorflow==2.12.0
 tensorflow_text==2.12.1
 keras-tuner==1.4.7
+scikit-learn==1.2.2
+shap==0.44.1
 
 # Graphics
 matplotlib==3.7.1
@@ -18,9 +20,6 @@ cython==0.29.33
 
 # UI
 progressbar2==4.5.0
-
-# Analytics and ML
-scikit-learn==1.2.2
 
 # Tests
 pytest==7.3.1
