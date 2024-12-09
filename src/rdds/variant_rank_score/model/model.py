@@ -1,10 +1,12 @@
 # Make sure to set all seeds
+import pandas as pd
+
 from rdds.lib.determinism import enable_determinism; enable_determinism()
 
 # Add NaN, +-Inf checks
 from rdds.lib.tf import enable_check_numerics; enable_check_numerics()
 
-from typing import *
+from typing import List, Dict, Union, Type, Tuple, Optional, Set, Any
 import numpy as np
 import tensorflow as tf
 import os
@@ -27,6 +29,7 @@ from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
 from rdds.lib.hpt import HyperParameters
 from rdds.lib.vcf import ParsableVariant
+from .model_explainer import ModelExplainer
 
 
 
@@ -120,6 +123,7 @@ class VariantRankScoreModel:
         self._workdir = workdir
         self._train_log_dir: str = os.path.join(self._workdir, workdir_suffix)
         self._datasets: InitializedDatasets = None
+        self._model_explainer: ModelExplainer = None
 
     def _build_model(self,
                      hparams: HyperParameters) -> tf.keras.models.Model:
@@ -541,11 +545,54 @@ class VariantRankScoreModel:
                                         verbose=2)
         return history
 
-    def load_saved_model(self, model_path: str):
+    def train_model_explainer(self):
+        """
+        Setup model explainer on training data, to provide model inference explanations
+        during runtime.
+
+        This method expects that a previously trained self._keras_model is available.
+
+        WARNING: This method exports training data to file, and in case of
+        patient data in the training set, this will "leak" sensitive data.
+        On calling this method, make sure training data set does not contain
+        sensitive data, or manage the output file appropriately.
+        """
+        _LOGGER.info('Training model explainer')
+        if self._keras_model is None:
+            raise ValueError(f'No available keras model to compute predictions for')
+        if self._datasets is None:
+            raise ValueError(f'No datasets available')
+        # NOTE: Changes to below configuration must be reflected in the self._load_saved_model_explainer()
+        self._model_explainer = ModelExplainer(model=self._infer_pathogenicity_scores,
+                                               features_text=self._features_text,
+                                               features_numerical=self._features_numerical,
+                                               input_feature_names=self._features)
+        dataset = self._datasets.dataset_train
+        # The data used for fitting the explainer should be randomly selected from the complete set of training data
+        dataset = dataset.shuffle(buffer_size=self._datasets.train_data_length,
+                                  seed=1)
+        self._model_explainer.adapt(dataset=dataset)
+        gc.collect()
+        file_path = os.path.join(self._train_log_dir, 'model-explainer.bin')  # Might contain sensitive data!
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        self._model_explainer.save(file_path=file_path)
+        _LOGGER.info(f'Saved model explainer to {file_path}')
+
+    def post_train_explainer(self, model_path: str, hd5_file_path: str):
+        """
+        Post train a model explain from saved keras model.
+        """
+        self._load_saved_keras_model(model_path=model_path)
+        self._init_datasets(hd5_file_path=hd5_file_path,
+                            hparams=HyperParameters())
+        self.train_model_explainer()
+
+    def _load_saved_keras_model(self, model_path: str,):
         """
         Load trained model from model_path
         :param model_path: Path to Keras saved model (*.keras) zip file
         """
+        # Load Keras Model
         if self._keras_model is not None:
             raise ValueError('The model already contains a loaded keras model!')
         model = tf.keras.saving.load_model(model_path)
@@ -554,14 +601,50 @@ class VariantRankScoreModel:
         model.summary(line_length=160)
         self._keras_model = model
 
-    def predict(self, input_data: Dict[str, np.ndarray]) -> np.ndarray:
+    def _load_saved_model_explainer(self, model_explainer_path: str):
         """
-        Run predict, inference call on input data dictionary.
-        :param input_data: Dictionary of input data. Input shapes, data order
-          should conform to earlier established input data format.
-        :return: Inferences
+        Load saved ModelExplainer from path
+        :param model_explainer_path: Path to ModelExplainer binary file
         """
-        return self._keras_model.predict(x=input_data)
+
+        # Load ModelExplainer
+        if self._model_explainer is not None:
+            raise ValueError('The model already contains a loaded ModelExplainer!')
+        _LOGGER.info(f'Loading ModelExplainer from {model_explainer_path}')
+        if self._keras_model is None:
+            raise ValueError(f'Loading ModelExplainer requires a pre-loaded keras model, none currently loaded')
+        # NOTE: Changes to below configuration must be reflected in the self.train_model_explainer()
+        self._model_explainer = ModelExplainer.from_saved_file(file_path=model_explainer_path,
+                                                               keras_model=self._infer_pathogenicity_scores,
+                                                               features_text=self._features_text,
+                                                               features_numerical=self._features_numerical)
+
+    def load_saved_model(self,
+                         keras_model_path: str,
+                         model_explainer_path: str):
+        """
+        Main interface to load a saved instance from file.
+        :param keras_model_path: Path to saved keras file (*.keras)
+        :param model_explainer_path: Path to saved model explainer instance (model-explainer.bin)
+        """
+        self._load_saved_keras_model(model_path=keras_model_path)
+        self._load_saved_model_explainer(model_explainer_path=model_explainer_path)
+
+    def _infer_pathogenicity_scores(self,
+                                    tensor_text: tf.Tensor,
+                                    tensor_numerical: tf.Tensor) -> np.ndarray:
+        """
+        Main method to compute inferences from input tensors.
+        :param tensor_text: Features containing text
+        :param tensor_numerical: Features containing numericals
+        :return: 1D scores same size as outer, batch dimension
+        """
+        if self._keras_model is None:
+            raise ValueError('No keras model available for inference computation!')
+        score_classes = self._keras_model([tensor_text, tensor_numerical])  # [class benign, class pathogenic]
+        score_classes = score_classes.numpy()
+        prediction_class_pathogenic = score_classes[:, 1]
+        return prediction_class_pathogenic
 
     def predict_on_hd5(self,
                        hd5_file_path: str,
@@ -628,9 +711,8 @@ class VariantRankScoreModel:
                 label, = labels
                 label_class_pathogenic = label[:, 1]
                 tensor_str, tensor_numerical = data
-                r = self._keras_model([tensor_str, tensor_numerical])
-                r = r.numpy()
-                prediction_class_pathogenic = r[:, 1]
+                prediction_class_pathogenic = self._infer_pathogenicity_scores(tensor_text=tensor_str,
+                                                                               tensor_numerical=tensor_numerical)
                 batch_size = tensor_str.shape[0]
                 for feature_names, features_data in [(self._features_text, tensor_str),
                                                      (self._features_numerical, tensor_numerical)]:
@@ -645,10 +727,13 @@ class VariantRankScoreModel:
         output_file.close()
         return output_file_path
 
-    def score_variant(self, variants: List[ParsableVariant]) -> List[float]:
+    def score_variant(self,
+                      variants: List[ParsableVariant],
+                      explain_variant_score_threshold: float = 0.9) -> pd.DataFrame:
         """
         Run model inference step on ParsableVariant instance.
         :param variants: The variants to score
+        :param explain_variant_score_threshold: Explain variant predictions >= this threshold
         :return: Rank scores, (0, 1), the higher the more pathogenic.
           Input-output order is preserved.
         """
@@ -680,8 +765,21 @@ class VariantRankScoreModel:
             numerical_features_batch.append(numerical_features)
         tensor_text = tf.constant(text_features_batch, dtype=tf.string)
         tensor_numerical = tf.constant(numerical_features_batch, dtype=tf.float32)
-        batch_scores = self._keras_model([tensor_text, tensor_numerical]).numpy()
-        pathogenicity_scores = batch_scores[:, 1]
+        pathogenicity_scores = self._infer_pathogenicity_scores(tensor_text=tensor_text,
+                                                                tensor_numerical=tensor_numerical)
+
         if len(pathogenicity_scores) != len(variants):
             raise ValueError(f'Expected same amount of predictions as input data')
-        return list(pathogenicity_scores)
+        idx_scores_above_threshold = np.flatnonzero(pathogenicity_scores >= explain_variant_score_threshold)
+        arr = np.concatenate((tensor_text.numpy(), tensor_numerical.numpy()), axis=1)
+        explanations_full = np.empty_like(arr)
+        explanations_full.fill(np.nan)
+        if len(idx_scores_above_threshold) > 0:
+            explanations_full[idx_scores_above_threshold, :] = self._model_explainer.shap_values(X=arr[idx_scores_above_threshold, :],
+                                                                                                 gc_collect=True)  # FIXME: Method call
+        explanations_df = pd.DataFrame(data=explanations_full, columns=self._features)
+        result_df = pd.concat(objs=(pd.Series(pathogenicity_scores, name='pathogenicity_score'),
+                                    explanations_df),
+                              axis=1)
+        return result_df
+

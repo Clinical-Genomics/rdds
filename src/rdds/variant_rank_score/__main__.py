@@ -62,16 +62,19 @@ def train(args):
                     hparams=model.get_uninitialized_hyperparameters(),
                     compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors)
         model.train()
+        model.train_model_explainer()
 subparser.set_defaults(func=train)
 
 subparser = subparsers.add_parser('inference_exploration', help='Visualize model performance on .hd5 dataset')
-subparser.add_argument('saved_model', help='Path to saved model directory')
+subparser.add_argument('saved_model_path', help='Path to keras saved model (*.keras)')
+subparser.add_argument('saved_model_explainer_path', help='Path to saved model explainer (model-explainer.bin)')
 subparser.add_argument('hd5', help='Path to .hd5 data file containing data for computing inferences')
 def inference_exploration(args):
     from .model import VariantRankScoreModel
     from .inference_exploration import InferenceExplorer
     variant_rank_score_model: VariantRankScoreModel = VariantRankScoreModel()
-    variant_rank_score_model.load_saved_model(model_path=args.saved_model)
+    variant_rank_score_model.load_saved_model(keras_model_path=args.saved_model_path,
+                                              model_explainer_path=args.saved_model_explainer_path)
     inferences_file_path = variant_rank_score_model.predict_on_hd5(args.hd5)
     del variant_rank_score_model
     gc.collect()
@@ -81,6 +84,7 @@ subparser.set_defaults(func=inference_exploration)
 
 subparser = subparsers.add_parser('predict-on-vcf', help='Run pretrained model on VCF to generate inferences')
 subparser.add_argument('pretrained_model_path', help='Path to VRS pretrained model to load')
+subparser.add_argument('pretrained_model_explainer_path', help='Path to VRS pretrained ModelExplainer to load')
 subparser.add_argument('vcf_file_path', help='Path to VCF file to generate inferences for')
 subparser.add_argument('--cpu_cores',
                        help='Number of CPU cores to allocate for processing',
@@ -88,9 +92,20 @@ subparser.add_argument('--cpu_cores',
 def predict_on_vcf(args):
     from .vcf_inference import predict_on_vcf
     predict_on_vcf(vrs_model_file_path=args.pretrained_model_path,
+                   model_explainer_path=args.pretrained_model_explainer_path,
                    vcf_file_path=args.vcf_file_path,
                    cpu_cores=int(args.cpu_cores))
 subparser.set_defaults(func=predict_on_vcf)
+
+subparser = subparsers.add_parser('post-train-explainer', help='Train explanations model from pretrained keras model')
+subparser.add_argument('pretrained_model_path', help='Path to keras model')
+subparser.add_argument('hd5_file_path', help='HD5 Dataset file')
+def post_train_explainer(args):
+    from .model import VariantRankScoreModel
+    model = VariantRankScoreModel()
+    model.post_train_explainer(model_path=args.pretrained_model_path,
+                               hd5_file_path=args.hd5_file_path)
+subparser.set_defaults(func=post_train_explainer)
 
 args = parser.parse_args()
 args.func(args)  # Callback to trigger func with args

@@ -1,5 +1,7 @@
 import math
 import os
+
+import pandas as pd
 import progressbar
 from cyvcf2 import Writer as VcfWriter
 from tempfile import mkdtemp
@@ -19,6 +21,7 @@ _LOGGER = get_logger('vrs_predict', 'info')
 
 def _subprocess_predict_on_vcf_part(vcf_file_path: str,
                                     vrs_model_file_path: str,
+                                    model_explainer_path: str,
                                     subprocess_work_dir: str,
                                     variant_index_start: int,
                                     variant_index_stop: int):
@@ -28,6 +31,10 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
                                    'Description': 'Rank score from VRS model (5 points precision, scientific notation)',
                                    'Type': 'Float',
                                    'Number': '1'})
+    vcf_reader.add_info_to_header({'ID': 'VrsModelExplanation',
+                                   'Description': 'List of annotation impact scores on VrsModelPrediction (2 points precision, scientific notation)',
+                                   'Type': 'String',
+                                   'Number': '.'})
 
     # Make a copy of the input VCF which is also the output file
     subprocess_output_file_name = os.path.join(subprocess_work_dir, f'{variant_index_start}.vcf')
@@ -50,10 +57,23 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
 
     # Run model inference
     vrs_model = VariantRankScoreModel()
-    vrs_model.load_saved_model(model_path=vrs_model_file_path)
-    batch_scores = vrs_model.score_variant(parsed_variants)
-    for i, (variant, score) in enumerate(zip(variants, batch_scores)):
-        variant.INFO['VrsModelPrediction'] = f'{score:.5E}'
+    vrs_model.load_saved_model(keras_model_path=vrs_model_file_path,
+                               model_explainer_path=model_explainer_path)
+    df: pd.DataFrame = vrs_model.score_variant(parsed_variants)
+    for i, variant in enumerate(variants):
+        df_i = df.iloc[i]
+        variant.INFO['VrsModelPrediction'] = f'{df_i.pathogenicity_score:.5E}'
+        # Sort the explanations in decreasing importance (positive = more contributing to higher scoring result)
+        explanations_sorted_in_decreasing_importance = df_i.sort_values(ascending=False)
+        vrs_model_explanations = '['
+        for key, contribution_score in list(explanations_sorted_in_decreasing_importance.items()):
+            if key == 'pathogenicity_score':
+                continue
+            if not (contribution_score == contribution_score):  # NaN check
+                continue
+            vrs_model_explanations += f'{key}={contribution_score:.2E},'
+        vrs_model_explanations += ']'
+        variant.INFO['VrsModelExplanation'] = vrs_model_explanations
         vcf_writer.write_record(variant)
     vcf_writer.close()
     vcf_reader.close()
@@ -61,6 +81,7 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
 
 
 def predict_on_vcf(vrs_model_file_path: str,
+                   model_explainer_path: str,
                    vcf_file_path: str,
                    cpu_cores: int,
                    max_batch_size_per_worker: int = int(10E4)
@@ -70,6 +91,7 @@ def predict_on_vcf(vrs_model_file_path: str,
     This method requires ~80GB RAM with default settings
 
     :param vrs_model_file_path: The path to the pretrained model
+    :param model_explainer_path: The path to the saved model explainer
     :param vcf_file_path: The path to the VCF file
     :param cpu_cores: Maximum amount of CPU cores to allocate to job
     :param max_batch_size_per_worker: Amount of variants per worker subprocess task (partition due to limited RAM)
@@ -101,6 +123,7 @@ def predict_on_vcf(vrs_model_file_path: str,
     for variant_idx in range(0, n_variants, batch_size):
         subprocess_args.append((vcf_file_path,
                                 vrs_model_file_path,
+                                model_explainer_path,
                                 subprocess_work_dir,
                                 variant_idx,
                                 variant_idx + batch_size))
