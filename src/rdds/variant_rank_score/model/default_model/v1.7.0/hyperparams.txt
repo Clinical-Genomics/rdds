@@ -1,0 +1,14 @@
+batch_size=128
+feature_selection_regularisation=True
+feature_selection_regularisation_penalty=1e-05
+embedding-dimensions=10
+branch_dense_0=128
+branch_dense_1=84
+feature_multicollinearity_regularisation=True
+feature_multicollinearity_regularisation_penalty=1e-09
+dense-activation=relu
+dense-layers=6
+dense-units=512
+dense-units-reduction=0.1
+optimizer=Adam
+learning-rate=0.0001
