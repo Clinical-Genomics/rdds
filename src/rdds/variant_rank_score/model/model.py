@@ -30,6 +30,7 @@ from rdds.lib.tf import print_tensor_op
 from rdds.lib.hpt import HyperParameters
 from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
+from .default_model import DEFAULT_MODEL_SPEC
 
 
 
@@ -55,10 +56,7 @@ If this is not the case, the layer might be removed in the graph!
 # TODO: Determine whether to use GeneticModels_family_id?
 # TODO: Determine whether to use ModelScore_family_id?
 
-# FIXME: IT's required to set this variable to None on first run, to generate a vocabulary. Then restart training using this file.
 # See comment in the text_vectorization_layer.py about keras and tensorboard.
-_DEFAULT_VOCABULARY_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'vocabulary.txt'))
-_DEFAULT_NUMERICAL_NORMALISATION_WEIGHTS = os.path.abspath(os.path.join(os.path.dirname(__file__), 'normalisation.tar'))
 _LOGGER = get_logger('vrs-model')
 _LOGGER.setLevel(logging.INFO)
 
@@ -100,8 +98,8 @@ class VariantRankScoreModel:
     def __init__(self,
                  features_text: List[str] = FEATURES_TEXT,
                  features_numerical: List[str] = FEATURES_FLOAT,
-                 vocabulary_file_path: str = _DEFAULT_VOCABULARY_FILE,
-                 numerical_normalisation_weights_file_path: str = _DEFAULT_NUMERICAL_NORMALISATION_WEIGHTS,
+                 vocabulary_file_path: str = DEFAULT_MODEL_SPEC.vocabulary_file,
+                 numerical_normalisation_weights_file_path: str = DEFAULT_MODEL_SPEC.numerical_normalisation_weights,
                  workdir: str = WORKDIR,
                  workdir_suffix: str = 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")):
         """
@@ -109,7 +107,11 @@ class VariantRankScoreModel:
         :param features_text:
         :param features_numerical:
         :param vocabulary_file_path:
+        Set to None if you wish to regenereate the vocabulary.
+        Note: Training fails after vocabulary has been generated, so update this path
+        and restart training.
         :param numerical_normalisation_weights_file_path:
+        Set to None if you wish to regenerate the normalisation weights.
         :param workdir: Path where model build and training output is stored
         :param workdir_suffix: Subdirectory used for stratifying model training runs
         """
@@ -620,8 +622,8 @@ class VariantRankScoreModel:
                                                                features_numerical=self._features_numerical)
 
     def load_saved_model(self,
-                         keras_model_path: str,
-                         model_explainer_path: str):
+                         keras_model_path: str = DEFAULT_MODEL_SPEC.keras_model,
+                         model_explainer_path: str = DEFAULT_MODEL_SPEC.explainer_model):
         """
         Main interface to load a saved instance from file.
         :param keras_model_path: Path to saved keras file (*.keras)
