@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
-#SBATCH --mem=50G
+#SBATCH --mem=90G
 #SBATCH --time=1-00:00:00
 #SBATCH --account=development
 #SBATCH --job-name=RDDS-dev
