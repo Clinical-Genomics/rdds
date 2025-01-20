@@ -145,7 +145,7 @@ class VariantRankScoreModel:
         input_text_preprocessed = dna_sequence_trimmer_layer(input_text_preprocessed)  # tensor shape preserved
 
         with_feature_selection_regularisation = hparams.Boolean('feature_selection_regularisation',
-                                                                default=True)
+                                                                default=False)
         with hparams.conditional_scope('feature_selection_regularisation',  [True]):
             if with_feature_selection_regularisation:
                 # L1 regularizer to perform feature selection
@@ -164,7 +164,7 @@ class VariantRankScoreModel:
         embedding_dimensions = hparams.Int('embedding-dimensions',
                                            min_value=1,
                                            max_value=20,
-                                           default=5,
+                                           default=6,
                                            step=1)
         embeddings_layer: EmbeddingsReductionLayer = \
             EmbeddingsReductionLayer(precompiled_vocabulary_file=precompiled_vocabulary_file,
@@ -206,12 +206,12 @@ class VariantRankScoreModel:
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=160)
+                                     default=224)
         branch_dense_1 = hparams.Int('branch_dense_1',
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=224)
+                                     default=128)
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
                                                   activation='relu',
                                                   kernel_regularizer=None)(embeddings_flat)
@@ -250,23 +250,23 @@ class VariantRankScoreModel:
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
                                   max_value=6,
-                                  default=3,
+                                  default=5,
                                   step=1)
         units: int = hparams.Int('dense-units',
                                  min_value=32,
                                  max_value=1024,
-                                 default=608,
+                                 default=160,
                                  step=32)
         delta_factor: float = hparams.Float('dense-units-reduction',
                                             min_value=0.1,
                                             max_value=0.2,  # Must match 1 / max(n_layers - 1)
-                                            default=0.14,
+                                            default=0.12,
                                             step=0.01)
         dropout_rate = hparams.Float(name='dropout_rate',
                                      min_value=0,
                                      max_value=0.9,
                                      step=0.1,
-                                     default=0.2)
+                                     default=0.4)
         x = complete_feature_vector
         for layer_idx in range(0, layers):
             x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
@@ -305,7 +305,7 @@ class VariantRankScoreModel:
         optimizer = optimizer_cls(learning_rate=hparams.Float('learning-rate',
                                                               min_value=1E-5,
                                                               max_value=1E-3,
-                                                              default=1E-5,
+                                                              default=1E-4,
                                                               step=10,
                                                               sampling='log'))
 
@@ -374,7 +374,7 @@ class VariantRankScoreModel:
                                       min_value=64,
                                       max_value=256,
                                       step=32,
-                                      default=64)
+                                      default=128)
 
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
