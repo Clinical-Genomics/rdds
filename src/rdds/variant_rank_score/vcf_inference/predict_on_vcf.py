@@ -28,11 +28,11 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
     from ..model import VariantRankScoreModel
     vcf_reader = VCFReader(vcf_file_path)
     vcf_reader.add_info_to_header({'ID': 'VrsModelPrediction',
-                                   'Description': 'Rank score from VRS model (5 points precision, scientific notation)',
+                                   'Description': 'Rank score from VRS model (5 points precision)',
                                    'Type': 'Float',
                                    'Number': '1'})
     vcf_reader.add_info_to_header({'ID': 'VrsModelExplanation',
-                                   'Description': 'List of annotation impact scores on VrsModelPrediction (2 points precision, scientific notation)',
+                                   'Description': 'List of annotation impact scores on VrsModelPrediction (2 points precision)',
                                    'Type': 'String',
                                    'Number': '.'})
 
@@ -62,7 +62,7 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
     df: pd.DataFrame = vrs_model.score_variant(parsed_variants)
     for i, variant in enumerate(variants):
         df_i = df.iloc[i]
-        variant.INFO['VrsModelPrediction'] = f'{df_i.pathogenicity_score:.5E}'
+        variant.INFO['VrsModelPrediction'] = f'{df_i.pathogenicity_score:.5F}'
         # Sort the explanations in decreasing importance (positive = more contributing to higher scoring result)
         explanations_sorted_in_decreasing_importance = df_i.sort_values(ascending=False)
         vrs_model_explanations = '['
@@ -71,7 +71,7 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
                 continue
             if not (contribution_score == contribution_score):  # NaN check
                 continue
-            vrs_model_explanations += f'{key}={contribution_score:.2E},'
+            vrs_model_explanations += f'{key}={contribution_score:.2F},'
         vrs_model_explanations += ']'
         variant.INFO['VrsModelExplanation'] = vrs_model_explanations
         vcf_writer.write_record(variant)
