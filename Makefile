@@ -50,6 +50,31 @@ devenv-%-build:
 	--target devenv \
 	-f build/devenv/devenv.Dockerfile .
 
+cosmograph-build:
+	$(DOCKER) build \
+	--build-arg="VERSION=$(VERSION)" \
+	-t $(DOCKERHUB)/rdds_cosmograph:$(VERSION) \
+	--force-rm=true \
+	--rm=true \
+	-f build/devenv/cosmograph.Dockerfile .
+
+cosmograph-build-singularity-container:
+	mkdir -p tmp/devenv
+	docker save $(DOCKERHUB)/rdds_cosmograph:$(VERSION) -o tmp/devenv/rdds_cosmograph-$(VERSION).tar
+	singularity build -F tmp/devenv/rdds_cosmograph-$(VERSION).sif docker-archive://tmp/devenv/rdds_cosmograph-$(VERSION).tar
+	rm -f tmp/devenv/rdds_cosmograph-$(VERSION).tar
+
+cosmograph-run:
+	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
+	mkdir -p $(SINGULARITY_CACHEDIR_DEVENV)
+	SINGULARITY_CACHEDIR=$(SINGULARITY_CACHEDIR_DEVENV) singularity exec --nv -w \
+	--fakeroot --no-home --cleanenv --contain --containall \
+	-B $(PWD):/rdds tmp/devenv/rdds_cosmograph-$(VERSION).sif /entrypoint.sh
+
+    # 1. Install jupyterlab pip package in the environment you with to use
+    # 2. Source the environment
+	# 3. In container run: PYTHONPATH=/rdds/src jupyter lab --allow-root --no-browser
+
 devenv-%-push:
 	# Upload docker image to clinicalgenomics organisation at dockerhub
 	# https://hub.docker.com/repository/docker/clinicalgenomics/rdds
