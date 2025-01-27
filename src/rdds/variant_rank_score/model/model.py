@@ -164,7 +164,7 @@ class VariantRankScoreModel:
         embedding_dimensions = hparams.Int('embedding-dimensions',
                                            min_value=1,
                                            max_value=20,
-                                           default=6,
+                                           default=8,
                                            step=1)
         embeddings_layer: EmbeddingsReductionLayer = \
             EmbeddingsReductionLayer(precompiled_vocabulary_file=precompiled_vocabulary_file,
@@ -206,12 +206,12 @@ class VariantRankScoreModel:
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=224)
+                                     default=32)
         branch_dense_1 = hparams.Int('branch_dense_1',
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=128)
+                                     default=64)
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
                                                   activation='relu',
                                                   kernel_regularizer=None)(embeddings_flat)
@@ -245,28 +245,28 @@ class VariantRankScoreModel:
                 regularizer = None
         activation = hparams.Choice('dense-activation',
                                     values=['relu', 'sigmoid', 'linear'],
-                                    default='relu')
+                                    default='sigmoid')
         _LOGGER.info(f'length feature vector {len(self._features)}')
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
                                   max_value=6,
-                                  default=5,
+                                  default=6,
                                   step=1)
         units: int = hparams.Int('dense-units',
                                  min_value=32,
                                  max_value=1024,
-                                 default=160,
+                                 default=576,
                                  step=32)
         delta_factor: float = hparams.Float('dense-units-reduction',
                                             min_value=0.1,
                                             max_value=0.2,  # Must match 1 / max(n_layers - 1)
-                                            default=0.12,
+                                            default=0.18,
                                             step=0.01)
         dropout_rate = hparams.Float(name='dropout_rate',
                                      min_value=0,
                                      max_value=0.9,
                                      step=0.1,
-                                     default=0.4)
+                                     default=0.3)
         x = complete_feature_vector
         for layer_idx in range(0, layers):
             x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
@@ -374,7 +374,7 @@ class VariantRankScoreModel:
                                       min_value=64,
                                       max_value=256,
                                       step=32,
-                                      default=128)
+                                      default=224)
 
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
