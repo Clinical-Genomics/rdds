@@ -249,7 +249,7 @@ class VariantRankScoreModel:
         _LOGGER.info(f'length feature vector {len(self._features)}')
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
-                                  max_value=6,
+                                  max_value=12,
                                   default=6,
                                   step=1)
         units: int = hparams.Int('dense-units',
@@ -303,8 +303,8 @@ class VariantRankScoreModel:
         else:
             raise ValueError(f'Undefined optimizer: {optimizer_algo}')
         optimizer = optimizer_cls(learning_rate=hparams.Float('learning-rate',
-                                                              min_value=1E-5,
-                                                              max_value=1E-3,
+                                                              min_value=1E-6,
+                                                              max_value=1E-4,
                                                               default=1E-4,
                                                               step=10,
                                                               sampling='log'))
@@ -372,7 +372,7 @@ class VariantRankScoreModel:
 
         batch_size: int = hparams.Int('batch_size',
                                       min_value=64,
-                                      max_value=256,
+                                      max_value=512,
                                       step=32,
                                       default=224)
 
