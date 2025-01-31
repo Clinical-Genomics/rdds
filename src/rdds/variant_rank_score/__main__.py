@@ -3,6 +3,7 @@ from time import time
 import os
 import gc
 from typing import List
+from glob import glob
 
 from . import WORKDIR
 from rdds.lib.hdf5 import Hdf5Viewer
@@ -132,7 +133,13 @@ def view_ranked_vcf(args):
     """
     from .inference_exploration import view_vcf_rank_results, aggregate_vcf_rank_results
     case_names: List[str] = []
-    for vcf_file_path in args.vcf_file_path:
+    if '*' in args.vcf_file_path:
+        # Globbing
+        vcf_file_paths = glob(args.vcf_file_path)
+    else:
+        vcf_file_paths = args.vcf_file_path
+    print(f'About to process files: {vcf_file_paths}')
+    for vcf_file_path in vcf_file_paths:
         print(f'Processing {vcf_file_path}')
         # Case name is the initial prefix in the VCF file name, separated by underscore
         case_name = os.path.basename(vcf_file_path).split('_')[0]
