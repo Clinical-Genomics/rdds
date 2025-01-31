@@ -236,10 +236,10 @@ got {pathogenic_variant_ids}!={pathogenic_variants}')
 
     _LOGGER.debug('CSV storage complete')
 
-    def store_highest_ranked_variants(indexes: np.ndarray,
-                                      file_name: str):
+    def _write_variants_to_vcf(indexes: np.ndarray,
+                               file_name: str):
         """
-        Copy variants from input VCF to a new VCF as a subset based on rank score
+        Copy variants from input VCF to a new VCF as a subset based on indexes
         """
         pbar = ProgressBar(widgets=[progressbar.widgets.BouncingBar()],
                            prefix=file_name)
@@ -257,19 +257,24 @@ got {pathogenic_variant_ids}!={pathogenic_variants}')
         gc.collect()
         pbar.finish()
 
-    store_highest_ranked_variants(indexes=df.sort_values('genmod_rank_score',
-                                                         ascending=False).iloc[0:store_n_variants].index.values,
-                                  file_name='genmod-top-scores.vcf')
+    _write_variants_to_vcf(indexes=df.sort_values('genmod_rank_score',
+                                                  ascending=False).iloc[0:store_n_variants].index.values,
+                           file_name='genmod-top-scores.vcf')
 
-    store_highest_ranked_variants(indexes=df.sort_values('vrs_rank_score',
-                                                         ascending=False).iloc[0:store_n_variants].index.values,
-                                  file_name='vrs-top-scores.vcf')
+    _write_variants_to_vcf(indexes=df.sort_values('vrs_rank_score',
+                                                  ascending=False).iloc[0:store_n_variants].index.values,
+                           file_name='vrs-top-scores.vcf')
 
-    store_highest_ranked_variants(indexes=df_frqfilt.sort_values('vrs_rank_score',
-                                                                 ascending=False).iloc[0:store_n_variants].index.values,
-                                  file_name='vrs-top-scores-frqfilt.vcf')
+    _write_variants_to_vcf(indexes=df_frqfilt.sort_values('vrs_rank_score',
+                                                          ascending=False).iloc[0:store_n_variants].index.values,
+                           file_name='vrs-top-scores-frqfilt.vcf')
 
     _LOGGER.debug('Ranked VCF storage complete')
+
+    # Store annotated, ranked pathogenic variants to separate VCF
+    _write_variants_to_vcf(indexes=pathogenic_variants.index.values,
+                           file_name='pathogenic_variants.vcf')
+    _LOGGER.debug('Pathogenic variants storage complete')
 
     meta = {
         'pathogenic_variants': pathogenic_variants.to_dict(),
