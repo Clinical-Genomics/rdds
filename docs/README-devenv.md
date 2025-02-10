@@ -56,6 +56,29 @@ your repo on hasta, `[REPO_ROOT]/tmp/devenv/rdds[FLAVOR_VERSION].sif`.
 3. Forward the SSH port to your local machine, eg `ssh -N -L 2150:compute-0-6.local:2150 hasta`
 4. Login to container using `make devenv-ssh`
 
+### Accessing Jupyter Lab On Hasta
+```bash
+# Start container on Hasta
+@hasta > SIF_IMAGE_PATH=tmp/devenv/rdds_cosmograph-v1.10.0-rc0.sif sbatch job.slurm /entrypoint.sh
+@hasta > squeue -l $USER
+  /.. get node name where job runs ../
+
+# Port forward SSH
+@localhost > ssh -N -L 2150:NODE_NAME.local:2150 hasta
+
+# Start Jypter Lab On Hasta
+@localhost > make devenv-ssh
+@container > . /opt/pyenv3.10/bin/activate && \
+  juypyter lab --config /rdds/build/devenv/jupyter_lab_config.py
+  /.../
+  Jupyter Server 2.15.0 is running at:
+    http://localhost:2160/lab?token=TOKEN
+
+# Access notebook
+@localhost > ssh -N -L 2160:NODE_NAME.local:2160 hasta
+@localhost > firefox http://localhost:2160/lab?token=TOKEN
+```
+
 ## Known Issues and Quirks
 
 ### Docker Mount UID-GID Limitation
