@@ -512,7 +512,7 @@ class VariantRankScoreModel:
         callbacks.append(tf.keras.callbacks.EarlyStopping(monitor='loss',
                                                           mode='min',
                                                           verbose=1,
-                                                          patience=3))
+                                                          patience=10))
         callbacks.append(tf.keras.callbacks.TerminateOnNaN())
 
         compile_config: Dict[str, Any] = self._keras_model.get_compile_config()
