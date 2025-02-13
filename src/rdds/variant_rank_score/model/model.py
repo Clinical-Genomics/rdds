@@ -162,8 +162,8 @@ class VariantRankScoreModel:
         # Text vectorization
         precompiled_vocabulary_file = None if preprocessed_dataset else self._vocabulary_file_path
         embedding_dimensions = hparams.Int('embedding-dimensions',
-                                           min_value=1,
-                                           max_value=20,
+                                           min_value=18,
+                                           max_value=30,
                                            default=18,
                                            step=1)
         embeddings_layer: EmbeddingsReductionLayer = \
@@ -209,7 +209,7 @@ class VariantRankScoreModel:
                                      default=32)
         branch_dense_1 = hparams.Int('branch_dense_1',
                                      min_value=32,
-                                     max_value=256,
+                                     max_value=128,
                                      step=32,
                                      default=96)
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
@@ -235,8 +235,8 @@ class VariantRankScoreModel:
             if with_feature_multicollinearity_regularizer:
                 # L2; regularisation to deal with multicollinearity
                 correlation_penalty = hparams.Float('feature_multicollinearity_regularisation_penalty',
-                                                    min_value=1E-9,
-                                                    max_value=1E-2,
+                                                    min_value=1E-10,
+                                                    max_value=1E-7,
                                                     default=1E-8,
                                                     step=10,
                                                     sampling='log')
@@ -249,17 +249,17 @@ class VariantRankScoreModel:
         _LOGGER.info(f'length feature vector {len(self._features)}')
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
-                                  max_value=12,
+                                  max_value=3,
                                   default=2,
                                   step=1)
         units: int = hparams.Int('dense-units',
                                  min_value=32,
-                                 max_value=1024,
+                                 max_value=400,
                                  default=288,
                                  step=32)
         delta_factor: float = hparams.Float('dense-units-reduction',
                                             min_value=0.1,
-                                            max_value=0.2,  # Must match 1 / max(n_layers - 1)
+                                            max_value=0.5,  # Must match 1 / max(n_layers - 1)
                                             default=0.15,
                                             step=0.01)
         dropout_rate = hparams.Float(name='dropout_rate',
@@ -303,8 +303,8 @@ class VariantRankScoreModel:
         else:
             raise ValueError(f'Undefined optimizer: {optimizer_algo}')
         optimizer = optimizer_cls(learning_rate=hparams.Float('learning-rate',
-                                                              min_value=1E-6,
-                                                              max_value=1E-4,
+                                                              min_value=1E-4,
+                                                              max_value=1E-2,
                                                               default=1E-4,
                                                               step=10,
                                                               sampling='log'))
