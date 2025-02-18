@@ -378,6 +378,29 @@ class VariantRankScoreModel:
         _LOGGER.info(f'Saving model to {filepath}')
         self._keras_model.save(filepath=filepath)
 
+    def _generate_dataset_tensor_signature(self) -> Tuple[Tuple[tf.TensorSpec, ...], ...]:
+        """
+        Helper method to generatate HD5 -> TF data generator tensor signatures.
+        :return: A nested tuple of tf.TensorSpec instances
+        """
+        def _get_input_signature_from_name(name: str) -> Union[tf.TensorSpec, tf.RaggedTensorSpec]:
+            # Helper to assemble input tensor in order defined by self._features
+            if name in self._features_text:
+                return tf.TensorSpec((), dtype=tf.string, name=name)  # (, 1)
+            elif name in self._features_numerical:
+                return tf.TensorSpec((), dtype=tf.float32, name=name)  # (, 1)
+            else:
+                raise ValueError(f'Found no input tensor with name {name}')
+
+        input_tensor_signatures = ()
+        for feature_name in self._features:
+            input_tensor_signatures += (_get_input_signature_from_name(name=feature_name), )
+        signature = (
+            input_tensor_signatures,
+            (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), )
+        )
+        return signature
+
     def _init_datasets(self,
                        hd5_file_path: str,
                        hparams: HyperParameters,
@@ -395,25 +418,8 @@ class VariantRankScoreModel:
                                                                       output_tensor_format=self._features,
                                                                       label='label')
 
-        def _get_input_signature_from_name(name: str) -> Union[tf.TensorSpec, tf.RaggedTensorSpec]:
-            # Helper to assemble input tensor in order defined by self._features
-            if name in self._features_text:
-                return tf.TensorSpec((), dtype=tf.string, name=name)  # (, 1)
-            elif name in self._features_numerical:
-                return tf.TensorSpec((), dtype=tf.float32, name=name)  # (, 1)
-            else:
-                raise ValueError(f'Found no input tensor with name {name}')
-
-        input_tensor_signatures = ()
-        for feature_name in self._features:
-            input_tensor_signatures += (_get_input_signature_from_name(name=feature_name), )
-        hd5_output_signature = (
-            input_tensor_signatures,
-            (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), )
-        )
-
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
-                                                                                output_signature=hd5_output_signature)
+                                                                                output_signature=self._generate_dataset_tensor_signature())
         dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
         dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
@@ -455,7 +461,7 @@ class VariantRankScoreModel:
                                                                      output_tensor_format=self._features,
                                                                      label='label')
         dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
-                                                                               output_signature=hd5_output_signature)
+                                                                               output_signature=self._generate_dataset_tensor_signature())
         dataset_test = dataset_test.cache()
         dataset_test = dataset_test.repeat(-1)
         dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
@@ -465,7 +471,6 @@ class VariantRankScoreModel:
         #                                  seed=1)
         dataset_test = dataset_test.batch(batch_size)
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
-        _LOGGER.info(f'Model Input data mapping: {hd5_output_signature}')
 
         self._datasets = InitializedDatasets(dataset_train_numerical=dataset_numerical,
                                              dataset_train_vocabulary=dataset_vocabulary,
@@ -688,19 +693,13 @@ class VariantRankScoreModel:
 
         for group_name in group_names:
             # TODO: Make sure config to Hd5DataGenerator is identical to train time setup
-            output_tensor_format = [self._features_text, self._features_numerical]
             datagen: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                          group_name=group_name,
-                                                         output_tensor_format=output_tensor_format,
+                                                         output_tensor_format=self._features,
                                                          label='label',
                                                          expand_1d_categorical_to_2d=True)
-            n_text_features, n_numerical_features = \
-                self.count_feature_types(hd5_output_dtypes=datagen.data_types)
-            input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
-                               tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
-                               (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
             dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=datagen,
-                                                             output_signature=input_signature)
+                                                             output_signature=self._generate_dataset_tensor_signature())
             dataset = dataset.batch(10000)
             dataset = dataset.prefetch(buffer_size=10)
             data_length = datagen.data_length
