@@ -132,13 +132,26 @@ class VariantRankScoreModel:
         """
         :param hparams: Hyperparameters for the model
         """
-        input_text: tf.keras.Input = tf.keras.Input(shape=len(self._features_text),
-                                                    ragged=True,
-                                                    dtype=tf.string,
-                                                    name='input_text')
-        input_numerical: tf.keras.Input = tf.keras.Input(shape=len(self._features_numerical),
-                                                         dtype=tf.float32,
-                                                         name='input_numerical')
+
+        text_inputs = []
+        for text_feature_name in self._features_text:
+            text_inputs.append(
+                tf.keras.Input(shape=(1, ),
+                               ragged=True,
+                               dtype=tf.string,
+                               name=text_feature_name)
+            )
+        input_text: tf.RaggedTensor = tf.concat(text_inputs, axis=1, name='concat_input_text')
+
+        numerical_inputs = []
+        for numerical_feature_name in self._features_numerical:
+            numerical_inputs.append(
+                tf.keras.Input(shape=(1, ),
+                               dtype=tf.float32,
+                               name=numerical_feature_name)
+            )
+        input_numerical: tf.Tensor = tf.concat(numerical_inputs, axis=1, name='concat_input_numerical')
+
         # Text preprocessing
         split_regex = '\s|\n|_|&|/|\||:|,|-|0|1|2|3|4|5|6|7|8|9'
         text_preprocessing_layer = TextPreprocessingLayer(split_regex=split_regex)
@@ -290,7 +303,18 @@ class VariantRankScoreModel:
         # Softmax layer
         confidences = tf.keras.layers.Softmax(name='Confidences')(logits)  # -> [bdim, 2]
 
-        self._keras_model = tf.keras.Model(inputs=[input_text, input_numerical],
+        def _get_input_tensor_with_name(name: str) -> Union[tf.Tensor, tf.RaggedTensor]:
+            # Helper to assemble input tensor in order defined by self._features
+            all_input_tensors = text_inputs.copy()
+            all_input_tensors.extend(numerical_inputs)
+            for input_tensor in all_input_tensors:
+                if input_tensor.name == name:
+                    return input_tensor
+            raise ValueError(f'Found no input tensor with name {name}')
+        model_inputs = []  # Flat list of model inputs [feature0, feature1, ... ]
+        for feature_name in self._features:
+            model_inputs.append(_get_input_tensor_with_name(name=feature_name))
+        self._keras_model = tf.keras.Model(inputs=model_inputs,
                                            outputs=confidences)
 
         metrics = [tf.keras.metrics.TruePositives(),
@@ -342,24 +366,6 @@ class VariantRankScoreModel:
         c = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False)
         return c
 
-    @staticmethod
-    def count_feature_types(hd5_output_dtypes: Dict[str, Type]) -> Tuple[int, int]:
-        """
-        Computes amount of numerical vs textbased features in dataset.
-        :param hd5_output_dtypes: The output types from hd5_data_generator.data_types attribute
-        :return: Tuple of count
-        """
-        n_text_features = 0
-        n_numerical_features = 0
-        for feature_name, feature_dtype in hd5_output_dtypes.items():
-            if feature_dtype == bytes:
-                n_text_features += 1
-            elif feature_dtype == float:
-                n_numerical_features += 1
-            else:
-                raise ValueError('Unknown feature dtype', feature_dtype)
-        return n_text_features, n_numerical_features
-
     def save_model_fn(self, epoch: int, logs=Optional[dict]):
         """
         Saves model to Keras saved model format
@@ -386,15 +392,28 @@ class VariantRankScoreModel:
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                       group_name='train',
-                                                                      output_tensor_format=[self._features_text,
-                                                                                            self._features_numerical],
+                                                                      output_tensor_format=self._features,
                                                                       label='label')
-        n_text_features, n_numerical_features = self.count_feature_types(hd5_output_dtypes=hd5_data_generator_train.data_types)
-        input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
-                           tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
-                           (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
+
+        def _get_input_signature_from_name(name: str) -> Union[tf.TensorSpec, tf.RaggedTensorSpec]:
+            # Helper to assemble input tensor in order defined by self._features
+            if name in self._features_text:
+                return tf.TensorSpec((), dtype=tf.string, name=name)  # (, 1)
+            elif name in self._features_numerical:
+                return tf.TensorSpec((), dtype=tf.float32, name=name)  # (, 1)
+            else:
+                raise ValueError(f'Found no input tensor with name {name}')
+
+        input_tensor_signatures = ()
+        for feature_name in self._features:
+            input_tensor_signatures += (_get_input_signature_from_name(name=feature_name), )
+        hd5_output_signature = (
+            input_tensor_signatures,
+            (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), )
+        )
+
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
-                                                                                output_signature=input_signature)
+                                                                                output_signature=hd5_output_signature)
         dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
         dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
@@ -433,11 +452,10 @@ class VariantRankScoreModel:
         # Testing setup
         hd5_data_generator_test: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                      group_name='test',
-                                                                     output_tensor_format=[self._features_text,
-                                                                                           self._features_numerical],
+                                                                     output_tensor_format=self._features,
                                                                      label='label')
         dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
-                                                                               output_signature=input_signature)
+                                                                               output_signature=hd5_output_signature)
         dataset_test = dataset_test.cache()
         dataset_test = dataset_test.repeat(-1)
         dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
@@ -447,7 +465,7 @@ class VariantRankScoreModel:
         #                                  seed=1)
         dataset_test = dataset_test.batch(batch_size)
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
-        _LOGGER.info(f'Model Input data mapping: {input_signature}')
+        _LOGGER.info(f'Model Input data mapping: {hd5_output_signature}')
 
         self._datasets = InitializedDatasets(dataset_train_numerical=dataset_numerical,
                                              dataset_train_vocabulary=dataset_vocabulary,
