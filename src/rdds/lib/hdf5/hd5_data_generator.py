@@ -30,7 +30,8 @@ class Hd5DataGenerator:
                  label: str = None,
                  replace_nan_floats_with: float = 0.0,
                  load_data_into_ram: bool = True,
-                 expand_1d_categorical_to_2d: bool = True):
+                 expand_1d_categorical_to_2d: bool = True,
+                 max_n_samples: int = None):
         """
         :param hd5_file_path: HD5 file to generate data from
         :param group_name: Group in HD5 file to read data from (reads all datasets)
@@ -40,6 +41,7 @@ class Hd5DataGenerator:
         :param replace_nan_floats_with: Floating point value to replace NaN values
         :param load_data_into_ram: Load file content into RAM if True. Improves reading performance.
         :param expand_1d_categorical_to_2d: Unpack a 1D categorical label [0][TN] into 2D; [1, 0][TN, TP]
+        :param max_n_samples: Maximum samples to yield
         """
         self._hd5_file_path: str = hd5_file_path
         self._hd5_file = h5py.File(name=self._hd5_file_path, mode='r')
@@ -56,7 +58,10 @@ class Hd5DataGenerator:
             _LOGGER.info(f'Loading data to RAM.')
             in_ram_group: Dict[str, np.ndarray] = {}  # Mock the Group dictionary API by using a dict
             for dataset_name in self._group.keys():
-                in_ram_group.update({dataset_name: self._group[dataset_name][:]})
+                if max_n_samples is not None:
+                    in_ram_group.update({dataset_name: self._group[dataset_name][0:max_n_samples]})
+                else:
+                    in_ram_group.update({dataset_name: self._group[dataset_name][:]})
             self._group: Dict[str, np.ndarray] = in_ram_group
             _LOGGER.info('RAM loading complete.')
 
@@ -82,6 +87,8 @@ class Hd5DataGenerator:
             if dataset.shape != zeroeth_dataset.shape:
                 raise ValueError(f'Not identical dataset shapes, got {dataset.shape}!={zeroeth_dataset.shape}')
         self._data_length: int = zeroeth_dataset.shape[0]
+        if max_n_samples is not None:
+            self._data_length = max_n_samples
         _LOGGER.info(f'{self._data_length} samples across {len(self._group.keys())} features')
 
     @property
