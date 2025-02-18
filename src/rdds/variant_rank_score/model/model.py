@@ -132,13 +132,26 @@ class VariantRankScoreModel:
         """
         :param hparams: Hyperparameters for the model
         """
-        input_text: tf.keras.Input = tf.keras.Input(shape=len(self._features_text),
-                                                    ragged=True,
-                                                    dtype=tf.string,
-                                                    name='input_text')
-        input_numerical: tf.keras.Input = tf.keras.Input(shape=len(self._features_numerical),
-                                                         dtype=tf.float32,
-                                                         name='input_numerical')
+
+        text_inputs = []
+        for text_feature_name in self._features_text:
+            text_inputs.append(
+                tf.keras.Input(shape=(1, ),
+                               ragged=True,
+                               dtype=tf.string,
+                               name=text_feature_name)
+            )
+        input_text: tf.RaggedTensor = tf.concat(text_inputs, axis=1, name='concat_input_text')
+
+        numerical_inputs = []
+        for numerical_feature_name in self._features_numerical:
+            numerical_inputs.append(
+                tf.keras.Input(shape=(1, ),
+                               dtype=tf.float32,
+                               name=numerical_feature_name)
+            )
+        input_numerical: tf.Tensor = tf.concat(numerical_inputs, axis=1, name='concat_input_numerical')
+
         # Text preprocessing
         split_regex = '\s|\n|_|&|/|\||:|,|-|0|1|2|3|4|5|6|7|8|9'
         text_preprocessing_layer = TextPreprocessingLayer(split_regex=split_regex)
@@ -290,7 +303,18 @@ class VariantRankScoreModel:
         # Softmax layer
         confidences = tf.keras.layers.Softmax(name='Confidences')(logits)  # -> [bdim, 2]
 
-        self._keras_model = tf.keras.Model(inputs=[input_text, input_numerical],
+        def _get_input_tensor_with_name(name: str) -> Union[tf.Tensor, tf.RaggedTensor]:
+            # Helper to assemble input tensor in order defined by self._features
+            all_input_tensors = text_inputs.copy()
+            all_input_tensors.extend(numerical_inputs)
+            for input_tensor in all_input_tensors:
+                if input_tensor.name == name:
+                    return input_tensor
+            raise ValueError(f'Found no input tensor with name {name}')
+        model_inputs = []  # Flat list of model inputs [feature0, feature1, ... ]
+        for feature_name in self._features:
+            model_inputs.append(_get_input_tensor_with_name(name=feature_name))
+        self._keras_model = tf.keras.Model(inputs=model_inputs,
                                            outputs=confidences)
 
         metrics = [tf.keras.metrics.TruePositives(),
@@ -342,24 +366,6 @@ class VariantRankScoreModel:
         c = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False)
         return c
 
-    @staticmethod
-    def count_feature_types(hd5_output_dtypes: Dict[str, Type]) -> Tuple[int, int]:
-        """
-        Computes amount of numerical vs textbased features in dataset.
-        :param hd5_output_dtypes: The output types from hd5_data_generator.data_types attribute
-        :return: Tuple of count
-        """
-        n_text_features = 0
-        n_numerical_features = 0
-        for feature_name, feature_dtype in hd5_output_dtypes.items():
-            if feature_dtype == bytes:
-                n_text_features += 1
-            elif feature_dtype == float:
-                n_numerical_features += 1
-            else:
-                raise ValueError('Unknown feature dtype', feature_dtype)
-        return n_text_features, n_numerical_features
-
     def save_model_fn(self, epoch: int, logs=Optional[dict]):
         """
         Saves model to Keras saved model format
@@ -371,6 +377,29 @@ class VariantRankScoreModel:
         filepath = self._train_log_dir + '/saved-models/%d-%.4f.keras' % (epoch, logs['val_loss'])
         _LOGGER.info(f'Saving model to {filepath}')
         self._keras_model.save(filepath=filepath)
+
+    def _generate_dataset_tensor_signature(self) -> Tuple[Tuple[tf.TensorSpec, ...], ...]:
+        """
+        Helper method to generatate HD5 -> TF data generator tensor signatures.
+        :return: A nested tuple of tf.TensorSpec instances
+        """
+        def _get_input_signature_from_name(name: str) -> Union[tf.TensorSpec, tf.RaggedTensorSpec]:
+            # Helper to assemble input tensor in order defined by self._features
+            if name in self._features_text:
+                return tf.TensorSpec((), dtype=tf.string, name=name)  # (, 1)
+            elif name in self._features_numerical:
+                return tf.TensorSpec((), dtype=tf.float32, name=name)  # (, 1)
+            else:
+                raise ValueError(f'Found no input tensor with name {name}')
+
+        input_tensor_signatures = ()
+        for feature_name in self._features:
+            input_tensor_signatures += (_get_input_signature_from_name(name=feature_name), )
+        signature = (
+            input_tensor_signatures,
+            (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), )
+        )
+        return signature
 
     def _init_datasets(self,
                        hd5_file_path: str,
@@ -386,15 +415,11 @@ class VariantRankScoreModel:
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                       group_name='train',
-                                                                      output_tensor_format=[self._features_text,
-                                                                                            self._features_numerical],
+                                                                      output_tensor_format=self._features,
                                                                       label='label')
-        n_text_features, n_numerical_features = self.count_feature_types(hd5_output_dtypes=hd5_data_generator_train.data_types)
-        input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
-                           tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
-                           (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
+
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
-                                                                                output_signature=input_signature)
+                                                                                output_signature=self._generate_dataset_tensor_signature())
         dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
         dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
@@ -415,7 +440,7 @@ class VariantRankScoreModel:
                                                                                group_name='train',
                                                                                output_tensor_format=[self._features_text])
             input_signature_vocabulary: Tuple[tf.TensorSpec] = \
-                (tf.TensorSpec((n_text_features,), dtype=tf.string, name='input_text_vocabulary'),)
+                (tf.TensorSpec((len(self._features_text),), dtype=tf.string, name='input_text_vocabulary'),)
             dataset_vocabulary = get_tf_dataset_from_hd5_data_generator(
                 hd5_data_generator=hd5_data_generator_vocabulary,
                 output_signature=input_signature_vocabulary)
@@ -425,7 +450,7 @@ class VariantRankScoreModel:
                                                             group_name='train',
                                                             output_tensor_format=self._features_numerical)
             input_signature_numerical_normalisation = \
-                tf.TensorSpec((n_numerical_features,), dtype=tf.float32, name='input_numerical_normalisation')
+                tf.TensorSpec((len(self._features_numerical),), dtype=tf.float32, name='input_numerical_normalisation')
             dataset_numerical: tf.data.Dataset = \
                 get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_numerical,
                                                        output_signature=input_signature_numerical_normalisation)
@@ -433,11 +458,10 @@ class VariantRankScoreModel:
         # Testing setup
         hd5_data_generator_test: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                      group_name='test',
-                                                                     output_tensor_format=[self._features_text,
-                                                                                           self._features_numerical],
+                                                                     output_tensor_format=self._features,
                                                                      label='label')
         dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
-                                                                               output_signature=input_signature)
+                                                                               output_signature=self._generate_dataset_tensor_signature())
         dataset_test = dataset_test.cache()
         dataset_test = dataset_test.repeat(-1)
         dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
@@ -447,7 +471,6 @@ class VariantRankScoreModel:
         #                                  seed=1)
         dataset_test = dataset_test.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
-        _LOGGER.info(f'Model Input data mapping: {input_signature}')
 
         self._datasets = InitializedDatasets(dataset_train_numerical=dataset_numerical,
                                              dataset_train_vocabulary=dataset_vocabulary,
@@ -565,10 +588,10 @@ class VariantRankScoreModel:
         if self._datasets is None:
             raise ValueError(f'No datasets available')
         # NOTE: Changes to below configuration must be reflected in the self._load_saved_model_explainer()
+        model_input_spec = self._generate_dataset_tensor_signature()
+        data_tensor_spec, _ = model_input_spec  # Drop labels spec
         self._model_explainer = ModelExplainer(model=self._infer_pathogenicity_scores,
-                                               features_text=self._features_text,
-                                               features_numerical=self._features_numerical,
-                                               input_feature_names=self._features)
+                                               input_tensor_spec=data_tensor_spec)
         dataset = self._datasets.dataset_train
         # The data used for fitting the explainer should be randomly selected from the complete set of training data
         dataset = dataset.shuffle(buffer_size=self._datasets.train_data_length,
@@ -616,10 +639,11 @@ class VariantRankScoreModel:
         if self._keras_model is None:
             raise ValueError(f'Loading ModelExplainer requires a pre-loaded keras model, none currently loaded')
         # NOTE: Changes to below configuration must be reflected in the self.train_model_explainer()
+        model_input_spec = self._generate_dataset_tensor_signature()
+        model_input_data_spec, _ = model_input_spec  # Drop labels
         self._model_explainer = ModelExplainer.from_saved_file(file_path=model_explainer_path,
                                                                keras_model=self._infer_pathogenicity_scores,
-                                                               features_text=self._features_text,
-                                                               features_numerical=self._features_numerical)
+                                                               input_tensor_spec=model_input_data_spec)
 
     def load_saved_model(self,
                          keras_model_path: str = DEFAULT_MODEL_SPEC.keras_model,
@@ -633,29 +657,29 @@ class VariantRankScoreModel:
         self._load_saved_model_explainer(model_explainer_path=model_explainer_path)
 
     def _infer_pathogenicity_scores(self,
-                                    tensor_text: tf.Tensor,
-                                    tensor_numerical: tf.Tensor) -> np.ndarray:
+                                    tensor_dict: Dict[str, tf.Tensor]) -> np.ndarray:
         """
         Main method to compute inferences from input tensors.
-        :param tensor_text: Features containing text
-        :param tensor_numerical: Features containing numericals
+        :param tensor_dict: Input data tensors as dict, key is the tensor name
         :return: 1D scores same size as outer, batch dimension
         """
         if self._keras_model is None:
             raise ValueError('No keras model available for inference computation!')
-        score_classes = self._keras_model([tensor_text, tensor_numerical])  # [class benign, class pathogenic]
+        score_classes = self._keras_model(tensor_dict)  # [class benign, class pathogenic]
         score_classes = score_classes.numpy()
         prediction_class_pathogenic = score_classes[:, 1]
         return prediction_class_pathogenic
 
     def predict_on_hd5(self,
                        hd5_file_path: str,
-                       group_names: Set[str] = {'train', 'test'}) -> str:
+                       group_names: Set[str] = {'train', 'test'},
+                       batch_size: int = 1000) -> str:
 
         """
         Creates a .hd5 file containing inpute feature data, ground truth and inferences side-by-side.
         :param hd5_file_path: The file to the input data file for creating inferences
         :param group_names: The group names in the hd5 to load data and to compute inferences for
+        :param batch_size: Batch size, a large batch size improves speed
         :returns: The path to the .hd5 file containing data and inferences
         """
 
@@ -670,20 +694,14 @@ class VariantRankScoreModel:
 
         for group_name in group_names:
             # TODO: Make sure config to Hd5DataGenerator is identical to train time setup
-            output_tensor_format = [self._features_text, self._features_numerical]
             datagen: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                          group_name=group_name,
-                                                         output_tensor_format=output_tensor_format,
+                                                         output_tensor_format=self._features,
                                                          label='label',
                                                          expand_1d_categorical_to_2d=True)
-            n_text_features, n_numerical_features = \
-                self.count_feature_types(hd5_output_dtypes=datagen.data_types)
-            input_signature = ((tf.TensorSpec((n_text_features, ), dtype=tf.string),
-                               tf.TensorSpec((n_numerical_features, ), dtype=tf.float32, name='input_numerical')),
-                               (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), ))
             dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=datagen,
-                                                             output_signature=input_signature)
-            dataset = dataset.batch(10000)
+                                                             output_signature=self._generate_dataset_tensor_signature())
+            dataset = dataset.batch(batch_size)
             dataset = dataset.prefetch(buffer_size=10)
             data_length = datagen.data_length
 
@@ -709,17 +727,20 @@ class VariantRankScoreModel:
                                         shape=(data_length, ))
 
             processed_sample_idx = 0
+            model_input_spec = self._generate_dataset_tensor_signature()
+            model_input_data_spec, _ = model_input_spec  # Drop labels
             for data, labels in dataset.as_numpy_iterator():
+                data: Tuple[tf.Tensor]
                 label, = labels
                 label_class_pathogenic = label[:, 1]
-                tensor_str, tensor_numerical = data
-                prediction_class_pathogenic = self._infer_pathogenicity_scores(tensor_text=tensor_str,
-                                                                               tensor_numerical=tensor_numerical)
-                batch_size = tensor_str.shape[0]
-                for feature_names, features_data in [(self._features_text, tensor_str),
-                                                     (self._features_numerical, tensor_numerical)]:
-                    for feature_idx, feature_name in enumerate(feature_names):
-                        output_group[feature_name][processed_sample_idx:processed_sample_idx+batch_size] = features_data[:, feature_idx]
+                input_tensor_dict: Dict[str, tf.Tensor] = {}
+                for input_feature_idx, tensor_spec in enumerate(model_input_data_spec):
+                    input_tensor_dict.update({
+                        tensor_spec.name: tf.constant(data[input_feature_idx], dtype=tensor_spec.dtype, name=tensor_spec.name)
+                    })
+                prediction_class_pathogenic = self._infer_pathogenicity_scores(tensor_dict=input_tensor_dict)
+                for feature_name, tensor in input_tensor_dict.items():
+                    output_group[feature_name][processed_sample_idx:processed_sample_idx + batch_size] = tensor.numpy()
                 output_group['ground-truth'][processed_sample_idx:processed_sample_idx+batch_size] = label_class_pathogenic
                 output_group['prediction'][processed_sample_idx:processed_sample_idx + batch_size] = prediction_class_pathogenic
                 processed_sample_idx += batch_size
@@ -758,27 +779,36 @@ class VariantRankScoreModel:
                     return value
             return 0.0
 
-        text_features_batch: List[List[bytes]] = []
-        numerical_features_batch: List[List[float]] = []
-        for variant in variants:
-            text_features = [get_str_feature(variant, feature_name) for feature_name in self._features_text]
-            text_features_batch.append(text_features)
-            numerical_features = [get_num_feature(variant, feature_name) for feature_name in self._features_numerical]
-            numerical_features_batch.append(numerical_features)
-        tensor_text = tf.constant(text_features_batch, dtype=tf.string)
-        tensor_numerical = tf.constant(numerical_features_batch, dtype=tf.float32)
-        pathogenicity_scores = self._infer_pathogenicity_scores(tensor_text=tensor_text,
-                                                                tensor_numerical=tensor_numerical)
-
+        model_input_spec = self._generate_dataset_tensor_signature()
+        model_input_data_spec, _ = model_input_spec  # Drop labels
+        input_dict: Dict[str, Union[List, tf.Tensor]] = {}
+        for tensor_spec in model_input_data_spec:
+            input_dict.update({tensor_spec.name: []})
+            for variant in variants:
+                if tensor_spec.dtype == tf.string:
+                    input_dict[tensor_spec.name].append(get_str_feature(variant=variant, name=tensor_spec.name))
+                elif tensor_spec.dtype == tf.float32:
+                    input_dict[tensor_spec.name].append(get_num_feature(variant=variant, name=tensor_spec.name))
+                else:
+                    raise ValueError(f'Unmapped input data dtype spec: {tensor_spec}')
+            # Convert to Tensor
+            tensor_data = input_dict[tensor_spec.name].copy()
+            input_dict[tensor_spec.name] = tf.constant(value=tensor_data,
+                                                       dtype=tensor_spec.dtype,
+                                                       name=tensor_spec.name)
+        pathogenicity_scores = self._infer_pathogenicity_scores(tensor_dict=input_dict)
         if len(pathogenicity_scores) != len(variants):
             raise ValueError(f'Expected same amount of predictions as input data')
         idx_scores_above_threshold = np.flatnonzero(pathogenicity_scores >= explain_variant_score_threshold)
-        arr = np.concatenate((tensor_text.numpy(), tensor_numerical.numpy()), axis=1)
-        explanations_full = np.empty_like(arr)
+        df_dict = {}
+        for tensor_name, tensor in input_dict.items():
+            df_dict.update({tensor_name: tensor.numpy()[idx_scores_above_threshold]})
+        df_selected_variants_for_explanation = pd.DataFrame.from_dict(df_dict)
+        explanations_full = np.empty(shape=(len(variants), len(df_selected_variants_for_explanation.columns)))
         explanations_full.fill(np.nan)
         if len(idx_scores_above_threshold) > 0:
-            explanations_full[idx_scores_above_threshold, :] = self._model_explainer.shap_values(X=arr[idx_scores_above_threshold, :],
-                                                                                                 gc_collect=True)  # FIXME: Method call
+            explanations_full[idx_scores_above_threshold, :] = self._model_explainer.shap_values(X=df_selected_variants_for_explanation.values,
+                                                                                                 gc_collect=True)  # FIXME: Method call not supposed to be erroneous by typechecker
         explanations_df = pd.DataFrame(data=explanations_full, columns=self._features)
         result_df = pd.concat(objs=(pd.Series(pathogenicity_scores, name='pathogenicity_score'),
                                     explanations_df),

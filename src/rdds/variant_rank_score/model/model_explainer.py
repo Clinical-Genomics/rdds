@@ -1,7 +1,7 @@
 import tensorflow as tf
 import pandas as pd
 import numpy as np
-from typing import List, Callable
+from typing import List, Callable, Tuple
 import gc
 
 from rdds.lib.logging import get_logger; _LOGGER = get_logger('ModelExplainer', 'debug')
@@ -14,25 +14,22 @@ class ModelExplainer(ShapExplainer):
 
     def __init__(self,
                  model: Callable,
-                 features_text: List[str],
-                 features_numerical: List[str],
-                 input_feature_names: List[str]):
+                 input_tensor_spec: Tuple[tf.TensorSpec, ...]):
         """
-        Helper class to inferface VRS model and SHAP.
+        Helper class to interface VRS model and SHAP.
 
         :param model: The keras model used for inference, a callable to run inference
-        :param features_text: The text feature names (as input to keras model, order important)
-        :param features_numerical: The numerical feature names
-        :param input_feature_names: All feature names, as input to model, for SHAP visualisation
+        :param input_tensor_spec: The model input tensor spec (as input to keras model, order sensitive)
         """
         shap_compatible_model = ShapCompatibleModel(keras_model=model,
-                                                    features_numerical=features_numerical,
-                                                    features_text=features_text)
+                                                    input_tensor_spec=input_tensor_spec)
+
+        self._input_feature_names: List[str] = []
+        for tensor_spec in input_tensor_spec:
+            self._input_feature_names.append(tensor_spec.name)
         super().__init__(model=shap_compatible_model,
-                         input_feature_names=input_feature_names)
-        self._features_text = features_text
-        self._features_numerical = features_numerical
-        _LOGGER.debug(f'Initialized with features: {self._features_numerical, self._features_text}')
+                         input_feature_names=self._input_feature_names)
+        _LOGGER.debug(f'Initialized with features: {self._input_feature_names}')
 
     def adapt(self,
               dataset: tf.data.Dataset,
@@ -53,12 +50,8 @@ class ModelExplainer(ShapExplainer):
         dataset = dataset.map(lambda x, y: x)  # Drop labels
         dataset = dataset.take(n_reference_samples).as_numpy_iterator()
         data = list(dataset)  # Load to RAM
-        # data : Tuple(text_features, numerical_features)
-        shap_data = pd.DataFrame([text_features for text_features, _ in data],
-                                 columns=self._features_text)
-        shap_data = pd.concat((shap_data,
-                                    pd.DataFrame([numerical_features for _, numerical_features in data],
-                                                  columns=self._features_numerical)), axis=1)
+        # data : Tuple[Union[tf.string, tf.float32 with shape (n_reference_samples, n_features) ]])
+        shap_data = pd.DataFrame(data=data, columns=self._input_feature_names)
         del data
         reference_data: np.ndarray = shap_data.values
         gc.collect()

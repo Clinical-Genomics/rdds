@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple, Callable
+from typing import Tuple, Callable, Dict
 import tensorflow as tf
 from rdds.lib.model_explanation.shap import ShapCompatibleSerializableModel
 
@@ -18,11 +18,13 @@ class ShapCompatibleModel(ShapCompatibleSerializableModel):
 
     def __init__(self,
                  keras_model: Callable,
-                 features_text: List[str],
-                 features_numerical: List[str]):
+                 input_tensor_spec: Tuple[tf.TensorSpec, ...]):
+        """
+        :param keras_model: A callable that accepts input data and generates inferences
+        :param input_tensor_spec: Model input specification, order sensitive
+        """
         self._keras_model: Callable = keras_model
-        self._features_text = features_text
-        self._features_numerical = features_numerical
+        self._input_tensor_spec = input_tensor_spec
 
     def save(self, shap_model, file_pointer):
         # Nothing to save, rely on load_from_preloaded_keras_model()
@@ -40,16 +42,17 @@ class ShapCompatibleModel(ShapCompatibleSerializableModel):
         """
         return ShapCompatibleModel(*args, **kwargs)
 
-    def _to_tensors(self, array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
+    def _to_tensors(self, array: np.ndarray) -> Dict[str, tf.Tensor]:
         """
         Convert array of mixed-type data to separate Tensors with defined
         dtypes.
         """
-        txt_batch = array[:, 0:len(self._features_text)]
-        numerical_batch = array[:, len(self._features_text):]
-        txt_tensor = tf.constant(txt_batch, dtype=tf.string)
-        num_tensor = tf.constant(numerical_batch, dtype=tf.float32)
-        return txt_tensor, num_tensor
+        tensors: Dict[str, tf.Tensor] = dict()
+        for col_idx, tensor_spec in enumerate(self._input_tensor_spec):
+            tensors.update({
+                tensor_spec.name: tf.constant(array[:, col_idx], dtype=tensor_spec.dtype)
+            })
+        return tensors
 
     def __call__(self, array: np.ndarray) -> np.ndarray:
         """
@@ -57,5 +60,5 @@ class ShapCompatibleModel(ShapCompatibleSerializableModel):
         and run the model. Return inferences as np.ndarray shaped [batch_dim]
         """
         tensors = self._to_tensors(array)
-        inferences: np.ndarray = self._keras_model(*tensors)
+        inferences: np.ndarray = self._keras_model(tensors)
         return np.array(inferences)
