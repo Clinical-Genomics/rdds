@@ -434,7 +434,7 @@ class VariantRankScoreModel:
                                                                                group_name='train',
                                                                                output_tensor_format=[self._features_text])
             input_signature_vocabulary: Tuple[tf.TensorSpec] = \
-                (tf.TensorSpec((n_text_features,), dtype=tf.string, name='input_text_vocabulary'),)
+                (tf.TensorSpec((len(self._features_text),), dtype=tf.string, name='input_text_vocabulary'),)
             dataset_vocabulary = get_tf_dataset_from_hd5_data_generator(
                 hd5_data_generator=hd5_data_generator_vocabulary,
                 output_signature=input_signature_vocabulary)
@@ -444,7 +444,7 @@ class VariantRankScoreModel:
                                                             group_name='train',
                                                             output_tensor_format=self._features_numerical)
             input_signature_numerical_normalisation = \
-                tf.TensorSpec((n_numerical_features,), dtype=tf.float32, name='input_numerical_normalisation')
+                tf.TensorSpec((len(self._features_numerical),), dtype=tf.float32, name='input_numerical_normalisation')
             dataset_numerical: tf.data.Dataset = \
                 get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_numerical,
                                                        output_signature=input_signature_numerical_normalisation)
