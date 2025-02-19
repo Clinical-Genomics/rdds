@@ -779,27 +779,36 @@ class VariantRankScoreModel:
                     return value
             return 0.0
 
-        text_features_batch: List[List[bytes]] = []
-        numerical_features_batch: List[List[float]] = []
-        for variant in variants:
-            text_features = [get_str_feature(variant, feature_name) for feature_name in self._features_text]
-            text_features_batch.append(text_features)
-            numerical_features = [get_num_feature(variant, feature_name) for feature_name in self._features_numerical]
-            numerical_features_batch.append(numerical_features)
-        tensor_text = tf.constant(text_features_batch, dtype=tf.string)
-        tensor_numerical = tf.constant(numerical_features_batch, dtype=tf.float32)
-        pathogenicity_scores = self._infer_pathogenicity_scores(tensor_text=tensor_text,
-                                                                tensor_numerical=tensor_numerical)
-
+        model_input_spec = self._generate_dataset_tensor_signature()
+        model_input_data_spec, _ = model_input_spec  # Drop labels
+        input_dict: Dict[str, Union[List, tf.Tensor]] = {}
+        for tensor_spec in model_input_data_spec:
+            input_dict.update({tensor_spec.name: []})
+            for variant in variants:
+                if tensor_spec.dtype == tf.string:
+                    input_dict[tensor_spec.name].append(get_str_feature(variant=variant, name=tensor_spec.name))
+                elif tensor_spec.dtype == tf.float32:
+                    input_dict[tensor_spec.name].append(get_num_feature(variant=variant, name=tensor_spec.name))
+                else:
+                    raise ValueError(f'Unmapped input data dtype spec: {tensor_spec}')
+            # Convert to Tensor
+            tensor_data = input_dict[tensor_spec.name].copy()
+            input_dict[tensor_spec.name] = tf.constant(value=tensor_data,
+                                                       dtype=tensor_spec.dtype,
+                                                       name=tensor_spec.name)
+        pathogenicity_scores = self._infer_pathogenicity_scores(tensor_dict=input_dict)
         if len(pathogenicity_scores) != len(variants):
             raise ValueError(f'Expected same amount of predictions as input data')
         idx_scores_above_threshold = np.flatnonzero(pathogenicity_scores >= explain_variant_score_threshold)
-        arr = np.concatenate((tensor_text.numpy(), tensor_numerical.numpy()), axis=1)
-        explanations_full = np.empty_like(arr)
+        df_dict = {}
+        for tensor_name, tensor in input_dict.items():
+            df_dict.update({tensor_name: tensor.numpy()[idx_scores_above_threshold]})
+        df_selected_variants_for_explanation = pd.DataFrame.from_dict(df_dict)
+        explanations_full = np.empty(shape=(len(variants), len(df_selected_variants_for_explanation.columns)))
         explanations_full.fill(np.nan)
         if len(idx_scores_above_threshold) > 0:
-            explanations_full[idx_scores_above_threshold, :] = self._model_explainer.shap_values(X=arr[idx_scores_above_threshold, :],
-                                                                                                 gc_collect=True)  # FIXME: Method call
+            explanations_full[idx_scores_above_threshold, :] = self._model_explainer.shap_values(X=df_selected_variants_for_explanation.values,
+                                                                                                 gc_collect=True)  # FIXME: Method call not supposed to be erroneous by typechecker
         explanations_df = pd.DataFrame(data=explanations_full, columns=self._features)
         result_df = pd.concat(objs=(pd.Series(pathogenicity_scores, name='pathogenicity_score'),
                                     explanations_df),
