@@ -588,10 +588,10 @@ class VariantRankScoreModel:
         if self._datasets is None:
             raise ValueError(f'No datasets available')
         # NOTE: Changes to below configuration must be reflected in the self._load_saved_model_explainer()
+        model_input_spec = self._generate_dataset_tensor_signature()
+        data_tensor_spec, _ = model_input_spec  # Drop labels spec
         self._model_explainer = ModelExplainer(model=self._infer_pathogenicity_scores,
-                                               features_text=self._features_text,
-                                               features_numerical=self._features_numerical,
-                                               input_feature_names=self._features)
+                                               input_tensor_spec=data_tensor_spec)
         dataset = self._datasets.dataset_train
         # The data used for fitting the explainer should be randomly selected from the complete set of training data
         dataset = dataset.shuffle(buffer_size=self._datasets.train_data_length,
@@ -656,17 +656,15 @@ class VariantRankScoreModel:
         self._load_saved_model_explainer(model_explainer_path=model_explainer_path)
 
     def _infer_pathogenicity_scores(self,
-                                    tensor_text: tf.Tensor,
-                                    tensor_numerical: tf.Tensor) -> np.ndarray:
+                                    tensor_dict: Dict[str, tf.Tensor]) -> np.ndarray:
         """
         Main method to compute inferences from input tensors.
-        :param tensor_text: Features containing text
-        :param tensor_numerical: Features containing numericals
+        :param tensor_dict: Input data tensors as dict, key is the tensor name
         :return: 1D scores same size as outer, batch dimension
         """
         if self._keras_model is None:
             raise ValueError('No keras model available for inference computation!')
-        score_classes = self._keras_model([tensor_text, tensor_numerical])  # [class benign, class pathogenic]
+        score_classes = self._keras_model(tensor_dict)  # [class benign, class pathogenic]
         score_classes = score_classes.numpy()
         prediction_class_pathogenic = score_classes[:, 1]
         return prediction_class_pathogenic
