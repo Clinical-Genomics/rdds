@@ -639,10 +639,11 @@ class VariantRankScoreModel:
         if self._keras_model is None:
             raise ValueError(f'Loading ModelExplainer requires a pre-loaded keras model, none currently loaded')
         # NOTE: Changes to below configuration must be reflected in the self.train_model_explainer()
+        model_input_spec = self._generate_dataset_tensor_signature()
+        model_input_data_spec, _ = model_input_spec  # Drop labels
         self._model_explainer = ModelExplainer.from_saved_file(file_path=model_explainer_path,
                                                                keras_model=self._infer_pathogenicity_scores,
-                                                               features_text=self._features_text,
-                                                               features_numerical=self._features_numerical)
+                                                               input_tensor_spec=model_input_data_spec)
 
     def load_saved_model(self,
                          keras_model_path: str = DEFAULT_MODEL_SPEC.keras_model,
@@ -671,12 +672,14 @@ class VariantRankScoreModel:
 
     def predict_on_hd5(self,
                        hd5_file_path: str,
-                       group_names: Set[str] = {'train', 'test'}) -> str:
+                       group_names: Set[str] = {'train', 'test'},
+                       batch_size: int = 1000) -> str:
 
         """
         Creates a .hd5 file containing inpute feature data, ground truth and inferences side-by-side.
         :param hd5_file_path: The file to the input data file for creating inferences
         :param group_names: The group names in the hd5 to load data and to compute inferences for
+        :param batch_size: Batch size, a large batch size improves speed
         :returns: The path to the .hd5 file containing data and inferences
         """
 
@@ -698,7 +701,7 @@ class VariantRankScoreModel:
                                                          expand_1d_categorical_to_2d=True)
             dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=datagen,
                                                              output_signature=self._generate_dataset_tensor_signature())
-            dataset = dataset.batch(10000)
+            dataset = dataset.batch(batch_size)
             dataset = dataset.prefetch(buffer_size=10)
             data_length = datagen.data_length
 
@@ -724,17 +727,20 @@ class VariantRankScoreModel:
                                         shape=(data_length, ))
 
             processed_sample_idx = 0
+            model_input_spec = self._generate_dataset_tensor_signature()
+            model_input_data_spec, _ = model_input_spec  # Drop labels
             for data, labels in dataset.as_numpy_iterator():
+                data: Tuple[tf.Tensor]
                 label, = labels
                 label_class_pathogenic = label[:, 1]
-                tensor_str, tensor_numerical = data
-                prediction_class_pathogenic = self._infer_pathogenicity_scores(tensor_text=tensor_str,
-                                                                               tensor_numerical=tensor_numerical)
-                batch_size = tensor_str.shape[0]
-                for feature_names, features_data in [(self._features_text, tensor_str),
-                                                     (self._features_numerical, tensor_numerical)]:
-                    for feature_idx, feature_name in enumerate(feature_names):
-                        output_group[feature_name][processed_sample_idx:processed_sample_idx+batch_size] = features_data[:, feature_idx]
+                input_tensor_dict: Dict[str, tf.Tensor] = {}
+                for input_feature_idx, tensor_spec in enumerate(model_input_data_spec):
+                    input_tensor_dict.update({
+                        tensor_spec.name: tf.constant(data[input_feature_idx], dtype=tensor_spec.dtype, name=tensor_spec.name)
+                    })
+                prediction_class_pathogenic = self._infer_pathogenicity_scores(tensor_dict=input_tensor_dict)
+                for feature_name, tensor in input_tensor_dict.items():
+                    output_group[feature_name][processed_sample_idx:processed_sample_idx + batch_size] = tensor.numpy()
                 output_group['ground-truth'][processed_sample_idx:processed_sample_idx+batch_size] = label_class_pathogenic
                 output_group['prediction'][processed_sample_idx:processed_sample_idx + batch_size] = prediction_class_pathogenic
                 processed_sample_idx += batch_size
