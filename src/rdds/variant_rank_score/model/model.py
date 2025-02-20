@@ -53,9 +53,6 @@ y = layer(x)
 If this is not the case, the layer might be removed in the graph!
 """
 
-# TODO: Determine whether to use GeneticModels_family_id?
-# TODO: Determine whether to use ModelScore_family_id?
-
 # See comment in the text_vectorization_layer.py about keras and tensorboard.
 _LOGGER = get_logger('vrs-model')
 _LOGGER.setLevel(logging.INFO)
