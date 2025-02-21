@@ -402,7 +402,7 @@ class VariantRankScoreModel:
         #dataset_train = rejection_resample(dataset=dataset_train,
         #                                   desired_class_ratio=[0.5, 0.5],
         #                                   seed=1)
-        dataset_train = dataset_train.batch(batch_size)
+        dataset_train = dataset_train.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset_train = dataset_train.prefetch(buffer_size=tf.data.AUTOTUNE)
 
         # Vocabulary and normalisation setup
@@ -445,7 +445,7 @@ class VariantRankScoreModel:
         #dataset_test = rejection_resample(dataset=dataset_test,
         #                                  desired_class_ratio=[0.5, 0.5],
         #                                  seed=1)
-        dataset_test = dataset_test.batch(batch_size)
+        dataset_test = dataset_test.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
         _LOGGER.info(f'Model Input data mapping: {input_signature}')
 
