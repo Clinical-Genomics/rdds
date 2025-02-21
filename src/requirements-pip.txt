@@ -4,6 +4,7 @@ cyvcf2==0.30.22
 # Analytics and ML
 tensorflow==2.12.0
 tensorflow_text==2.12.1
+tensorboard-plugin-profile==2.13.1
 keras-tuner==1.4.7
 scikit-learn==1.2.2
 shap==0.44.1
