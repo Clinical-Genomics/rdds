@@ -198,7 +198,7 @@ class Hd5DataGenerator:
                 output_vector: Tuple[Tuple[float, ...], ...] = (output_vector, ) + ((label, ), )  # Add label, so (data, label) is produced
             idx += 1
             yield output_vector
-            _LOGGER.debug('Restart epoch')
+        _LOGGER.debug('Restart epoch')
 
     def __del__(self):
         try:
