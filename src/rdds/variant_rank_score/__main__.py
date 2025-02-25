@@ -49,13 +49,19 @@ subparser.add_argument('--compile-vocabulary-normalisation-factors',
 subparser.add_argument('--tune-hyperparams',
                        help='Tune model hyperparameters',
                        type=bool,
-                       default=False)
+                       default=True)
 def train(args):
     from .model import VariantRankScoreModel
     from .hyperparameter_tuner import VRSBayesianTuner, HyperParameters
 
     if args.tune_hyperparams:
-        tuner = VRSBayesianTuner(hd5_file_path=args.hd5,
+        hparams = HyperParameters()
+        feature_dropout_ratio = hparams.Choice('feature_dropout_ratio',
+                                               values=[float(1E-3), float(1E-2), 0.5],
+                                               default=float(1E-3))
+        tuner = VRSBayesianTuner(hyperparameters=hparams,
+                                 tune_new_entries=False,
+                                 hd5_file_path=args.hd5,
                                  log_dir=WORKDIR)
         tuner.search_space_summary()
         tuner.search()
