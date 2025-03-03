@@ -295,10 +295,10 @@ class VariantRankScoreModel:
 
 
         # Specify network out shape
-        logits = tf.keras.layers.Dense(units=2, name='Logits', activation='linear')(x)  # -> [bdim, 2]
+        logits = tf.keras.layers.Dense(units=1, name='Logits', activation='linear')(x)  # -> [bdim, 1]
 
         # Softmax layer
-        confidences = tf.keras.layers.Softmax(name='Confidences')(logits)  # -> [bdim, 2]
+        confidences = tf.keras.layers.Softmax(name='Confidences')(logits)  # -> [bdim, 1]
 
         def _get_input_tensor_with_name(name: str) -> Union[tf.Tensor, tf.RaggedTensor]:
             # Helper to assemble input tensor in order defined by self._features
@@ -318,7 +318,7 @@ class VariantRankScoreModel:
                    tf.keras.metrics.TrueNegatives(),
                    tf.keras.metrics.FalsePositives(),
                    tf.keras.metrics.FalseNegatives(),
-                   tf.keras.metrics.CategoricalAccuracy(),
+                   tf.keras.metrics.BinaryAccuracy(),
                    tf.keras.metrics.AUC(),
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall()]
@@ -360,7 +360,7 @@ class VariantRankScoreModel:
     @staticmethod
     @tf.keras.saving.register_keras_serializable()
     def loss_fn(y_true, y_pred) -> tf.Tensor:
-        c = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False)
+        c = tf.keras.losses.binary_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False)
         return c
 
     def save_model_fn(self, epoch: int, logs=Optional[dict]):
@@ -394,7 +394,7 @@ class VariantRankScoreModel:
             input_tensor_signatures += (_get_input_signature_from_name(name=feature_name), )
         signature = (
             input_tensor_signatures,
-            (tf.TensorSpec((2, ), dtype=tf.float32, name='label'), )
+            (tf.TensorSpec((1, ), dtype=tf.float32, name='label'), )
         )
         return signature
 
@@ -413,7 +413,8 @@ class VariantRankScoreModel:
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                       group_name='train',
                                                                       output_tensor_format=self._features,
-                                                                      label='label')
+                                                                      label='label',
+                                                                      expand_1d_categorical_to_2d=False)
 
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
                                                                                 output_signature=self._generate_dataset_tensor_signature())
@@ -456,7 +457,8 @@ class VariantRankScoreModel:
         hd5_data_generator_test: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                      group_name='test',
                                                                      output_tensor_format=self._features,
-                                                                     label='label')
+                                                                     label='label',
+                                                                     expand_1d_categorical_to_2d=False)
         dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
                                                                                output_signature=self._generate_dataset_tensor_signature())
         dataset_test = dataset_test.cache()
