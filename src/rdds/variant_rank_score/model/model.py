@@ -31,6 +31,7 @@ from rdds.lib.hpt import HyperParameters
 from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
+from ..dataset.class_labels import LABEL_PATHOGENIC_VARIANT, LABEL_BENIGN_VARIANT
 
 
 
@@ -41,6 +42,7 @@ class InitializedDatasets:
     train_data_length: int
     test_data_length: int
     batch_size: int
+    model_bias_estimate: float  # Estimate bias for model output layer, computed from training data class ratio
     dataset_train_numerical: tf.data.Dataset = None
     dataset_train_vocabulary:  tf.data.Dataset = None
 
@@ -295,10 +297,12 @@ class VariantRankScoreModel:
 
 
         # Specify network out shape
-        logits = tf.keras.layers.Dense(units=1, name='Logits', activation='linear')(x)  # -> [bdim, 1]
-
-        # Softmax layer
-        confidences = tf.keras.layers.Softmax(name='Confidences')(logits)  # -> [bdim, 1]
+        # Set initial bias in the model output layer to bias the model to expected TP/TN skew
+        bias_initializer = tf.keras.initializers.Constant(self._datasets.model_bias_estimate)
+        confidences = tf.keras.layers.Dense(units=1,
+                                            bias_initializer=bias_initializer,
+                                            name='Confidences',
+                                            activation='softmax')(x)  # -> [bdim, 1]
 
         def _get_input_tensor_with_name(name: str) -> Union[tf.Tensor, tf.RaggedTensor]:
             # Helper to assemble input tensor in order defined by self._features
@@ -419,12 +423,78 @@ class VariantRankScoreModel:
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
                                                                                 output_signature=self._generate_dataset_tensor_signature())
         dataset_train = dataset_train.cache()
+
+        # Training weights
+        n_pathogenic, n_benign = hd5_data_generator_train.count_positive_negative_categorical_labels()
+        _LOGGER.info(f'nTP:{n_pathogenic} ({100*n_pathogenic/hd5_data_generator_train.data_length:.4f}%) \
+, nTN:{n_benign}, n_samples:{hd5_data_generator_train.data_length}')
+
+        # Compute expected model bias based on training data skew, bias = TPs / TNs
+        model_bias_estimate: float = np.log(float(n_pathogenic) / float(n_benign))
+
+        @tf.function
+        def add_weights(data, labels, **kwargs):
+            """
+            Helper function to compute weights for balanced loss
+            """
+            weight_pathogenic = kwargs.get('weight_pathogenic')
+            weight_benign = kwargs.get('weight_benign')
+            weights = tf.where(condition=tf.equal(labels, tf.constant(LABEL_PATHOGENIC_VARIANT)),
+                               x=tf.ones_like(labels) * tf.constant(weight_pathogenic),  # cond == True
+                               y=tf.ones_like(labels) * tf.constant(weight_benign))  # cond == False
+            return data, labels, weights
+
+        training_weights = hparams.Choice('training_weights',
+                                          values=[False, True],
+                                          default=False)
+        if training_weights:
+            # Setup class weights so that dataset is perfectly balanced w.r.t class-ratio-loss imbalance
+            weight_pathogenic = (1.0 / float(n_pathogenic)) * (float(hd5_data_generator_train.data_length) / 2.0)
+            weight_benign = (1.0 / float(n_benign)) * (float(hd5_data_generator_train.data_length) / 2.0)
+            _LOGGER.info(f'class weights: benign:{weight_benign}, pathogenic:{weight_pathogenic}')
+            assert weight_pathogenic >= weight_benign
+            dataset_train = dataset_train.map(map_func=lambda *args: add_weights(*args,
+                                                                                 weight_pathogenic=weight_pathogenic,
+                                                                                 weight_benign=weight_benign),
+                                              num_parallel_calls=tf.data.AUTOTUNE)
+        dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
+
+        # Training occurrence sampling
+        expected_amount_of_variants_in_case = float(3.5E6)
+        likelihood_pathogenic = 1.0 / expected_amount_of_variants_in_case
+        training_occurrence_frq_sampling = hparams.Choice('training_occurrence_frq_sampling',
+                                                          values=[True, False],
+                                                          default=False)
+
+        @tf.function
+        def filt_fn(data, labels, weights, **kwargs):
+            """
+            Helper function to filter data samples on label
+            """
+            del data
+            del weights
+            target_label = kwargs.get('target_label')
+            predicate = tf.equal(labels, target_label)[0, 0]
+            return predicate
+
+        if training_occurrence_frq_sampling:
+            _LOGGER.info(f'Sampling pathogenic variants during training with likelihood of {likelihood_pathogenic}')
+            sampling_weights = (1.0 - likelihood_pathogenic, likelihood_pathogenic)
+            _LOGGER.info(f'Sampling weights (benign, pathogenic): {sampling_weights}')
+            train_pathogenic_variants = \
+                dataset_train.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_PATHOGENIC_VARIANT))
+            train_benign_variants = \
+                dataset_train.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_BENIGN_VARIANT))
+            dataset_train = tf.data.Dataset.sample_from_datasets(datasets=(train_benign_variants, train_pathogenic_variants),
+                                                                 weights=sampling_weights,
+                                                                 seed=1)
+            # Setup new bias estimate, since training data is now skewed
+            model_bias_estimate = np.log(likelihood_pathogenic / expected_amount_of_variants_in_case)
+
         dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
                                               seed=1)  # FIXME: Seed
-        #dataset_train = rejection_resample(dataset=dataset_train,
-        #                                   desired_class_ratio=[0.5, 0.5],
-        #                                   seed=1)
+
         dataset_train = dataset_train.batch(batch_size)
         dataset_train = dataset_train.prefetch(buffer_size=tf.data.AUTOTUNE)
 
@@ -463,11 +533,15 @@ class VariantRankScoreModel:
                                                                                output_signature=self._generate_dataset_tensor_signature())
         dataset_test = dataset_test.cache()
         dataset_test = dataset_test.repeat(-1)
+
+        if training_occurrence_frq_sampling:
+            dataset_test_pathogenic_variants = dataset_test.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_PATHOGENIC_VARIANT))
+            dataset_test_benign_variants = dataset_test.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_BENIGN_VARIANT))
+            dataset_test = tf.data.Dataset.sample_from_datasets(datasets=(dataset_test_benign_variants, dataset_test_pathogenic_variants),
+                                                                weights=(1.0 - likelihood_pathogenic, likelihood_pathogenic),
+                                                                seed=1)
         dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
                                             seed=1)  # FIXME: Seed
-        #dataset_test = rejection_resample(dataset=dataset_test,
-        #                                  desired_class_ratio=[0.5, 0.5],
-        #                                  seed=1)
         dataset_test = dataset_test.batch(batch_size)
         dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
 
@@ -477,7 +551,8 @@ class VariantRankScoreModel:
                                              dataset_test=dataset_test,
                                              train_data_length=hd5_data_generator_train.data_length,
                                              test_data_length=hd5_data_generator_test.data_length,
-                                             batch_size=batch_size)
+                                             batch_size=batch_size,
+                                             model_bias_estimate=model_bias_estimate)
         _LOGGER.info(f'Datasets init complete: {self._datasets}')
 
     @staticmethod
