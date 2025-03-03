@@ -39,10 +39,21 @@ class ModelExplainer(ShapExplainer):
         dataset = dataset.unbatch()  # Flatten dataset batches
 
         @tf.function
-        def select_only_benign_samples(x, y):
-            labels, = y
-            # [ class_benign, class_pathogenic]
-            if labels[1] == LABEL_PATHOGENIC_VARIANT:
+        def drop_weights(*args):
+            if len(args) == 2:
+                data, label = args
+            elif len(args) == 3:
+                data, label, weights = args
+            else:
+                raise ValueError(f'Unknown input format {args}')
+            return data, label
+
+        dataset = dataset.map(drop_weights)
+
+        @tf.function
+        def select_only_benign_samples(data, label):
+            pathogenicity_label, = label
+            if pathogenicity_label == LABEL_PATHOGENIC_VARIANT:
                 return False
             return True
 
