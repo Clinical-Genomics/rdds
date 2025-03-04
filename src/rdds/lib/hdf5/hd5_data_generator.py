@@ -184,6 +184,18 @@ class Hd5DataGenerator:
         Hd5DataGenerator._check_is_valid_categorical_label(label=label)
         return(1.0 - label, label)
 
+    def count_positive_negative_categorical_labels(self) -> Tuple[int, int]:
+        """
+        Count occurrence of TN, TN labels in dataset according to 'label'.
+        Assumes categorical labels, 1D.
+        :return Tuple count of TP, TN label count
+        """
+        positives = self._group[self._label].sum()
+        totals = self._data_length
+        negatives = totals - positives
+        return positives, negatives
+
+
     def __call__(self) -> Iterator[Tuple[Union[str, float], ...]]:
         """
         Yields data from HD5 data set.
