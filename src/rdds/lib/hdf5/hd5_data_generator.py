@@ -31,6 +31,7 @@ class Hd5DataGenerator:
                  replace_nan_floats_with: float = 0.0,
                  load_data_into_ram: bool = True,
                  expand_1d_categorical_to_2d: bool = True,
+                 discard_loaded_data_on_epoch_complete: bool = True,
                  max_n_samples: int = None):
         """
         :param hd5_file_path: HD5 file to generate data from
@@ -41,6 +42,7 @@ class Hd5DataGenerator:
         :param replace_nan_floats_with: Floating point value to replace NaN values
         :param load_data_into_ram: Load file content into RAM if True. Improves reading performance.
         :param expand_1d_categorical_to_2d: Unpack a 1D categorical label [0][TN] into 2D; [1, 0][TN, TP]
+        :param discard_loaded_data_on_epoch_complete: Drop references to data once data has been read once by caller (reduces RAM footprint)
         :param max_n_samples: Maximum samples to yield
         """
         self._hd5_file_path: str = hd5_file_path
@@ -48,6 +50,7 @@ class Hd5DataGenerator:
         self._data_length = int
         self._replace_nan_floats_with = replace_nan_floats_with
         self._expand_1d_categorical_to_2d: bool = expand_1d_categorical_to_2d
+        self._discard_loaded_data_on_epoch_complete = discard_loaded_data_on_epoch_complete
 
         self._group_name = group_name if group_name else list(self._hd5_file.keys())[0]
         _LOGGER.info(f'Generating data from group \'{group_name}\'')
@@ -218,6 +221,10 @@ class Hd5DataGenerator:
             idx += 1
             yield output_vector
             _LOGGER.debug('Restart epoch')
+        if self._discard_loaded_data_on_epoch_complete:
+            _LOGGER.info('Closing and discarding data in RAM')
+            del self._group  # Drop references
+            self._hd5_file.close()  # Close file
 
     def __del__(self):
         try:
