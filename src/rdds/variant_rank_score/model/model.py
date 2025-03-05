@@ -408,7 +408,8 @@ class VariantRankScoreModel:
     def _init_datasets(self,
                        hd5_file_path: str,
                        hparams: HyperParameters,
-                       compile_vocabulary_normalisation_factors: bool = True) -> InitializedDatasets:
+                       compile_vocabulary_normalisation_factors: bool = True,
+                       init_test_data: bool = True) -> InitializedDatasets:
 
         batch_size: int = hparams.Int('batch_size',
                                       min_value=64,
@@ -549,27 +550,31 @@ class VariantRankScoreModel:
                                                        output_signature=input_signature_numerical_normalisation)
 
         # Testing setup
-        hd5_data_generator_test: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
-                                                                     group_name='test',
-                                                                     output_tensor_format=self._features,
-                                                                     label='label',
-                                                                     expand_1d_categorical_to_2d=False)
-        dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
-                                                                               output_signature=self._generate_dataset_tensor_signature())
-        dataset_test = dataset_test.cache()
-        dataset_test = dataset_test.repeat(-1)
-        dataset_test = dataset_test.shuffle(buffer_size=int(1E3),
-                                            seed=1)  # FIXME: Seed
-        dataset_test = dataset_test.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
-        dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
-        dataset_test_length = hd5_data_generator_test.data_length
+        if init_test_data:
+            hd5_data_generator_test: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
+                                                                         group_name='test',
+                                                                         output_tensor_format=self._features,
+                                                                         label='label',
+                                                                         expand_1d_categorical_to_2d=False)
+            dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
+                                                                                   output_signature=self._generate_dataset_tensor_signature())
+            dataset_test = dataset_test.cache()
+            dataset_test = dataset_test.repeat(-1)
+            dataset_test = dataset_test.shuffle(buffer_size=int(1E3),
+                                                seed=1)  # FIXME: Seed
+            dataset_test = dataset_test.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
+            dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
+            dataset_test_length = hd5_data_generator_test.data_length
+        else:
+            dataset_test = None
+            dataset_test_length = None
 
         self._datasets = InitializedDatasets(dataset_train_numerical=dataset_numerical,
                                              dataset_train_vocabulary=dataset_vocabulary,
                                              dataset_train=dataset_train,
                                              dataset_test=dataset_test,
                                              train_data_length=hd5_data_generator_train.data_length,
-                                             test_data_length=hd5_data_generator_test.data_length,
+                                             test_data_length=dataset_test_length,
                                              batch_size=batch_size,
                                              model_bias_estimate=model_bias_estimate)
         _LOGGER.info(f'Datasets init complete: {self._datasets}')
