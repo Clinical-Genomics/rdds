@@ -155,5 +155,53 @@ def view_ranked_vcf(args):
                                case_names=case_names)
 subparser.set_defaults(func=view_ranked_vcf)
 
+
+subparser = subparsers.add_parser('pipeline-performance-test', help='Profile data pipeline and view results in Tensorboard')
+subparser.add_argument('hd5', help='Path to .hd5 file to be used as training, validation data')
+subparser.add_argument('--batches', help='Number of batches to profile', default=int(10))
+subparser.add_argument('--include_dataset_init', help='Include dataset bootstrapping (biasing result)', default=False)
+subparser.add_argument('--start_on_first_epoch_end', help='Start profiling pipeline once all data is cached', default=True)
+def profile_data_pipeline(args):
+    import os
+    from math import ceil
+    from progressbar import ProgressBar
+    from .model import VariantRankScoreModel
+    from rdds.lib.tf.profiler import TfProfiler, Trace
+    batches = int(args.batches)
+    model = VariantRankScoreModel()
+    hparams = model.get_uninitialized_hyperparameters()
+    hparams.Int('batch_size', min_value=32, max_value=128, default=64)
+    model._init_datasets(hd5_file_path=args.hd5,
+                         hparams=hparams,
+                         compile_vocabulary_normalisation_factors=False,
+                         init_test_data=False)
+    profile_from_batch = 0
+    start_batch = 0
+    stop_batch = start_batch + batches
+    if args.start_on_first_epoch_end:
+        batches_per_epoch = int(ceil(model._datasets.train_data_length / hparams.get('batch_size')))
+        profile_from_batch = batches_per_epoch
+        stop_batch = batches_per_epoch + batches
+    pbar = ProgressBar(max_value=stop_batch)
+    pbar.start()
+    workdir = os.path.join(model._workdir, 'profiler')
+    if not os.path.exists(workdir):
+        os.makedirs(workdir)
+    profiler = TfProfiler(logdir=workdir)
+    dataset = model._datasets.dataset_train.__iter__()
+    for batch in range(start_batch, stop_batch):
+        if args.include_dataset_init or batch > profile_from_batch:
+            print(f'Profiling batch {batch}')
+            profiler.start_if_not_running()
+            with Trace('batch', step_num=batch, _r=1):
+                _ = next(dataset)
+        else:
+            _ = next(dataset)  # Just discard data, profiling will happen some other time
+        pbar.update(batch)
+    profiler.stop()
+    pbar.finish()
+
+subparser.set_defaults(func=profile_data_pipeline)
+
 args = parser.parse_args()
 args.func(args)  # Callback to trigger func with args
