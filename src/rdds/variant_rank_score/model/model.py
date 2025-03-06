@@ -590,9 +590,7 @@ class VariantRankScoreModel:
         self._model_explainer = ModelExplainer(model=self._infer_pathogenicity_scores,
                                                input_tensor_spec=data_tensor_spec)
         dataset = self._datasets.dataset_train
-        # The data used for fitting the explainer should be randomly selected from the complete set of training data
-        dataset = dataset.shuffle(buffer_size=self._datasets.train_data_length,
-                                  seed=1)
+        # FIXME: The data used for fitting the explainer should be randomly selected from the complete set of training data
         self._model_explainer.adapt(dataset=dataset)
         gc.collect()
         file_path = os.path.join(self._train_log_dir, 'model-explainer.bin')  # Might contain sensitive data!
