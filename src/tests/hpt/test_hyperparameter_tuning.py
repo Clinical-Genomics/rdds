@@ -1,3 +1,4 @@
+import gc
 import pytest
 from typing import Tuple, Callable
 import tensorflow as tf
@@ -146,4 +147,65 @@ def test_logdir(work_dir):
                             fit_fn=lambda *args, **kwargs: DummyHistory(),
                             log_dir=work_dir,
                             max_trials=1)
+    tuner.search()
+
+
+def test_data_leakage(work_dir):
+    """
+    Test for checking no data leaks (model or tf.data.Data instances) during HPT tuning (across iterations).
+    """
+
+    # GIVEN a hyperparameter training run
+
+    n_trials = 100
+    step = 1.0 / n_trials
+
+    # WHEN running hyperparameter trials
+    # THEN expect no objects to be lingering from the previous run
+
+    class DummyModel:
+        pass
+
+    def build_model(hparams: HyperParameters,  trial_work_dir: str):
+        # hparams is a context manager, that keeps track of objects created in it's scope.
+        v = hparams.Float('value', min_value=0, max_value=1, default=1, step=step)
+
+        # Create some dummy data
+        N_GIGABYTES = 1
+        GIGABYTE = 1024 * 1024 * 1024
+        data = np.ones(shape=(GIGABYTE, N_GIGABYTES), dtype='int8')
+        data_from_tensors = tf.data.Dataset.from_tensors(data)
+        data = data_from_tensors.cache()
+
+        # Create a model and store some data, hparams in the object
+        model = DummyModel()
+        model.data = data
+        model.v = float(v)  # Keep reference in hparams
+
+        # Query garbage collector and check for stale objects from last iteration
+        # If there are stale objects, then fail the test
+        for ref in gc.get_objects():
+            if isinstance(ref, tf.data.Dataset):
+                assert hex(id(ref)) in [hex(id(data_from_tensors)), hex(id(data))], f'Stale dataset is not gc\'ed: {ref.__class__} {hex(id(ref))}'
+            if isinstance(ref, DummyModel):
+                assert hex(id(ref)) == hex(id(model)), f'Stale model is not gc\'ed {ref.__class__} {hex(id(ref))}'
+
+        return model
+
+    def fit(model, tuning_callbacks: list):
+        # A dummy test fit function
+
+        class DummyHistory:
+
+            @property
+            def history(self):
+                return {
+                    'val_loss': [model.v]
+                }
+        return DummyHistory()
+
+    tuner = GridSearchTuner(build_fn=build_model,
+                            fit_fn=fit,
+                            log_dir=work_dir,
+                            max_trials=4)
     tuner.search()
