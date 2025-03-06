@@ -101,6 +101,11 @@ class CustomTuner(keras_tuner.Tuner):
         del args
         del kwargs
 
+        # Remove any stale object not referred to anymore from last trial.
+        # Important that this happens prior next build, since host might run out of
+        # RAM if stale refs to data is kept.
+        self._cleanup_ram()
+
         # Trial related output files to be stored in trial_work_dir
         model = self._build_fn(hparams=trial.hyperparameters,
                                trial_work_dir=self.get_trial_log_dir(trial))
