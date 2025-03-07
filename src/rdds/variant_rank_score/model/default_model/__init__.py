@@ -1,7 +1,7 @@
 import os
 from .model_file_spec import ModelFileSpec
 
-DEFAULT_MODEL_VERSION = "v1.9.0"
+DEFAULT_MODEL_VERSION = "v1.11.0"
 DEFAULT_MODEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__), DEFAULT_MODEL_VERSION))
 DEFAULT_KERAS_MODEL_FILE = os.path.join(DEFAULT_MODEL_DIRECTORY, 'saved-models', '51-0.0007.keras')
 DEFAULT_VOCABULARY_FILE = os.path.join(DEFAULT_MODEL_DIRECTORY, 'vocabulary.txt')
