@@ -77,7 +77,7 @@ def test_inference(work_dir):
             # Model explanations comes with a precision of 2 decimal points
             assert isclose(EXPECTED_VALUES[key]['vrs_model_explanation'][key_explain],
                            scored_variants[key]['vrs_model_explanation'][key_explain],
-                           atol=1E-2)
+                           atol=1E-2), (key, key_explain)
 
 def test_inference_reproducibility():
     """
