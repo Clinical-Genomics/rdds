@@ -61,7 +61,7 @@ def test_inference(work_dir):
                 'vrs_model_explanation': explanation_dict
             }
         })
-    #print(scored_variants)  To view updated results, to make changes to EXPECTED_VALUES
+    print(scored_variants)
 
     vcf_reader.close()
     for key in EXPECTED_VALUES.keys():
