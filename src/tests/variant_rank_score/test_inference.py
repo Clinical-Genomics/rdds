@@ -41,6 +41,7 @@ def test_inference(work_dir):
     for variant in vcf_reader:
         # Parse VrsModelExplanation field
         explanation: str = variant.INFO['VrsModelExplanation']
+        print(f'{variant.ID} EXP {explanation}')
         explanation = explanation.lstrip('[')
         explanation = explanation.rstrip(']')
         explanation_dict = {}
@@ -78,6 +79,8 @@ def test_inference(work_dir):
             assert isclose(EXPECTED_VALUES[key]['vrs_model_explanation'][key_explain],
                            scored_variants[key]['vrs_model_explanation'][key_explain],
                            atol=1E-2), (key, key_explain)
+
+    assert False, 'STOP'
 
 def test_inference_reproducibility():
     """
