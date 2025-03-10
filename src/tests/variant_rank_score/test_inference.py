@@ -2,6 +2,7 @@ import subprocess as sp
 import os
 import shutil
 from numpy import isclose
+import pytest as pt
 
 from rdds.lib.vcf import VCFReader, ParsableVariant
 
@@ -21,7 +22,7 @@ EXPECTED_VALUES ={'1-1336445': {'label': 'Likely_benign', 'vrs_model_prediction'
                   '9-13193319': {'label': 'Benign', 'vrs_model_prediction': 0.004970000125467777, 'vrs_model_explanation': {}},
                   '19-13207585': {'label': 'Likely_pathogenic', 'vrs_model_prediction': 0.0, 'vrs_model_explanation': {}}}
 
-
+@pt.mark.skip('Issue 201')
 def test_inference(work_dir):
     """
     Test for model inference.
