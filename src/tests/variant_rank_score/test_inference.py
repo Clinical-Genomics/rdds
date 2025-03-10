@@ -62,6 +62,7 @@ def test_inference(work_dir):
             }
         })
     print(scored_variants)
+    exit(1)
 
     vcf_reader.close()
     for key in EXPECTED_VALUES.keys():
