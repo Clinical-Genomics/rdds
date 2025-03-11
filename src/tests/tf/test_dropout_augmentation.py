@@ -32,7 +32,7 @@ def test_text_augmentation(expected_dropout, dropout_feature_idx):
         ]
 
         for i in range(1, len(sentences)):
-            yield ((sentences[i-1], sentences[i],), ((NEGATIVE_LABEL, POSITIVE_LABEL),))  # (f0, f1), (label, )
+            yield ((sentences[i-1], sentences[i],), ((POSITIVE_LABEL, ),))  # (f0, f1), (label, )
 
     dataset = tf.data.Dataset.from_generator(lambda: data_generator(),
                                              output_signature=(
@@ -40,7 +40,7 @@ def test_text_augmentation(expected_dropout, dropout_feature_idx):
                                                                 tf.TensorSpec((), dtype=tf.string),
                                                                 tf.TensorSpec((), dtype=tf.string),
                                                               ),
-                                                              (tf.TensorSpec((2, ), dtype=tf.float32), ))
+                                                              (tf.TensorSpec((1, ), dtype=tf.float32), ))
                                                               )
 
     # WHEN augmenting the data
