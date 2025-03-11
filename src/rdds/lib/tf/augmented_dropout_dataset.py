@@ -71,8 +71,7 @@ class AugmentDropoutDataset:
         :param labels: A tuple (label_tensor, ) containing categorical labels of shape [2]
         :return: (tuple of data tensors, tuple of label)
         """
-        label_tensor, = labels  # unpack tuple (tensor, )
-        label_pathogenic = label_tensor[1]  # select pathogenic label [benign, pathogenic] class
+        label_pathogenic, = labels  # unpack tuple (tensor, )
         # Assume tensor tuples are ordered in same order as element_spec
         output_tensors: Tuple[tf.Tensor] = tuple()
         if self._target_data_tensor_idx > len(data_tensors):
