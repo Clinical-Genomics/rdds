@@ -25,6 +25,8 @@ from rdds.lib.tf import TextPreprocessingLayer
 from rdds.lib.tf import EmbeddingsReductionLayer
 from rdds.lib.tf import DnaSequenceTrimmer
 from rdds.lib.tf import InstanceNormalisationLayer
+from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset
+from ..dataset.class_labels import LABEL_PATHOGENIC_VARIANT
 from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
 from rdds.lib.hpt import HyperParameters
@@ -138,7 +140,6 @@ class VariantRankScoreModel:
                                dtype=tf.string,
                                name=text_feature_name)
             )
-        input_text: tf.RaggedTensor = tf.concat(text_inputs, axis=1, name='concat_input_text')
 
         numerical_inputs = []
         for numerical_feature_name in self._features_numerical:
@@ -147,7 +148,10 @@ class VariantRankScoreModel:
                                dtype=tf.float32,
                                name=numerical_feature_name)
             )
+
+        # Concatenate inputs
         input_numerical: tf.Tensor = tf.concat(numerical_inputs, axis=1, name='concat_input_numerical')
+        input_text: tf.RaggedTensor = tf.concat(text_inputs, axis=1, name='concat_input_text')
 
         # Text preprocessing
         split_regex = '\s|\n|_|&|/|\||:|,|-|0|1|2|3|4|5|6|7|8|9'
@@ -419,6 +423,22 @@ class VariantRankScoreModel:
                                                                                 output_signature=self._generate_dataset_tensor_signature())
         dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
+
+        # Annotation augmentation for generating novel/ undocumented variants (annotation dropout)
+        feature_dropout_ratio = hparams.Choice('feature_dropout_ratio',
+                                               values=[0.0, float(1E-3), float(1E-2), 0.5],
+                                               default=0.0)
+        if feature_dropout_ratio > 0:
+            clinvar_clnrevstat_novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=2,
+                                                                     dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
+                                                                     seed=1,
+                                                                     dropout_ratio=feature_dropout_ratio)
+            dataset_train = clinvar_clnrevstat_novelizer(dataset_train)
+            clinvar_clnsig_novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=3,
+                                                                 dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
+                                                                 seed=2,
+                                                                 dropout_ratio=feature_dropout_ratio)
+            dataset_train = clinvar_clnsig_novelizer(dataset_train)
         dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
                                               seed=1)  # FIXME: Seed
         #dataset_train = rejection_resample(dataset=dataset_train,
