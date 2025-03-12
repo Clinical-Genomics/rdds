@@ -39,7 +39,7 @@ from .default_model import DEFAULT_MODEL_SPEC
 @dataclass
 class InitializedDatasets:
     dataset_train: tf.data.Dataset
-    dataset_test: tf.data.Dataset
+    dataset_test: Union[tf.data.Dataset, None]
     train_data_length: int
     test_data_length: int
     batch_size: int
@@ -121,11 +121,11 @@ class VariantRankScoreModel:
         _LOGGER.info(f'Total amount of features: {len(self._features)}')
         self._vocabulary_file_path = vocabulary_file_path
         self._numerical_normalisation_weights_file_path = numerical_normalisation_weights_file_path
-        self._keras_model: tf.keras.Model = None
+        self._keras_model: Union[tf.keras.Model, None] = None
         self._workdir = workdir
         self._train_log_dir: str = os.path.join(self._workdir, workdir_suffix)
-        self._datasets: InitializedDatasets = None
-        self._model_explainer: ModelExplainer = None
+        self._datasets: Union[InitializedDatasets, None] = None
+        self._model_explainer: Union[ModelExplainer, None] = None
 
     def _build_model(self,
                      hparams: HyperParameters) -> tf.keras.models.Model:
@@ -409,7 +409,7 @@ class VariantRankScoreModel:
                        hd5_file_path: str,
                        hparams: HyperParameters,
                        compile_vocabulary_normalisation_factors: bool = True,
-                       init_test_data: bool = True) -> InitializedDatasets:
+                       init_test_data: bool = True):
 
         batch_size: int = hparams.Int('batch_size',
                                       min_value=64,
@@ -525,8 +525,8 @@ class VariantRankScoreModel:
         dataset_train = dataset_train.prefetch(buffer_size=tf.data.AUTOTUNE)
 
         # Vocabulary and normalisation setup
-        dataset_vocabulary: tf.data.Dataset = None
-        dataset_numerical: tf.data.Dataset = None
+        dataset_vocabulary: Union[tf.data.Dataset, None] = None
+        dataset_numerical: Union[tf.data.Dataset, None] = None
         if compile_vocabulary_normalisation_factors:
             _LOGGER.info('Compiling new vocabulary and normalisation factors')
             # Text preprocessing
@@ -550,6 +550,7 @@ class VariantRankScoreModel:
                                                        output_signature=input_signature_numerical_normalisation)
 
         # Testing setup
+        dataset_test: Union[tf.data.Dataset, None]
         if init_test_data:
             hd5_data_generator_test: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                          group_name='test',
