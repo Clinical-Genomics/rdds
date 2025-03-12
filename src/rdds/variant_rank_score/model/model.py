@@ -39,6 +39,7 @@ from .default_model import DEFAULT_MODEL_SPEC
 @dataclass
 class InitializedDatasets:
     dataset_train: tf.data.Dataset
+    dataset_train_with_expected_pathogenic_occurrence: tf.data.Dataset
     dataset_test: Union[tf.data.Dataset, None]
     train_data_length: int
     test_data_length: int
@@ -327,15 +328,6 @@ class VariantRankScoreModel:
             model_inputs.append(_get_input_tensor_with_name(name=feature_name))
         self._keras_model = tf.keras.Model(inputs=model_inputs,
                                            outputs=confidences)
-
-        metrics = [tf.keras.metrics.TruePositives(),
-                   tf.keras.metrics.TrueNegatives(),
-                   tf.keras.metrics.FalsePositives(),
-                   tf.keras.metrics.FalseNegatives(),
-                   tf.keras.metrics.BinaryAccuracy(),
-                   tf.keras.metrics.AUC(),
-                   tf.keras.metrics.Precision(),
-                   tf.keras.metrics.Recall()]
         optimizer_algo = hparams.Fixed('optimizer', 'Adam')
         # TODO: Rework this snippet using tf.keras.optimizers.get() with custom kwargs (buggy)
         if optimizer_algo == 'Adam':
@@ -366,7 +358,7 @@ class VariantRankScoreModel:
         self._keras_model.compute_loss = loss_wrapper  # Replace model loss computation with wrapper
         self._keras_model.compile(optimizer=optimizer,
                                   loss=self.loss_fn,
-                                  metrics=metrics)
+                                  metrics=self._get_training_metrics())
         self._keras_model.summary(line_length=160)
 
         return self._keras_model
@@ -491,12 +483,9 @@ class VariantRankScoreModel:
                                                                  dropout_ratio=feature_dropout_ratio)
             dataset_train = clinvar_clnsig_novelizer(dataset_train)
 
-        # Training occurrence sampling
+        # Training occurrence sampling (post fitting model to expected pathogenic occurrence)
         expected_amount_of_variants_in_case = float(3.5E6)
         likelihood_pathogenic = 1.0 / expected_amount_of_variants_in_case
-        training_occurrence_frq_sampling = hparams.Choice('training_occurrence_frq_sampling',
-                                                          values=[True, False],
-                                                          default=False)
 
         @tf.function
         def filt_fn(*args, **kwargs):
@@ -515,23 +504,29 @@ class VariantRankScoreModel:
             predicate = tf.equal(labels, target_label)[0, 0]
             return predicate
 
-        if training_occurrence_frq_sampling:
-            _LOGGER.info(f'Sampling pathogenic variants during training with likelihood of {likelihood_pathogenic}')
-            sampling_weights = (1.0 - likelihood_pathogenic, likelihood_pathogenic)
-            _LOGGER.info(f'Sampling weights (benign, pathogenic): {sampling_weights}')
-            train_pathogenic_variants = \
-                dataset_train.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_PATHOGENIC_VARIANT))
-            train_benign_variants = \
-                dataset_train.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_BENIGN_VARIANT))
-            dataset_train = tf.data.Dataset.sample_from_datasets(datasets=(train_benign_variants, train_pathogenic_variants),
-                                                                 weights=sampling_weights,
-                                                                 seed=1)
-            # Setup new bias estimate, since training data is now skewed
-            model_bias_estimate = np.log(likelihood_pathogenic)
+        _LOGGER.info(f'Expected real-world case likelihood of pathogenic variants: {likelihood_pathogenic}')
+        sampling_weights = (1.0 - likelihood_pathogenic, likelihood_pathogenic)
+        _LOGGER.info(f'Sampling weights for real-world case dataset (benign, pathogenic): {sampling_weights}')
+        train_pathogenic_variants = \
+            dataset_train.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_PATHOGENIC_VARIANT))
+        train_benign_variants = \
+            dataset_train.filter(predicate=lambda *args: filt_fn(*args, target_label=LABEL_BENIGN_VARIANT))
+        dataset_train_with_expected_amount_of_pathogenic_occurrence = \
+            tf.data.Dataset.sample_from_datasets(datasets=(train_benign_variants, train_pathogenic_variants),
+                                                 weights=sampling_weights,
+                                                 seed=1)
+        dataset_train_with_expected_amount_of_pathogenic_occurrence = \
+            dataset_train_with_expected_amount_of_pathogenic_occurrence.shuffle(buffer_size=shuffle_buffer_size,
+                                                                                seed=1)
+        dataset_train_with_expected_amount_of_pathogenic_occurrence = \
+            dataset_train_with_expected_amount_of_pathogenic_occurrence.batch(batch_size,
+                                                                              num_parallel_calls=tf.data.AUTOTUNE)
+        dataset_train_with_expected_amount_of_pathogenic_occurrence = \
+            dataset_train_with_expected_amount_of_pathogenic_occurrence.prefetch(buffer_size=tf.data.AUTOTUNE)
 
+        # ... and make sure regular training data pipeline is finalized.
         dataset_train = dataset_train.shuffle(buffer_size=shuffle_buffer_size,
                                               seed=1)  # FIXME: Seed
-
         dataset_train = dataset_train.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
         dataset_train = dataset_train.prefetch(buffer_size=tf.data.AUTOTUNE)
 
@@ -584,6 +579,7 @@ class VariantRankScoreModel:
         self._datasets = InitializedDatasets(dataset_train_numerical=dataset_numerical,
                                              dataset_train_vocabulary=dataset_vocabulary,
                                              dataset_train=dataset_train,
+                                             dataset_train_with_expected_pathogenic_occurrence=dataset_train_with_expected_amount_of_pathogenic_occurrence,
                                              dataset_test=dataset_test,
                                              train_data_length=hd5_data_generator_train.data_length,
                                              test_data_length=dataset_test_length,
@@ -620,11 +616,32 @@ class VariantRankScoreModel:
                 file.write(f'{key}={value}\n')
         return self._keras_model
 
+    @staticmethod
+    def _get_training_metrics(suffix: Union[str, None] = None):
+        classes = [tf.keras.metrics.TruePositives,
+                   tf.keras.metrics.TrueNegatives,
+                   tf.keras.metrics.FalsePositives,
+                   tf.keras.metrics.FalseNegatives,
+                   tf.keras.metrics.BinaryAccuracy,
+                   tf.keras.metrics.AUC,
+                   tf.keras.metrics.Precision,
+                   tf.keras.metrics.Recall]
+        metrics = []
+        for cls in classes:
+            name = None
+            if suffix:
+                name = f'{cls.__name__}{suffix}'
+            metrics.append(cls(name=name))
+        return metrics
+
     def train(self,
-              hparam_tuning_callbacks: List[tf.keras.callbacks.Callback] = None) -> tf.keras.callbacks.History:
+              hparam_tuning_callbacks: List[tf.keras.callbacks.Callback] = None,
+              fit_model_to_expected_pathogenic_occurrence: bool = False) -> tf.keras.callbacks.History:
         """
         Execute training and evaluation of pre built model.
         :param hparam_tuning_callbacks: List of keras tuner callbacks to be appended to fit() call
+        :param fit_model_to_expected_pathogenic_occurrence: Fit a pre-trained model to a dataset
+          with a very rare probability of pathogenic samples (to reduce FPR). A kind of transfer learning.
         :return: A History object containing the training progress
         """
 
@@ -632,6 +649,10 @@ class VariantRankScoreModel:
             raise ValueError('Expected initialized datasets, but got None')
 
         steps_per_epoch = int(np.ceil(float(self._datasets.train_data_length) / float(self._datasets.batch_size)))
+
+        if fit_model_to_expected_pathogenic_occurrence:
+            # Use a separate training work dir from initial training run
+            self._workdir_suffix = self._workdir_suffix + '-post-fit-path-occurrence'
 
         # Setup logging and store configuration files
         callbacks: List[tf.keras.callbacks.Callback] = list()
@@ -645,10 +666,6 @@ class VariantRankScoreModel:
                                                             histogram_freq=1,
                                                             embeddings_freq=1))  # FIXME: Bug in Keras
         callbacks.append(tf.keras.callbacks.LambdaCallback(on_epoch_end=self.save_model_fn))
-        callbacks.append(tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                          mode='min',
-                                                          verbose=1,
-                                                          patience=3))
         callbacks.append(tf.keras.callbacks.TerminateOnNaN())
 
         compile_config: Dict[str, Any] = self._keras_model.get_compile_config()
@@ -666,7 +683,34 @@ class VariantRankScoreModel:
 
         validation_steps = int(np.ceil(float(self._datasets.test_data_length) / float(self._datasets.batch_size)))
 
-        history = self._keras_model.fit(x=self._datasets.dataset_train,
+        training_data_set = self._datasets.dataset_train
+        early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                                   mode='min',
+                                                                   verbose=1,
+                                                                   patience=3)
+        if fit_model_to_expected_pathogenic_occurrence:
+            _LOGGER.info(f'Starting to fit model to expected pathogenic occurrence')
+            training_data_set = self._datasets.dataset_train_with_expected_pathogenic_occurrence
+            # Stop retraining when FPR has stopped decreasing
+            early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+                monitor='train_false_positives',
+                mode='min',
+                verbose=1
+            )
+
+            # Disable weight update for all layers during training, except for final layer which will be tuned
+            for layer in self._keras_model.layers:
+                layer.trainable = False
+            final_layer = self._keras_model.get_layer(index=-1)
+            final_layer.trainable = True  # Enable weight update for last layer
+            optimizer = self._keras_model.optimizer
+            optimizer.learning_rate = optimizer.learning_rate * 0.1  # Decrease learning rate to fine tune model
+            self._keras_model.compile(optimizer=optimizer,
+                                      loss=self._keras_model.loss,
+                                      metrics=self._get_training_metrics(suffix='PostFit'))
+            _LOGGER.info(f'Layers to be fine tuned: {[layer.name for layer in self._keras_model.layers if layer.trainable]}')
+
+        history = self._keras_model.fit(x=training_data_set,
                                         batch_size=1,
                                         epochs=int(1E2),
                                         steps_per_epoch=steps_per_epoch,

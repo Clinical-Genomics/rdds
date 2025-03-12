@@ -65,6 +65,7 @@ def train(args):
                     hparams=model.get_uninitialized_hyperparameters(),
                     compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors)
         model.train()
+        model.train(fit_model_to_expected_pathogenic_occurrence=True)
         model.train_model_explainer()
 subparser.set_defaults(func=train)
 
