@@ -18,8 +18,7 @@ class VRSModelTuner(CustomTuner):
                                       workdir_suffix='')
         model.build(hd5_file_path=self._hd5_file_path,
                     hparams=hparams,
-                    compile_vocabulary_normalisation_factors=False,
-                    train_log_dir_already_exist=True)
+                    compile_vocabulary_normalisation_factors=False)
         return model
 
     @staticmethod

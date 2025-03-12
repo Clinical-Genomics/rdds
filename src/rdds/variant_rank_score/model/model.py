@@ -123,9 +123,16 @@ class VariantRankScoreModel:
         self._numerical_normalisation_weights_file_path = numerical_normalisation_weights_file_path
         self._keras_model: Union[tf.keras.Model, None] = None
         self._workdir = workdir
-        self._train_log_dir: str = os.path.join(self._workdir, workdir_suffix)
+        self._workdir_suffix = workdir_suffix
         self._datasets: Union[InitializedDatasets, None] = None
         self._model_explainer: Union[ModelExplainer, None] = None
+
+    @property
+    def _train_log_dir(self) -> str:
+        # A directory containing model build and training output
+        train_log_dir = os.path.join(self._workdir, self._workdir_suffix)
+        os.makedirs(train_log_dir, exist_ok=True)
+        return train_log_dir
 
     def _build_model(self,
                      hparams: HyperParameters) -> tf.keras.models.Model:
@@ -590,19 +597,15 @@ class VariantRankScoreModel:
     def build(self,
               hd5_file_path: str,
               hparams: HyperParameters,
-              compile_vocabulary_normalisation_factors: bool,
-              train_log_dir_already_exist: bool = False) -> tf.keras.Model:
+              compile_vocabulary_normalisation_factors: bool) -> tf.keras.Model:
         """
         Main method to initialize datasets and build model based on hyperparameter config.
         :param hd5_file_path: The HDF5 file path used for training, test
         :param hparams: hyperparameter config (new empty instance or as created by hyperparameter tuner)
           Supplying a new instance of Hyperparameters creates a model with default hyperparam configs.
         :param compile_vocabulary_normalisation_factors: Compile new vocabulary and normalisation factors from data
-        :param train_log_dir_already_exist: Reuse existing directory for this build-training run
         :return: built keras model
         """
-        # Set up a directory containing model build and training output
-        os.makedirs(self._train_log_dir, exist_ok=train_log_dir_already_exist)
         self._init_datasets(hd5_file_path=hd5_file_path,
                             hparams=hparams,
                             compile_vocabulary_normalisation_factors=compile_vocabulary_normalisation_factors)
