@@ -424,6 +424,10 @@ class VariantRankScoreModel:
                                       step=32,
                                       default=64)
 
+        shuffle_buffer_size: int = hparams.Choice(name='shuffle_buffer_size',
+                                                  values=[int(1E3), int(1E4), int(5E5)],
+                                                  default=int(5E5))
+
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                       group_name='train',
@@ -525,7 +529,7 @@ class VariantRankScoreModel:
             # Setup new bias estimate, since training data is now skewed
             model_bias_estimate = np.log(likelihood_pathogenic)
 
-        dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
+        dataset_train = dataset_train.shuffle(buffer_size=shuffle_buffer_size,
                                               seed=1)  # FIXME: Seed
 
         dataset_train = dataset_train.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
@@ -568,7 +572,7 @@ class VariantRankScoreModel:
                                                                                    output_signature=self._generate_dataset_tensor_signature())
             dataset_test = dataset_test.cache()
             dataset_test = dataset_test.repeat(-1)
-            dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
+            dataset_test = dataset_test.shuffle(buffer_size=shuffle_buffer_size,
                                                 seed=1)  # FIXME: Seed
             dataset_test = dataset_test.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
             dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
