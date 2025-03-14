@@ -86,7 +86,8 @@ def inference_exploration(args):
 subparser.set_defaults(func=inference_exploration)
 
 subparser = subparsers.add_parser('predict-on-vcf', help='Run pretrained model on VCF to generate inferences')
-subparser.add_argument('vcf_file_path', help='Path to VCF file to generate inferences for')
+subparser.add_argument('vcf_file_path', nargs='*',
+                       help='Path to ranked VCF to analyze. [CASENAME_suffix[es].vcf]. Globbing supported *.vcf')
 subparser.add_argument('--pretrained_model_path', help='Path to VRS pretrained model to load',
                        default=DEFAULT_MODEL_SPEC.keras_model)
 subparser.add_argument('--pretrained_model_explainer_path', help='Path to VRS pretrained ModelExplainer to load',
@@ -96,10 +97,17 @@ subparser.add_argument('--cpu_cores',
                        default=os.cpu_count() - 1)
 def predict_on_vcf(args):
     from .vcf_inference import predict_on_vcf
-    predict_on_vcf(vrs_model_file_path=args.pretrained_model_path,
-                   model_explainer_path=args.pretrained_model_explainer_path,
-                   vcf_file_path=args.vcf_file_path,
-                   cpu_cores=int(args.cpu_cores))
+    if '*' in args.vcf_file_path:
+        # Globbing
+        vcf_file_paths = glob(args.vcf_file_path)
+    else:
+        vcf_file_paths = args.vcf_file_path
+    print(f'About to process files: {vcf_file_paths}')
+    for vcf_file_path in vcf_file_paths:
+        predict_on_vcf(vrs_model_file_path=args.pretrained_model_path,
+                       model_explainer_path=args.pretrained_model_explainer_path,
+                       vcf_file_path=vcf_file_path,
+                       cpu_cores=int(args.cpu_cores))
 subparser.set_defaults(func=predict_on_vcf)
 
 subparser = subparsers.add_parser('post-train-explainer', help='Train explanations model from pretrained keras model')
