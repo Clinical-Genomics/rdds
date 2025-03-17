@@ -53,7 +53,13 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
     points_genmod = 0
     ties = 0
     for index, row in df_rank_comparison.iterrows():
-        if row.genmod_rank > row.vrs_rank_frqfilt:
+        # NaN check
+        if not row.vrs_rank_frqfilt == row.vrs_rank_frqfilt:
+            points_genmod += 1
+        elif not row.genmod_rank == row.genmod_rank:
+            points_vrs += 1
+        # Performance based on rank
+        elif row.genmod_rank > row.vrs_rank_frqfilt:
             points_vrs += 1
         elif row.genmod_rank < row.vrs_rank_frqfilt:
             points_genmod += 1
