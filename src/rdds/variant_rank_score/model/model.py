@@ -449,7 +449,7 @@ class VariantRankScoreModel:
 
         training_weights = hparams.Choice('training_weights',
                                           values=[False, True],
-                                          default=False)
+                                          default=True)
         if training_weights:
             # Setup class weights so that dataset is perfectly balanced w.r.t class-ratio-loss imbalance
             weight_pathogenic = (1.0 / float(n_pathogenic)) * (float(hd5_data_generator_train.data_length) / 2.0)
