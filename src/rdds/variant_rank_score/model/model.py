@@ -33,7 +33,7 @@ from rdds.lib.hpt import HyperParameters
 from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
-
+from rdds.lib.git import git_version
 
 
 @dataclass
@@ -101,7 +101,7 @@ class VariantRankScoreModel:
                  vocabulary_file_path: str = DEFAULT_MODEL_SPEC.vocabulary_file,
                  numerical_normalisation_weights_file_path: str = DEFAULT_MODEL_SPEC.numerical_normalisation_weights,
                  workdir: str = WORKDIR,
-                 workdir_suffix: str = 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")):
+                 workdir_suffix: str = 'models/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+f'-{git_version()}'):
         """
 
         :param features_text:
@@ -126,6 +126,7 @@ class VariantRankScoreModel:
         self._train_log_dir: str = os.path.join(self._workdir, workdir_suffix)
         self._datasets: InitializedDatasets = None
         self._model_explainer: ModelExplainer = None
+        _LOGGER.info(f'git version: {git_version()}')
 
     def _build_model(self,
                      hparams: HyperParameters) -> tf.keras.models.Model:
@@ -655,6 +656,8 @@ class VariantRankScoreModel:
         with open(os.path.join(self._train_log_dir, 'build-config.txt'), 'w') as file:
             file.write(str(globals()))
             file.write(str(locals()))
+        with open(os.path.join(self._train_log_dir, 'git-version.txt'), 'w') as file:
+            file.write(str(git_version()))
 
         validation_steps = int(np.ceil(float(self._datasets.test_data_length) / float(self._datasets.batch_size)))
 
