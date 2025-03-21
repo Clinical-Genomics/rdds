@@ -484,11 +484,11 @@ class VariantRankScoreModel:
                 'SPIDEX'
             ]
             for feature_idx, feature_name in enumerate(augmented_features):
-                _LOGGER.info(f'Dropout augmentation enabled for {feature_name} ({feature_dropout_ratio:.2f})')
                 feature_idx: List[int] = [i for i, name in enumerate(self._features) if name == feature_name]
                 if len(feature_idx) != 1:
                     raise ValueError(f'Expected idx, got zero or multiple: {feature_idx}, {feature_name}')
                 feature_idx: int = feature_idx[0]
+                _LOGGER.info(f'Dropout augmentation enabled for feature {feature_idx}:{feature_name} ({feature_dropout_ratio:.2f})')
                 if feature_name in self._features_text:
                     novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=feature_idx,
                                                           dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
