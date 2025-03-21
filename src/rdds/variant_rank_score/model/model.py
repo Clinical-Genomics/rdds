@@ -25,7 +25,7 @@ from rdds.lib.tf import TextPreprocessingLayer
 from rdds.lib.tf import EmbeddingsReductionLayer
 from rdds.lib.tf import DnaSequenceTrimmer
 from rdds.lib.tf import InstanceNormalisationLayer
-from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset
+from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset, NumericalAugmentDropoutDataset
 from ..dataset.class_labels import LABEL_PATHOGENIC_VARIANT, LABEL_BENIGN_VARIANT
 from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
@@ -469,16 +469,39 @@ class VariantRankScoreModel:
                                                values=[0.0, float(1E-3), float(1E-2), 0.5],
                                                default=0.5)
         if feature_dropout_ratio > 0:
-            clinvar_clnrevstat_novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=2,
-                                                                     dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
-                                                                     seed=1,
-                                                                     dropout_ratio=feature_dropout_ratio)
-            dataset_train = clinvar_clnrevstat_novelizer(dataset_train)
-            clinvar_clnsig_novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=3,
-                                                                 dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
-                                                                 seed=2,
-                                                                 dropout_ratio=feature_dropout_ratio)
-            dataset_train = clinvar_clnsig_novelizer(dataset_train)
+            augmented_features = [
+                'CSQ_PolyPhen',
+                'CSQ_SIFT',
+                'CSQ_CLINVAR_CLNREVSTAT',
+                'CSQ_CLINVAR_CLNSIG',
+                'most_severe_consequence',
+                'CSQ_SpliceAI_pred_DS_AL',
+                'CSQ_SpliceAI_pred_DS_DG',
+                'CSQ_SpliceAI_pred_DS_DL',
+                'CSQ_REVEL_score',
+                'CSQ_GERP++_RS',
+                'CSQ_phastCons100way_vertebrate',
+                'SPIDEX'
+            ]
+            for feature_idx, feature_name in enumerate(augmented_features):
+                _LOGGER.info(f'Dropout augmentation enabled for {feature_name} ({feature_dropout_ratio:.2f})')
+                feature_idx: List[int] = [i for i, name in enumerate(self._features) if name == feature_name]
+                if len(feature_idx) != 1:
+                    raise ValueError(f'Expected idx, got zero or multiple: {feature_idx}, {feature_name}')
+                feature_idx: int = feature_idx[0]
+                if feature_name in self._features_text:
+                    novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=feature_idx,
+                                                          dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
+                                                          dropout_ratio=feature_dropout_ratio,
+                                                          seed=feature_idx)
+                elif feature_name in self._features_numerical:
+                    novelizer = NumericalAugmentDropoutDataset(target_data_tensor_idx=feature_idx,
+                                                               dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
+                                                               dropout_ratio=feature_dropout_ratio,
+                                                               seed=feature_idx)
+                else:
+                    raise ValueError(f'Feature {feature_name} not found.')
+                dataset_train = novelizer(dataset_train)
 
         # Training occurrence sampling
         expected_amount_of_variants_in_case = float(3.5E6)
