@@ -13,6 +13,9 @@ shap==0.44.1
 matplotlib==3.7.1
 seaborn==0.12.2
 
+# Data Exploration
+jupyterlab==4.3.4
+
 # Dataset
 h5py==3.7.0
 
