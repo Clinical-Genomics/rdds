@@ -83,6 +83,7 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
                marker='D',
                alpha=0.75)
     ax.grid(True)
+    plt.xticks(rotation=45)
     ax.legend(['genmod', 'vrs-frqfilt'])
     fig.tight_layout()
     fig.suptitle(f'Pathogenic Variant Rank Per Model\nvrs {points_vrs}, genmod {points_genmod}, ties {ties}')
