@@ -7,6 +7,7 @@ def git_version() -> str:
     :return: Version as string
     NOTE: changes to this method should be reflected in the VERSION variable in Makefile
     """
+    run(f'git config --global --add safe.directory /rdds', shell=True, check=True)  # Fix for git unsafe directory error
     completed_process: CompletedProcess = run(args='git describe --tags --dirty --always',
                                               shell=True,
                                               capture_output=True,
