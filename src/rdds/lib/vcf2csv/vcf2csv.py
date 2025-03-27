@@ -78,7 +78,12 @@ class Vcf2Csv:
     def convert_vcf_to_csv(self,
                            vcf_path: str) -> pathlib.PurePath:
         """
-        Convert a VCF to a CSV and store in workdir
+        Convert a VCF to a CSV and store in workdir.
+
+        NOTE: This is a potential lossy method that depends on the implementation in
+        ParsableVariant. Only fields listed in ParsableVariant.parsed_fields
+        will be copied to the .csv file.
+
         :param vcf_path: The path to the VCF
         :return: Path to the CSV
         """
