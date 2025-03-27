@@ -15,7 +15,7 @@ def _git_version() -> str:
                                               capture_output=True,
                                               check=True)
     version: bytes = completed_process.stdout
-    version: str = version.decode('utf-8')
+    version: str = version.decode('utf-8').replace('\n', '')
     return version
 
 def git_version() -> str:
