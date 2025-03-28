@@ -8,7 +8,7 @@ import pandas as pd
 FIGSIZE = (30, 20)
 
 def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
-                               case_names: List[str]):
+                               case_names: List[str]) -> pd.DataFrame:
     """
     Comptute aggreate performance results across a set of cases.
 
@@ -91,4 +91,4 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
     fig.savefig(fig_path)
     print(f'Saving figure {fig_path}. Completed aggregate analysis.')
 
-    return
+    return df_rank_comparison
