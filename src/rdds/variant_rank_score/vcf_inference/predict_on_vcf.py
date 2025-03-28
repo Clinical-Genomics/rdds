@@ -140,7 +140,7 @@ totalling {len(subprocess_args)} worker tasks')
                                    prefix='Total processing progress ')
     completed_tasks = []
     while True:
-        task = task_queue.get(timeout=60*60)  # Raises Empty exception if no data after timeout
+        task = task_queue.get(timeout=60*60*5)  # Raises Empty exception if no data after timeout
         if task.process.exitcode != 0:
             raise ValueError(f'Task failed: {task}')
             break
