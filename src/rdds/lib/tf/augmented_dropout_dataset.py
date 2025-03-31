@@ -65,11 +65,12 @@ class AugmentDropoutDataset:
                          false_fn=lambda: input)
         return output
 
-    def _process(self, data_tensors, labels) -> Tuple[Tuple[tf.Tensor, ...], ...]:
+    def _process(self, data_tensors, labels, weights=None) -> Tuple[Tuple[tf.Tensor, ...], ...]:
         """
         :param data_tensors: A non-nested tuple of tensors, (tensor0, ...)
         :param labels: A tuple (label_tensor, ) containing categorical labels of shape [2]
-        :return: (tuple of data tensors, tuple of label)
+        :param weights: Optional sample weights
+        :return: (tuple of data tensors, tuple of label and potentially weights)
         """
         label_pathogenic, = labels  # unpack tuple (tensor, )
         # Assume tensor tuples are ordered in same order as element_spec
@@ -84,6 +85,8 @@ class AugmentDropoutDataset:
             else:
                 output_tensors += (tensor,)
         output = (output_tensors, labels)
+        if weights is not None:
+            output += (weights, )
         return output
 
     def __call__(self, dataset: tf.data.Dataset) -> tf.data.Dataset:
