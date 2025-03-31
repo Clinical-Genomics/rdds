@@ -8,7 +8,7 @@
 #SBATCH --time=0-06:00:00
 #SBATCH --account=development
 #SBATCH --job-name=RDDS-normparam
-#SBATCH --qos=low
+#SBATCH --qos=normal
 #SBATCH --tmp=40G
 
 set -e
