@@ -560,9 +560,8 @@ class VariantRankScoreModel:
                                                                                    output_signature=self._generate_dataset_tensor_signature())
             dataset_test = dataset_test.cache()
             dataset_test = dataset_test.repeat(-1)
-            dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
-                                                seed=1)  # FIXME: Seed
-            dataset_test = dataset_test.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
+            dataset_test = dataset_test.batch(batch_size=int(1E4),  # Optimize inference speed
+                                              num_parallel_calls=tf.data.AUTOTUNE)
             dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
             dataset_test_length = hd5_data_generator_test.data_length
         else:
