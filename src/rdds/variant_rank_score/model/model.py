@@ -429,6 +429,8 @@ class VariantRankScoreModel:
 
         # Training weights
         n_pathogenic, n_benign = hd5_data_generator_train.count_positive_negative_categorical_labels()
+        assert n_pathogenic > 0, n_pathogenic
+        assert n_benign > 0, n_benign
         _LOGGER.info(f'nTP:{n_pathogenic} ({100 * n_pathogenic / hd5_data_generator_train.data_length:.4f}%) \
         , nTN:{n_benign}, n_samples:{hd5_data_generator_train.data_length}')
 
