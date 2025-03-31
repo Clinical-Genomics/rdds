@@ -221,6 +221,12 @@ class VariantRankScoreModel:
         # Flatten word vector to -> [bdim, n_features * n_embeddings]
         embeddings_flat = tf.reshape(embeddings, (-1, len(self._features_text) * embedding_dimensions))
 
+        dropout_rate = hparams.Float(name='dropout_rate',
+                                     min_value=0,
+                                     max_value=0.9,
+                                     step=0.1,
+                                     default=0.2)
+
         # Normalization of numerical features (per feature channel)
         # No need to normalize the embeddings since they're nicely distributed
         # Concatenate word vector and numerical features -> [bdim, n_text * n_embeddings + n_numerical]
@@ -237,15 +243,19 @@ class VariantRankScoreModel:
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
                                                   activation='relu',
                                                   kernel_regularizer=None)(embeddings_flat)
+        embeddings_branch = tf.keras.layers.Dropout(dropout_rate, seed=1)(embeddings_branch)
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_1,
                                                   activation='relu',
                                                   kernel_regularizer=None)(embeddings_branch)
+        embeddings_branch = tf.keras.layers.Dropout(dropout_rate, seed=1)(embeddings_branch)
         numerical_branch = tf.keras.layers.Dense(units=branch_dense_0,
                                                  activation='relu',
                                                  kernel_regularizer=feature_selection_regularizer)(input_numerical_normalized)
+        numerical_branch = tf.keras.layers.Dropout(dropout_rate, seed=1)(numerical_branch)
         numerical_branch = tf.keras.layers.Dense(units=branch_dense_1,
                                                  activation='relu',
                                                  kernel_regularizer=None)(numerical_branch)
+        numerical_branch = tf.keras.layers.Dropout(dropout_rate, seed=1)(numerical_branch)
         complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
                                                                                               numerical_branch])
         _LOGGER.info(f'Feature vector shape {complete_feature_vector.get_shape()}')
@@ -284,11 +294,6 @@ class VariantRankScoreModel:
                                             max_value=0.2,  # Must match 1 / max(n_layers - 1)
                                             default=0.14,
                                             step=0.01)
-        dropout_rate = hparams.Float(name='dropout_rate',
-                                     min_value=0,
-                                     max_value=0.9,
-                                     step=0.1,
-                                     default=0.2)
         x = complete_feature_vector
         for layer_idx in range(0, layers):
             x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
