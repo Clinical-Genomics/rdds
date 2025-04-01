@@ -236,17 +236,20 @@ class VariantRankScoreModel:
                                      max_value=256,
                                      step=32,
                                      default=224)
+        activation = hparams.Choice('dense-activation',
+                                    values=['relu', 'sigmoid', 'linear'],
+                                    default='relu')
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
-                                                  activation='relu',
+                                                  activation=activation,
                                                   kernel_regularizer=None)(embeddings_flat)
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_1,
-                                                  activation='relu',
+                                                  activation=activation,
                                                   kernel_regularizer=None)(embeddings_branch)
         numerical_branch = tf.keras.layers.Dense(units=branch_dense_0,
-                                                 activation='relu',
+                                                 activation=activation,
                                                  kernel_regularizer=feature_selection_regularizer)(input_numerical_normalized)
         numerical_branch = tf.keras.layers.Dense(units=branch_dense_1,
-                                                 activation='relu',
+                                                 activation=activation,
                                                  kernel_regularizer=None)(numerical_branch)
         complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
                                                                                               numerical_branch])
@@ -267,9 +270,6 @@ class VariantRankScoreModel:
                 regularizer = tf.keras.regularizers.L2(correlation_penalty)
             else:
                 regularizer = None
-        activation = hparams.Choice('dense-activation',
-                                    values=['relu', 'sigmoid', 'linear'],
-                                    default='relu')
         _LOGGER.info(f'length feature vector {len(self._features)}')
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
