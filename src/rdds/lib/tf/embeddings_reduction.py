@@ -7,7 +7,7 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._dot_layer = tf.keras.layers.Dot(axes=2, normalize=True, name='EmbeddingsInnerP')  # Take dot product of words
+        self._dot_layer = tf.keras.layers.Dot(axes=2, normalize=False, name='EmbeddingsInnerP')  # Take dot product of words
 
     def __call__(self, ragged_tensor: tf.RaggedTensor):
         """
