@@ -234,7 +234,7 @@ class VariantRankScoreModel:
                                      step=32,
                                      default=224)
         activation = hparams.Choice('dense-activation',
-                                    values=['relu', 'sigmoid', 'linear'],
+                                    values=['relu', 'sigmoid'],
                                     default='relu')
         embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
                                                   activation=activation,
