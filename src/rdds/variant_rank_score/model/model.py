@@ -225,14 +225,14 @@ class VariantRankScoreModel:
         # Concatenate word vector and numerical features -> [bdim, n_text * n_embeddings + n_numerical]
         branch_dense_0 = hparams.Int('branch_dense_0',
                                      min_value=32,
-                                     max_value=256,
+                                     max_value=2056,
                                      step=32,
-                                     default=160)
+                                     default=1024)
         branch_dense_1 = hparams.Int('branch_dense_1',
                                      min_value=32,
-                                     max_value=256,
+                                     max_value=2056,
                                      step=32,
-                                     default=224)
+                                     default=1024)
         activation = hparams.Choice('dense-activation',
                                     values=['relu', 'sigmoid'],
                                     default='relu')
@@ -268,19 +268,20 @@ class VariantRankScoreModel:
             else:
                 regularizer = None
         _LOGGER.info(f'length feature vector {len(self._features)}')
+        max_stacked_layers = 8
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
-                                  max_value=6,
-                                  default=3,
+                                  max_value=max_stacked_layers,
+                                  default=8,
                                   step=1)
         units: int = hparams.Int('dense-units',
                                  min_value=32,
-                                 max_value=1024,
-                                 default=608,
+                                 max_value=4098,
+                                 default=2056,
                                  step=32)
         delta_factor: float = hparams.Float('dense-units-reduction',
                                             min_value=0.1,
-                                            max_value=0.2,  # Must match 1 / max(n_layers - 1)
+                                            max_value=1.0 / (max_stacked_layers - 1.0),  # Must match 1 / max(n_layers - 1)
                                             default=0.14,
                                             step=0.01)
         dropout_rate = hparams.Float(name='dropout_rate',
