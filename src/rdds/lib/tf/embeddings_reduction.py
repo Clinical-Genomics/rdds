@@ -40,8 +40,5 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
             zero_padded_embeddings: tf.Tensor = embeddings.to_tensor(default_value=tf.constant(0.0), shape=shape_padded)
 
         # Do the reduction
-        dots = tf.matmul(tf.transpose(zero_padded_embeddings, perm=[0, 1, 3, 2]), zero_padded_embeddings)
-        dots_total = tf.reduce_sum(dots, axis=None)  # Total magnitude of dots
-        words_reduction = tf.reduce_sum(dots, axis=2, keepdims=True)
-        embeddings_dim_reduced = tf.sigmoid(words_reduction / dots_total)
+        embeddings_dim_reduced = tf.math.reduce_max(zero_padded_embeddings, axis=2, keepdims=True)
         return embeddings_dim_reduced
