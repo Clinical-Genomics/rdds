@@ -33,6 +33,8 @@ from rdds.lib.hpt import HyperParameters
 from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
+from .keras_custom_metric_model import KerasCustomMetricModel, MetricSpec
+from .custom_metrics import RareVariantBinaryAccuracy, RegexpBinaryAccuracy, CUSTOM_METRICS
 
 
 
@@ -91,6 +93,7 @@ FEATURES_FLOAT = ['CSQ_MaxEntScan_alt',
                   #'MTAF',
                   'Frq'
                   ]
+
 
 
 class VariantRankScoreModel:
@@ -318,8 +321,9 @@ class VariantRankScoreModel:
         model_inputs = []  # Flat list of model inputs [feature0, feature1, ... ]
         for feature_name in self._features:
             model_inputs.append(_get_input_tensor_with_name(name=feature_name))
-        self._keras_model = tf.keras.Model(inputs=model_inputs,
-                                           outputs=confidences)
+        self._keras_model = KerasCustomMetricModel(inputs=model_inputs,
+                                                   outputs=confidences,
+                                                   metric_specs=CUSTOM_METRICS)
 
         metrics = [tf.keras.metrics.TruePositives(),
                    tf.keras.metrics.TrueNegatives(),
