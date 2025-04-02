@@ -280,9 +280,9 @@ class VariantRankScoreModel:
                                  default=2056,
                                  step=32)
         delta_factor: float = hparams.Float('dense-units-reduction',
-                                            min_value=0.1,
+                                            min_value=0.0,
                                             max_value=1.0 / (max_stacked_layers - 1.0),  # Must match 1 / max(n_layers - 1)
-                                            default=0.14,
+                                            default=0.0,
                                             step=0.01)
         dropout_rate = hparams.Float(name='dropout_rate',
                                      min_value=0,
