@@ -40,5 +40,5 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
             zero_padded_embeddings: tf.Tensor = embeddings.to_tensor(default_value=tf.constant(0.0), shape=shape_padded)
 
         # Do the reduction
-        embeddings_dim_reduced = tf.math.reduce_max(zero_padded_embeddings, axis=2, keepdims=True)
+        embeddings_dim_reduced = tf.math.reduce_sum(zero_padded_embeddings, axis=2, keepdims=True)
         return embeddings_dim_reduced
