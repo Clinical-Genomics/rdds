@@ -7,7 +7,6 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._dot_layer = tf.keras.layers.Dot(axes=2, normalize=True, name='EmbeddingsInnerP')  # Take dot product of words
 
     def __call__(self, ragged_tensor: tf.RaggedTensor):
         """
@@ -42,5 +41,7 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
 
         # Do the reduction
         dots = tf.matmul(tf.transpose(zero_padded_embeddings, perm=[0, 1, 3, 2]), zero_padded_embeddings)
+        dots_total = tf.reduce_sum(dots, axis=None)  # Total magnitude of dots
         words_reduction = tf.reduce_sum(dots, axis=2, keepdims=True)
-        return words_reduction
+        embeddings_dim_reduced = tf.sigmoid(words_reduction / dots_total)
+        return embeddings_dim_reduced
