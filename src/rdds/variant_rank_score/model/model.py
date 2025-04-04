@@ -340,7 +340,7 @@ class VariantRankScoreModel:
         optimizer = optimizer_cls(learning_rate=hparams.Float('learning-rate',
                                                               min_value=1E-6,
                                                               max_value=1E-3,
-                                                              default=0.5E-5,
+                                                              default=1E-6,
                                                               step=10,
                                                               sampling='log'))
 
