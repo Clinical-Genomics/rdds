@@ -291,7 +291,7 @@ class VariantRankScoreModel:
                                      default=0.2)
         x = complete_feature_vector
         for layer_idx in range(0, layers):
-            x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
+            x = tf.keras.layers.Dense(units=units + (layer_idx * int(np.floor(delta_factor * units))),
                                       activation=activation,
                                       kernel_regularizer=regularizer)(x)    # -> [bdim, n_units]
             if dropout_rate >= 0:
