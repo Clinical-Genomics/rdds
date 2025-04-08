@@ -2,6 +2,7 @@ from typing import Type, List, Tuple, Dict, Union
 import tensorflow as tf
 from dataclasses import dataclass, field
 # https://keras.io/api/metrics/#as-subclasses-of-metric-stateful
+from rdds.lib.tf import mcc
 
 
 @dataclass
@@ -10,6 +11,13 @@ class MetricSpec:
     MetricClass: Type[tf.keras.metrics.Metric]
     Args: Tuple = tuple()
     Kwargs: Dict = field(default_factory=lambda: dict())
+
+
+class MccScore(tf.keras.metrics.MeanMetricWrapper):
+    def __init__(self, name="MCC", dtype=None, threshold=0.5):
+        super().__init__(
+            mcc, name, dtype=dtype, threshold=threshold
+        )
 
 
 class RegexpBinaryAccuracy(tf.keras.metrics.Metric):
