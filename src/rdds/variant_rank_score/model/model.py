@@ -34,7 +34,7 @@ from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
 from .keras_custom_metric_model import KerasCustomMetricModel, MetricSpec
-from .custom_metrics import RareVariantBinaryAccuracy, RegexpBinaryAccuracy, CUSTOM_METRICS, MccScore
+from .custom_metrics import CUSTOM_METRICS, MccScore
 
 
 

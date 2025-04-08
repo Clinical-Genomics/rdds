@@ -20,7 +20,7 @@ class MccScore(tf.keras.metrics.MeanMetricWrapper):
         )
 
 
-class RegexpBinaryAccuracy(tf.keras.metrics.Metric):
+class RegexpMCC(tf.keras.metrics.Metric):
 
     # https://regex101.com/
 
@@ -34,7 +34,7 @@ class RegexpBinaryAccuracy(tf.keras.metrics.Metric):
         self.binary_accuracy: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'accuracy_{kwargs["name"]}'
+            name=f'mcc_{kwargs["name"]}'
         )
         self.total_samples: tf.Variable = self.add_variable(
             shape=(),
@@ -52,8 +52,8 @@ class RegexpBinaryAccuracy(tf.keras.metrics.Metric):
         matching_idx = tf.where(regexp_matches)[:, 0]
         matching_labels = tf.gather(labels, matching_idx)
         matching_predictions = tf.gather(y_pred, matching_idx)
-        accuracy = tf.reduce_sum(tf.metrics.binary_accuracy(matching_labels, matching_predictions))
-        self.binary_accuracy.assign_add(accuracy)
+        score = mcc(matching_labels, matching_predictions)
+        self.binary_accuracy.assign_add(score)
         self.total_samples.assign_add(tf.cast(tf.size(matching_labels), tf.float32))
 
     def result(self):
@@ -67,8 +67,8 @@ class RegexpBinaryAccuracy(tf.keras.metrics.Metric):
         self.total_samples.assign(0)
 
 
-class RareVariantBinaryAccuracy(tf.keras.metrics.Metric):
-    def __init__(self, *args, tensor_idx: int, name='RareVariantBinaryAccuracy', **kwargs):
+class RareVariantMCC(tf.keras.metrics.Metric):
+    def __init__(self, *args, tensor_idx: int, name='RareVariantBinaryMCC', **kwargs):
         kwargs.update({'name': name})
         super().__init__(*args, **kwargs)
         self._tensor_idx = tensor_idx
@@ -108,12 +108,12 @@ class RareVariantBinaryAccuracy(tf.keras.metrics.Metric):
         # Common data
         common_labels = tf.gather(labels, common_idx)
         y_pred_common = tf.gather(y_pred, common_idx)
-        # Compute accuracy
-        rare_accuracy = tf.keras.metrics.binary_accuracy(rare_labels, y_pred_rare)
-        self.binary_accuracy_pathogenic.assign_add(tf.reduce_sum(rare_accuracy))
+        # Compute mcc
+        rare_mcc = mcc(rare_labels, y_pred_rare)
+        self.binary_accuracy_pathogenic.assign_add(rare_mcc)
         self.total_pathogenic_samples.assign_add(tf.cast(tf.size(rare_labels), tf.float32))
-        common_accuracy = tf.keras.metrics.binary_accuracy(common_labels, y_pred_common)
-        self.binary_accuracy_benign.assign_add(tf.reduce_sum(common_accuracy))
+        common_mcc = mcc(common_labels, y_pred_common)
+        self.binary_accuracy_benign.assign_add(common_mcc)
         self.total_benign_samples.assign_add(tf.cast(tf.size(common_labels), tf.float32))
 
     def result(self) -> dict:
@@ -133,12 +133,12 @@ class RareVariantBinaryAccuracy(tf.keras.metrics.Metric):
         self.total_benign_samples.assign(0)
 
 
-class RareVariantWithoutClinvarSupportBinaryAccuracy(tf.keras.metrics.Metric):
+class RareVariantWithoutClinvarSupportMCC(tf.keras.metrics.Metric):
     def __init__(self,
                  *args,
                  tensor_idx_frq: int,
                  tensor_idx_clinvar_clnsig: int,
-                 name='RareVariantWithoutClinvarSupportBinaryAccuracy', **kwargs):
+                 name='RareVariantWithoutClinvarSupportMCC', **kwargs):
         kwargs.update({'name': name})
         super().__init__(*args, **kwargs)
         self._tensor_idx_frq = tensor_idx_frq
@@ -169,9 +169,9 @@ class RareVariantWithoutClinvarSupportBinaryAccuracy(tf.keras.metrics.Metric):
         # Subset data
         labels_subset = tf.gather(labels, idx)
         y_pred_subset = tf.gather(y_pred, idx)
-        # Compute accuracy
-        accuracy = tf.keras.metrics.binary_accuracy(labels_subset, y_pred_subset)
-        self.binary_accuracy.assign_add(tf.reduce_sum(accuracy))
+        # Compute mcc
+        score = mcc(labels_subset, y_pred_subset)
+        self.binary_accuracy.assign_add(score)
         self.total_samples.assign_add(tf.cast(tf.size(labels_subset), tf.float32))
 
     def result(self) -> dict:
@@ -202,30 +202,30 @@ vep_consequence_terms = \
 for term in vep_consequence_terms:
     CUSTOM_METRICS.append(
         MetricSpec(InputTensorName='most_severe_consequence',
-        MetricClass=RegexpBinaryAccuracy,
+        MetricClass=RegexpMCC,
         Kwargs={'pattern': f'.*({term}).*', 'name': f'{term}Accuracy'})
     )
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='GNOMADAF_popmax',
-    MetricClass=RareVariantBinaryAccuracy,
-    Kwargs={'name': 'RareVariantBinaryAccuracyGnomad'}))
+    MetricClass=RareVariantMCC,
+    Kwargs={'name': 'RareVariantMCCGnomad'}))
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='Frq',
-    MetricClass=RareVariantBinaryAccuracy,
-    Kwargs={'name': 'RareVariantBinaryAccuracyFrq'}))
+    MetricClass=RareVariantMCC,
+    Kwargs={'name': 'RareVariantMCCFrq'}))
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
-    MetricClass=RegexpBinaryAccuracy,
+    MetricClass=RegexpMCC,
     Kwargs={'pattern': '.*(pathogenic|Pathogenic).*',
-    'name': 'ClinvarPathogenicAccuracy'}))
+    'name': 'ClinvarPathogenicMCC'}))
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
-    MetricClass=RegexpBinaryAccuracy,
+    MetricClass=RegexpMCC,
     Kwargs={'pattern': '.*(benign|Benign).*',
-    'name': 'ClinvarBenignAccuracy'}))
+    'name': 'ClinvarBenignMCC'}))
 CUSTOM_METRICS.append(
     MetricSpec(
         InputTensorName={'tensor_idx_frq': 'GNOMADAF_popmax',
                          'tensor_idx_clinvar_clnsig': 'CSQ_CLINVAR_CLNSIG'},
-        MetricClass=RareVariantWithoutClinvarSupportBinaryAccuracy)
+        MetricClass=RareVariantWithoutClinvarSupportMCC)
 )
