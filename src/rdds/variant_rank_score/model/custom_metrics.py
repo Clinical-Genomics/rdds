@@ -2,7 +2,7 @@ from typing import Type, List, Tuple, Dict, Union
 import tensorflow as tf
 from dataclasses import dataclass, field
 # https://keras.io/api/metrics/#as-subclasses-of-metric-stateful
-from rdds.lib.tf import mcc
+from rdds.lib.tf import mcc, f1
 
 
 @dataclass
@@ -20,7 +20,19 @@ class MccScore(tf.keras.metrics.MeanMetricWrapper):
         )
 
 
-class RegexpMCC(tf.keras.metrics.Metric):
+class F1Score(tf.keras.metrics.MeanMetricWrapper):
+    def __init__(self, name="F1", dtype=None, threshold=0.5):
+        super().__init__(
+            f1, name, dtype=dtype, threshold=threshold
+        )
+
+
+class RegexpF1(tf.keras.metrics.Metric):
+
+    """
+    A metric that collects TPs and FNs matching a particular tensor and regexp to compute F1 score.
+    Yields no indication of FPs (ideally) since all collected samples are ground truth positive.
+    """
 
     # https://regex101.com/
 
@@ -31,10 +43,10 @@ class RegexpMCC(tf.keras.metrics.Metric):
         super().__init__(*args, **kwargs)
         self._tensor_idx = tensor_idx
 
-        self.binary_mcc: tf.Variable = self.add_variable(
+        self.binary_f1: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'mcc_{self.name}'
+            name=f'f1_{self.name}'
         )
         self.total_samples: tf.Variable = self.add_variable(
             shape=(),
@@ -52,46 +64,45 @@ class RegexpMCC(tf.keras.metrics.Metric):
         matching_idx = tf.where(regexp_matches)[:, 0]
         matching_labels = tf.gather(labels, matching_idx)
         matching_predictions = tf.gather(y_pred, matching_idx)
-        score = mcc(matching_labels, matching_predictions)
-        self.binary_mcc.assign_add(score)
+        score = f1(matching_labels, matching_predictions)
+        self.binary_f1.assign_add(score)
         self.total_samples.assign_add(tf.cast(tf.size(matching_labels), tf.float32))
 
     def result(self):
         return {
-            f'{self.name}': tf.math.divide_no_nan(self.binary_mcc, self.total_samples),
-            f'Count{self.name}': self.total_samples
+            f'{self.name}': tf.math.divide_no_nan(self.binary_f1, self.total_samples),
+            f'{self.name}Count': self.total_samples
         }
 
     def reset_state(self):
-        self.binary_mcc.assign(0)
+        self.binary_f1.assign(0)
         self.total_samples.assign(0)
 
 
-class RareVariantMCC(tf.keras.metrics.Metric):
-    def __init__(self, *args, tensor_idx: int, name='RareVariantBinaryMCC', **kwargs):
-        kwargs.update({'name': name})
+class RareVariantF1(tf.keras.metrics.Metric):
+    def __init__(self, *args, tensor_idx: int, **kwargs):
         super().__init__(*args, **kwargs)
         self._tensor_idx = tensor_idx
 
-        self.binary_mcc_pathogenic: tf.Variable = self.add_variable(
+        self.binary_f1_pathogenic: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'binary_mcc_pathogenic_{name}'
+            name=f'binary_f1_pathogenic_{self.name}'
         )
-        self.binary_mcc_benign: tf.Variable = self.add_variable(
+        self.binary_f1_benign: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'binary_mcc_benign_{name}'
+            name=f'binary_f1_benign_{self.name}'
         )
         self.total_pathogenic_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'total_pathogenic_samples_{name}'
+            name=f'total_pathogenic_samples_{self.name}'
         )
         self.total_benign_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'total_benign_samples_{name}'
+            name=f'total_benign_samples_{self.name}'
         )
 
     def update_state(self, x, y, y_pred, sample_weight):
@@ -108,51 +119,49 @@ class RareVariantMCC(tf.keras.metrics.Metric):
         # Common data
         common_labels = tf.gather(labels, common_idx)
         y_pred_common = tf.gather(y_pred, common_idx)
-        # Compute mcc
-        rare_mcc = mcc(rare_labels, y_pred_rare)
-        self.binary_mcc_pathogenic.assign_add(rare_mcc)
+        # Compute f1
+        rare_f1 = f1(rare_labels, y_pred_rare)
+        self.binary_f1_pathogenic.assign_add(rare_f1)
         self.total_pathogenic_samples.assign_add(tf.cast(tf.size(rare_labels), tf.float32))
-        common_mcc = mcc(common_labels, y_pred_common)
-        self.binary_mcc_benign.assign_add(common_mcc)
+        common_f1 = f1(common_labels, y_pred_common)
+        self.binary_f1_benign.assign_add(common_f1)
         self.total_benign_samples.assign_add(tf.cast(tf.size(common_labels), tf.float32))
 
     def result(self) -> dict:
-        mean_pathogenic = tf.math.divide_no_nan(self.binary_mcc_pathogenic, self.total_pathogenic_samples)
-        mean_benign = tf.math.divide_no_nan(self.binary_mcc_benign, self.total_benign_samples)
+        mean_pathogenic = tf.math.divide_no_nan(self.binary_f1_pathogenic, self.total_pathogenic_samples)
+        mean_benign = tf.math.divide_no_nan(self.binary_f1_benign, self.total_benign_samples)
         return {
-            f'Pathogenic{self.name}': mean_pathogenic,
-            f'Benign{self.name}': mean_benign,
-            f'CountPathogenic{self.name}': self.total_benign_samples,
-            f'CountBenign{self.name}': self.total_pathogenic_samples,
+            f'{self.name}Pathogenic': mean_pathogenic,
+            f'{self.name}Benign': mean_benign,
+            f'{self.name}PathogenicCount': self.total_benign_samples,
+            f'{self.name}BenignCount': self.total_pathogenic_samples,
         }
 
     def reset_state(self):
-        self.binary_mcc_pathogenic.assign(0)
-        self.binary_mcc_benign.assign(0)
+        self.binary_f1_pathogenic.assign(0)
+        self.binary_f1_benign.assign(0)
         self.total_pathogenic_samples.assign(0)
         self.total_benign_samples.assign(0)
 
 
-class RareVariantWithoutClinvarSupportMCC(tf.keras.metrics.Metric):
+class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
     def __init__(self,
                  *args,
                  tensor_idx_frq: int,
-                 tensor_idx_clinvar_clnsig: int,
-                 name='RareVariantWithoutClinvarSupportMCC', **kwargs):
-        kwargs.update({'name': name})
+                 tensor_idx_clinvar_clnsig: int, **kwargs):
         super().__init__(*args, **kwargs)
         self._tensor_idx_frq = tensor_idx_frq
         self._tensor_idx_clinvar_clnsig = tensor_idx_clinvar_clnsig
 
-        self.binary_mcc: tf.Variable = self.add_variable(
+        self.binary_f1: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'binary_mcc{name}'
+            name=f'binary_f1{self.name}'
         )
         self.total_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'total_samples_{name}'
+            name=f'total_samples_{self.name}'
         )
 
     def update_state(self, x, y, y_pred, sample_weight):
@@ -169,20 +178,20 @@ class RareVariantWithoutClinvarSupportMCC(tf.keras.metrics.Metric):
         # Subset data
         labels_subset = tf.gather(labels, idx)
         y_pred_subset = tf.gather(y_pred, idx)
-        # Compute mcc
-        score = mcc(labels_subset, y_pred_subset)
-        self.binary_mcc.assign_add(score)
+        # Compute f1
+        score = f1(labels_subset, y_pred_subset)
+        self.binary_f1.assign_add(score)
         self.total_samples.assign_add(tf.cast(tf.size(labels_subset), tf.float32))
 
     def result(self) -> dict:
-        mean = tf.math.divide_no_nan(self.binary_mcc, self.total_samples)
+        mean = tf.math.divide_no_nan(self.binary_f1, self.total_samples)
         return {
             f'{self.name}': mean,
-            f'Count{self.name}': self.total_samples,
+            f'{self.name}Count': self.total_samples,
         }
 
     def reset_state(self):
-        self.binary_mcc.assign(0)
+        self.binary_f1.assign(0)
         self.total_samples.assign(0)
 
 
@@ -202,30 +211,31 @@ vep_consequence_terms = \
 for term in vep_consequence_terms:
     CUSTOM_METRICS.append(
         MetricSpec(InputTensorName='most_severe_consequence',
-        MetricClass=RegexpMCC,
-        Kwargs={'pattern': f'.*({term}).*', 'name': f'{term}MCC'})
+        MetricClass=RegexpF1,
+        Kwargs={'pattern': f'.*({term}).*', 'name': f'{term}F1'})
     )
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='GNOMADAF_popmax',
-    MetricClass=RareVariantMCC,
-    Kwargs={'name': 'RareVariantMCCGnomad'}))
+    MetricClass=RareVariantF1,
+    Kwargs={'name': 'RareVariantF1Gnomad'}))
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='Frq',
-    MetricClass=RareVariantMCC,
-    Kwargs={'name': 'RareVariantMCCFrq'}))
+    MetricClass=RareVariantF1,
+    Kwargs={'name': 'RareVariantF1Frq'}))
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
-    MetricClass=RegexpMCC,
+    MetricClass=RegexpF1,
     Kwargs={'pattern': '.*(pathogenic|Pathogenic).*',
-    'name': 'ClinvarPathogenicMCC'}))
+    'name': 'ClinvarPathogenicF1'}))
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
-    MetricClass=RegexpMCC,
+    MetricClass=RegexpF1,
     Kwargs={'pattern': '.*(benign|Benign).*',
-    'name': 'ClinvarBenignMCC'}))
+    'name': 'ClinvarBenignF1'}))
 CUSTOM_METRICS.append(
     MetricSpec(
         InputTensorName={'tensor_idx_frq': 'GNOMADAF_popmax',
                          'tensor_idx_clinvar_clnsig': 'CSQ_CLINVAR_CLNSIG'},
-        MetricClass=RareVariantWithoutClinvarSupportMCC)
+        MetricClass=RareVariantWithoutClinvarSupportF1,
+        Kwargs={'name': 'RareVariantWithoutClinvarSupportF1'})
 )

@@ -34,7 +34,7 @@ from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
 from .keras_custom_metric_model import KerasCustomMetricModel, MetricSpec
-from .custom_metrics import CUSTOM_METRICS, MccScore
+from .custom_metrics import CUSTOM_METRICS, MccScore, F1Score
 
 
 
@@ -333,7 +333,8 @@ class VariantRankScoreModel:
                    tf.keras.metrics.AUC(),
                    tf.keras.metrics.Precision(),
                    tf.keras.metrics.Recall(),
-                   MccScore()]
+                   MccScore(),
+                   F1Score()]
         optimizer_algo = hparams.Fixed('optimizer', 'Adam')
         # TODO: Rework this snippet using tf.keras.optimizers.get() with custom kwargs (buggy)
         if optimizer_algo == 'Adam':
