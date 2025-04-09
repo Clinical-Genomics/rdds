@@ -34,12 +34,12 @@ class RegexpMCC(tf.keras.metrics.Metric):
         self.binary_mcc: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'mcc_{kwargs["name"]}'
+            name=f'mcc_{self.name}'
         )
         self.total_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'total_{kwargs["name"]}'
+            name=f'total_{self.name}'
         )
         self._pattern = pattern
 
