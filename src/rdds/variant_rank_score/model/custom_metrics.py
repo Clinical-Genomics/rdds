@@ -80,36 +80,51 @@ class RegexpF1(tf.keras.metrics.Metric):
 
 
 class RareVariantF1(tf.keras.metrics.Metric):
-    def __init__(self, *args, tensor_idx: int, **kwargs):
+    # TODO: Merge multiple tensors and compute average frq?
+    def __init__(self,
+                 *args,
+                 tensor_idx: int,
+                 ignore_zero_padded_values: bool = True,
+                 **kwargs):
+        """
+        :param args: subclass
+        :param tensor_idx: Index of tensor containing variant population frequencies
+        :param ignore_zero_padded_values: Ignore variant if 0.0 is detected in frq tensor (zero padded, lacking annotation)
+        :param kwargs: subclass
+        """
         super().__init__(*args, **kwargs)
         self._tensor_idx = tensor_idx
 
-        self.binary_f1_pathogenic: tf.Variable = self.add_variable(
+        self.binary_f1_rare: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'binary_f1_pathogenic_{self.name}'
+            name=f'binary_f1_rare_{self.name}'
         )
-        self.binary_f1_benign: tf.Variable = self.add_variable(
+        self.binary_f1_common: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'binary_f1_benign_{self.name}'
+            name=f'binary_f1_common_{self.name}'
         )
-        self.total_pathogenic_samples: tf.Variable = self.add_variable(
+        self.total_rare_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'total_pathogenic_samples_{self.name}'
+            name=f'total_rare_samples_{self.name}'
         )
-        self.total_benign_samples: tf.Variable = self.add_variable(
+        self.total_common_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'total_benign_samples_{self.name}'
+            name=f'total_common_samples_{self.name}'
         )
+        self._ignore_zero_padded_values = ignore_zero_padded_values
 
     def update_state(self, x, y, y_pred, sample_weight):
         frq_tensor = x[self._tensor_idx]
         labels = y[0]  # -> [batch_size, ]
         # Find indexes of rare vs common data points
         is_rare_variant_cond = tf.math.less_equal(frq_tensor, tf.constant(1.0/2000.0, dtype=tf.float32))  # to boolean vector
+        if self._ignore_zero_padded_values:
+            is_not_zero_padded_cond = tf.math.greater(frq_tensor, tf.constant(0, dtype=tf.float32))
+            is_rare_variant_cond = tf.math.logical_and(is_rare_variant_cond, is_not_zero_padded_cond)
         is_common_variant_cond = tf.math.logical_not(is_rare_variant_cond)
         rare_idx = tf.where(is_rare_variant_cond)[:, 0]  # to index vector (flattened)
         common_idx = tf.where(is_common_variant_cond)[:, 0]
@@ -121,27 +136,27 @@ class RareVariantF1(tf.keras.metrics.Metric):
         y_pred_common = tf.gather(y_pred, common_idx)
         # Compute f1
         rare_f1 = f1(rare_labels, y_pred_rare)
-        self.binary_f1_pathogenic.assign_add(rare_f1)
-        self.total_pathogenic_samples.assign_add(tf.cast(tf.size(rare_labels), tf.float32))
+        self.binary_f1_rare.assign_add(rare_f1)
+        self.total_rare_samples.assign_add(tf.cast(tf.size(rare_labels), tf.float32))
         common_f1 = f1(common_labels, y_pred_common)
-        self.binary_f1_benign.assign_add(common_f1)
-        self.total_benign_samples.assign_add(tf.cast(tf.size(common_labels), tf.float32))
+        self.binary_f1_common.assign_add(common_f1)
+        self.total_common_samples.assign_add(tf.cast(tf.size(common_labels), tf.float32))
 
     def result(self) -> dict:
-        mean_pathogenic = tf.math.divide_no_nan(self.binary_f1_pathogenic, self.total_pathogenic_samples)
-        mean_benign = tf.math.divide_no_nan(self.binary_f1_benign, self.total_benign_samples)
+        mean_pathogenic = tf.math.divide_no_nan(self.binary_f1_rare, self.total_rare_samples)
+        mean_benign = tf.math.divide_no_nan(self.binary_f1_common, self.total_common_samples)
         return {
-            f'{self.name}Pathogenic': mean_pathogenic,
-            f'{self.name}Benign': mean_benign,
-            f'{self.name}PathogenicCount': self.total_benign_samples,
-            f'{self.name}BenignCount': self.total_pathogenic_samples,
+            f'{self.name}Rare': mean_pathogenic,
+            f'{self.name}Common': mean_benign,
+            f'{self.name}RareCount': self.total_rare_samples,
+            f'{self.name}CommonCount': self.total_common_samples,
         }
 
     def reset_state(self):
-        self.binary_f1_pathogenic.assign(0)
-        self.binary_f1_benign.assign(0)
-        self.total_pathogenic_samples.assign(0)
-        self.total_benign_samples.assign(0)
+        self.binary_f1_rare.assign(0)
+        self.binary_f1_common.assign(0)
+        self.total_rare_samples.assign(0)
+        self.total_common_samples.assign(0)
 
 
 class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
