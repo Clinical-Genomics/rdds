@@ -9,3 +9,4 @@ from rdds.lib.tf.embeddings_reduction import EmbeddingsReductionLayer
 from rdds.lib.tf.check_numerics import enable_check_numerics
 from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset, NumericalAugmentDropoutDataset
 from rdds.lib.tf.mcc import mcc
+from rdds.lib.tf.f1 import f1
