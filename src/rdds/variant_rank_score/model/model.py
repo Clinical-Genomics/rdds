@@ -495,14 +495,11 @@ class VariantRankScoreModel:
             regexp_category_weights = kwargs.get('regexp_category_weights')
             csq_consequence_tensor = data[kwargs.get('csq_consequence_tensor_idx')]
             csq_consequence_tensor = print_tensor_op(csq_consequence_tensor)
-            #innermost_size = tf.shape(csq_consequence_tensor)[-1]
-            all_sample_weights = tf.ones_like(labels)
+            all_sample_weights = tf.ones_like(labels)  # Default weight is 1.0 (neutral)
             for i, (regexp, weight) in enumerate(regexp_category_weights.items()):
-                # TODO: get a weight matrix for all weights
                 regexp_matches = tf.strings.regex_full_match(input=csq_consequence_tensor,
                                                              pattern=regexp,
                                                              name=f'variant_category_weight_{i}_regexp')
-                #matching_idx = tf.where(regexp_matches)[:, 0]
                 all_sample_weights = tf.where(condition=regexp_matches,
                                    x=all_sample_weights * weight,  # cond == True
                                    y=all_sample_weights)  # cond == False
@@ -511,9 +508,10 @@ class VariantRankScoreModel:
 
         if variant_category_weights:
             regexp_category_weights = {
-                '.*({intron_variant}).*': tf.constant(1.2, dtype=tf.float32),
-                '.*({missense_variant}).*': tf.constant(2.0, dtype=tf.float32),
-                '.*({frameshift_variant}).*': tf.constant(3.0, dtype=tf.float32)
+                '.*(intron_variant).*': tf.constant(1.2, dtype=tf.float32),
+                '.*(missense_variant).*': tf.constant(2.0, dtype=tf.float32),
+                '.*(frameshift_variant).*': tf.constant(3.0, dtype=tf.float32),
+                '.*(downstream_gene_variant).*': tf.constant(4.0, dtype=tf.float32)
             }
             model_input_spec = self._generate_dataset_tensor_signature()
             model_input_data_spec, _ = model_input_spec  # Drop labels
