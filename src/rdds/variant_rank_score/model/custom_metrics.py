@@ -163,7 +163,16 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
     def __init__(self,
                  *args,
                  tensor_idx_frq: int,
-                 tensor_idx_clinvar_clnsig: int, **kwargs):
+                 ignore_zero_padded_values: bool = True,
+                 tensor_idx_clinvar_clnsig: int,
+                 **kwargs):
+        """
+        :param args: subclass
+        :param tensor_idx_frq: Index of tensor containing variant population frequencies
+        :param tensor_idx_clinvar_clnsig: Index of tensor containing CLINVAR CLNSIG annotations
+        :param ignore_zero_padded_values: Ignore variant if 0.0 is detected in frq tensor (zero padded, lacking annotation)
+        :param kwargs: subclass
+        """
         super().__init__(*args, **kwargs)
         self._tensor_idx_frq = tensor_idx_frq
         self._tensor_idx_clinvar_clnsig = tensor_idx_clinvar_clnsig
@@ -178,6 +187,7 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
             initializer='zeros',
             name=f'total_samples_{self.name}'
         )
+        self._ignore_zero_padded_values = ignore_zero_padded_values
 
     def update_state(self, x, y, y_pred, sample_weight):
         frq_tensor = x[self._tensor_idx_frq]
@@ -185,6 +195,9 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
         labels = y[0]  # -> [batch_size, ]
         # Find indexes of rare vs common data points
         is_rare_variant_cond = tf.math.less_equal(frq_tensor, tf.constant(1.0/2000.0, dtype=tf.float32))  # to boolean vector
+        if self._ignore_zero_padded_values:
+            is_not_zero_padded_cond = tf.math.greater(frq_tensor, tf.constant(0, dtype=tf.float32))
+            is_rare_variant_cond = tf.math.logical_and(is_rare_variant_cond, is_not_zero_padded_cond)
         no_clinvar_support_cond = tf.strings.regex_full_match(input=clinvar_clnsig_tensor,
                                                               pattern='^\s*$',  # empty string or whitespaces only
                                                               name=f'{self.name}RegexpMatch')
