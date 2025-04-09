@@ -469,6 +469,65 @@ class VariantRankScoreModel:
                                                                                  weight_benign=weight_benign),
                                               num_parallel_calls=tf.data.AUTOTUNE)
 
+        variant_category_weights = hparams.Choice('variant_weights',
+                                                  values=[False, True],
+                                                  default=True)  # FIXME
+        if training_weights and variant_category_weights:
+            raise NotImplementedError('Enabling both training weights and variant category weights not supported.')
+
+        @tf.function
+        def add_weights_per_variant_category(data, labels, **kwargs):
+            """
+            Helper function to compute weights for customising loss per variant category
+
+            Setup 1.0 weight for all samples.
+            Iterate through the weight dict and multiply existing weight with scale
+
+            Either loop through the variants, and find out the variant category in there
+
+            OR
+
+            Loop through the variant categories, and apply weights based on matching data
+
+            """
+            from rdds.lib.tf import print_tensor_op
+
+            regexp_category_weights = kwargs.get('regexp_category_weights')
+            csq_consequence_tensor = data[kwargs.get('csq_consequence_tensor_idx')]
+            csq_consequence_tensor = print_tensor_op(csq_consequence_tensor)
+            #innermost_size = tf.shape(csq_consequence_tensor)[-1]
+            all_sample_weights = tf.ones_like(labels)
+            for i, (regexp, weight) in enumerate(regexp_category_weights.items()):
+                # TODO: get a weight matrix for all weights
+                regexp_matches = tf.strings.regex_full_match(input=csq_consequence_tensor,
+                                                             pattern=regexp,
+                                                             name=f'variant_category_weight_{i}_regexp')
+                #matching_idx = tf.where(regexp_matches)[:, 0]
+                all_sample_weights = tf.where(condition=regexp_matches,
+                                   x=all_sample_weights * weight,  # cond == True
+                                   y=all_sample_weights)  # cond == False
+            all_sample_weights = print_tensor_op(all_sample_weights)
+            return data, labels, all_sample_weights
+
+        if variant_category_weights:
+            regexp_category_weights = {
+                '.*({intron_variant}).*': tf.constant(1.2, dtype=tf.float32),
+                '.*({missense_variant}).*': tf.constant(2.0, dtype=tf.float32),
+                '.*({frameshift_variant}).*': tf.constant(3.0, dtype=tf.float32)
+            }
+            model_input_spec = self._generate_dataset_tensor_signature()
+            model_input_data_spec, _ = model_input_spec  # Drop labels
+            csq_consequence_tensor_idx = None
+            for idx, input_spec in enumerate(model_input_data_spec):
+                if input_spec.name == 'most_severe_consequence':
+                    csq_consequence_tensor_idx = idx
+            assert csq_consequence_tensor_idx is not None
+            dataset_train = dataset_train.map(map_func=lambda *args: add_weights_per_variant_category(*args,
+                                                                                 regexp_category_weights=regexp_category_weights,
+                                                                                 csq_consequence_tensor_idx=csq_consequence_tensor_idx),
+                                              num_parallel_calls=tf.data.AUTOTUNE)
+
+
         dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
 
