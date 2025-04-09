@@ -480,30 +480,22 @@ class VariantRankScoreModel:
             """
             Helper function to compute weights for customising loss per variant category
 
-            Setup 1.0 weight for all samples.
-            Iterate through the weight dict and multiply existing weight with scale
+            Setup 1.0 weight for all samples as default.
 
-            Either loop through the variants, and find out the variant category in there
-
-            OR
-
-            Loop through the variant categories, and apply weights based on matching data
-
+            Iterate through the consequence-to-weight mapping and multiply existing weight with scale.
+            There might exist multiple annotations per variant, so weights might accumulate
+            for a particular variant.
             """
-            from rdds.lib.tf import print_tensor_op
-
             regexp_category_weights = kwargs.get('regexp_category_weights')
             csq_consequence_tensor = data[kwargs.get('csq_consequence_tensor_idx')]
-            csq_consequence_tensor = print_tensor_op(csq_consequence_tensor)
             all_sample_weights = tf.ones_like(labels)  # Default weight is 1.0 (neutral)
             for i, (regexp, weight) in enumerate(regexp_category_weights.items()):
                 regexp_matches = tf.strings.regex_full_match(input=csq_consequence_tensor,
                                                              pattern=regexp,
                                                              name=f'variant_category_weight_{i}_regexp')
                 all_sample_weights = tf.where(condition=regexp_matches,
-                                   x=all_sample_weights * weight,  # cond == True
-                                   y=all_sample_weights)  # cond == False
-            all_sample_weights = print_tensor_op(all_sample_weights)
+                                              x=all_sample_weights * weight,  # cond == True
+                                              y=all_sample_weights)  # cond == False
             return data, labels, all_sample_weights
 
         if variant_category_weights:
@@ -511,7 +503,8 @@ class VariantRankScoreModel:
                 '.*(intron_variant).*': tf.constant(1.2, dtype=tf.float32),
                 '.*(missense_variant).*': tf.constant(2.0, dtype=tf.float32),
                 '.*(frameshift_variant).*': tf.constant(3.0, dtype=tf.float32),
-                '.*(downstream_gene_variant).*': tf.constant(4.0, dtype=tf.float32)
+                '.*(downstream_gene_variant).*': tf.constant(4.0, dtype=tf.float32),
+                '.*(upstream_gene_variant).*': tf.constant(10.0, dtype=tf.float32)
             }
             model_input_spec = self._generate_dataset_tensor_signature()
             model_input_data_spec, _ = model_input_spec  # Drop labels
