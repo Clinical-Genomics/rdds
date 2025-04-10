@@ -65,8 +65,11 @@ class RegexpF1(tf.keras.metrics.Metric):
         matching_labels = tf.gather(labels, matching_idx)
         matching_predictions = tf.gather(y_pred, matching_idx)
         score = f1(matching_labels, matching_predictions)
-        self.binary_f1.assign_add(score)
-        self.total_samples.assign_add(tf.cast(tf.size(matching_labels), tf.float32))
+        n_samples = tf.cast(tf.size(matching_labels), tf.float32)
+        with tf.control_dependencies([score]):
+            self.binary_f1.assign_add(score)
+        with tf.control_dependencies([n_samples]):
+            self.total_samples.assign_add(n_samples)
 
     def result(self):
         return {
@@ -136,18 +139,24 @@ class RareVariantF1(tf.keras.metrics.Metric):
         y_pred_common = tf.gather(y_pred, common_idx)
         # Compute f1
         rare_f1 = f1(rare_labels, y_pred_rare)
-        self.binary_f1_rare.assign_add(rare_f1)
-        self.total_rare_samples.assign_add(tf.cast(tf.size(rare_labels), tf.float32))
+        n_rare_samples = tf.cast(tf.size(rare_labels), tf.float32)
+        with tf.control_dependencies([rare_f1]):
+            self.binary_f1_rare.assign_add(rare_f1)
+        with tf.control_dependencies([n_rare_samples]):
+            self.total_rare_samples.assign_add(n_rare_samples)
         common_f1 = f1(common_labels, y_pred_common)
-        self.binary_f1_common.assign_add(common_f1)
-        self.total_common_samples.assign_add(tf.cast(tf.size(common_labels), tf.float32))
+        n_common_samples = tf.cast(tf.size(common_labels), tf.float32)
+        with tf.control_dependencies([common_f1]):
+            self.binary_f1_common.assign_add(common_f1)
+        with tf.control_dependencies([n_common_samples]):
+            self.total_common_samples.assign_add(n_common_samples)
 
     def result(self) -> dict:
-        mean_pathogenic = tf.math.divide_no_nan(self.binary_f1_rare, self.total_rare_samples)
-        mean_benign = tf.math.divide_no_nan(self.binary_f1_common, self.total_common_samples)
+        mean_rare = tf.math.divide_no_nan(self.binary_f1_rare, self.total_rare_samples)
+        mean_common = tf.math.divide_no_nan(self.binary_f1_common, self.total_common_samples)
         return {
-            f'{self.name}Rare': mean_pathogenic,
-            f'{self.name}Common': mean_benign,
+            f'{self.name}Rare': mean_rare,
+            f'{self.name}Common': mean_common,
             f'{self.name}RareCount': self.total_rare_samples,
             f'{self.name}CommonCount': self.total_common_samples,
         }
@@ -208,8 +217,11 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
         y_pred_subset = tf.gather(y_pred, idx)
         # Compute f1
         score = f1(labels_subset, y_pred_subset)
-        self.binary_f1.assign_add(score)
-        self.total_samples.assign_add(tf.cast(tf.size(labels_subset), tf.float32))
+        n_samples = tf.cast(tf.size(labels_subset), tf.float32)
+        with tf.control_dependencies([score]):
+            self.binary_f1.assign_add(score)
+        with tf.control_dependencies([n_samples]):
+            self.total_samples.assign_add(n_samples)
 
     def result(self) -> dict:
         mean = tf.math.divide_no_nan(self.binary_f1, self.total_samples)
