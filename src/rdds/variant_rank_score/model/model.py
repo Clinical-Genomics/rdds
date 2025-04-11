@@ -500,11 +500,10 @@ class VariantRankScoreModel:
 
         if variant_category_weights:
             regexp_category_weights = {
-                '.*(intron_variant).*': tf.constant(1.2, dtype=tf.float32),
-                '.*(missense_variant).*': tf.constant(2.0, dtype=tf.float32),
-                '.*(frameshift_variant).*': tf.constant(3.0, dtype=tf.float32),
-                '.*(downstream_gene_variant).*': tf.constant(4.0, dtype=tf.float32),
-                '.*(upstream_gene_variant).*': tf.constant(10.0, dtype=tf.float32)
+                '.*(intron_variant).*': tf.constant(0.5, dtype=tf.float32),
+                '.*(missense_variant).*': tf.constant(5.0, dtype=tf.float32),
+                '.*(frameshift_variant).*': tf.constant(5.0, dtype=tf.float32),
+                '.*(splice).*': tf.constant(5.0, dtype=tf.float32)
             }
             model_input_spec = self._generate_dataset_tensor_signature()
             model_input_data_spec, _ = model_input_spec  # Drop labels
@@ -517,7 +516,6 @@ class VariantRankScoreModel:
                                                                                  regexp_category_weights=regexp_category_weights,
                                                                                  csq_consequence_tensor_idx=csq_consequence_tensor_idx),
                                               num_parallel_calls=tf.data.AUTOTUNE)
-
 
         dataset_train = dataset_train.cache()
         dataset_train = dataset_train.repeat(-1)
