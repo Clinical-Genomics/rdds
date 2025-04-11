@@ -13,18 +13,47 @@ class MetricSpec:
     Kwargs: Dict = field(default_factory=lambda: dict())
 
 
-class MccScore(tf.keras.metrics.MeanMetricWrapper):
-    def __init__(self, name="MCC", dtype=None, threshold=0.5):
-        super().__init__(
-            mcc, name, dtype=dtype, threshold=threshold
+class MeanScalarMetric(tf.keras.metrics.Metric):
+
+    def __init__(self,
+                 fn: callable,
+                 *args,
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        self.metric: tf.Variable = self.add_variable(
+            shape=(),
+            initializer='zeros',
+            name=f'{self.name}'
         )
+        self.count: tf.Variable = self.add_variable(
+            shape=(),
+            initializer='zeros',
+            name=f'{self.name}Count'
+        )
+        self.fn = fn
+
+    def update_state(self, y, y_pred, sample_weight):
+        metric = self.fn(y, y_pred)
+        count = tf.cast(tf.size(y), tf.float32)
+        self.metric.assign_add(metric)
+        self.count.assign_add(count)
+
+    def result(self):
+        return tf.math.divide_no_nan(self.metric, self.count)
+
+    def reset_state(self):
+        self.metric.assign(0)
+        self.count.assign(0)
 
 
-class F1Score(tf.keras.metrics.MeanMetricWrapper):
-    def __init__(self, name="F1", dtype=None, threshold=0.5):
-        super().__init__(
-            f1, name, dtype=dtype, threshold=threshold
-        )
+class MccScore(MeanScalarMetric):
+    def __init__(self):
+        super().__init__(fn=mcc, name='MCC')
+
+
+class F1Score(MeanScalarMetric):
+    def __init__(self):
+        super().__init__(fn=f1, name='F1')
 
 
 class RegexpF1(tf.keras.metrics.Metric):
