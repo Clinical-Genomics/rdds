@@ -499,12 +499,22 @@ class VariantRankScoreModel:
             return data, labels, all_sample_weights
 
         if variant_category_weights:
-            regexp_category_weights = {
-                '.*(intron_variant).*': tf.constant(0.5, dtype=tf.float32),
-                '.*(missense_variant).*': tf.constant(5.0, dtype=tf.float32),
-                '.*(frameshift_variant).*': tf.constant(5.0, dtype=tf.float32),
-                '.*(splice).*': tf.constant(5.0, dtype=tf.float32)
-            }
+            # intron_variant is ignored
+            vep_variant_weighted_categories = \
+            ['missense_variant', 'downstream_gene_variant', 'upstream_gene_variant',
+             'non_coding_transcript_exon_variant',
+             'splice_donor_variant', 'splice_donor_region_variant',
+             'splice_region_variant', '5_prime_UTR_variant',
+             'splice_polypyrimidine_tract_variant', '3_prime_UTR_variant',
+             'synonymous_variant', 'frameshift_variant', 'stop_gained',
+             'splice_acceptor_variant', 'splice_donor_5th_base_variant', 'stop_lost',
+             'protein_altering_variant', 'inframe_insertion', 'inframe_deletion',
+             'transcript_ablation', 'start_lost', 'stop_retained_variant',
+             'coding_sequence_variant', 'mature_miRNA_variant',
+             'incomplete_terminal_codon_variant']
+            regexp_category_weights = dict()
+            for category in vep_variant_weighted_categories:
+                regexp_category_weights.update({f'.*({category}).*': tf.constant(5.0, dtype=tf.float32)})
             model_input_spec = self._generate_dataset_tensor_signature()
             model_input_data_spec, _ = model_input_spec  # Drop labels
             csq_consequence_tensor_idx = None
