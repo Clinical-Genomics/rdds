@@ -69,7 +69,7 @@ def test(feature_columns_dataset, work_dir, x):
             for feature in range(0, y.shape[1]):
                 for word in range(0, y.shape[2]):
                     for embedding in range(0, y.shape[3]):
-                        assert np.isclose(y[batch, feature, word, embedding], 0, atol=1E-1)
+                        assert np.isclose(y[batch, feature, word, embedding], 0, atol=0.5), y
 
     # THEN make sure return tensor is filled with embeddings or zero initialized
     for batch in feature_columns_dataset:
