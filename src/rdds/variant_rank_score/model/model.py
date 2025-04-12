@@ -486,6 +486,7 @@ class VariantRankScoreModel:
             There might exist multiple annotations per variant, so weights might accumulate
             for a particular variant.
             """
+            # FIXME: Issue here is that complex multi category variants is higher weighted than single type variants
             regexp_category_weights = kwargs.get('regexp_category_weights')
             csq_consequence_tensor = data[kwargs.get('csq_consequence_tensor_idx')]
             all_sample_weights = tf.ones_like(labels)  # Default weight is 1.0 (neutral)
@@ -514,7 +515,7 @@ class VariantRankScoreModel:
              'incomplete_terminal_codon_variant']
             regexp_category_weights = dict()
             for category in vep_variant_weighted_categories:
-                regexp_category_weights.update({f'.*({category}).*': tf.constant(5.0, dtype=tf.float32)})
+                regexp_category_weights.update({f'.*({category}).*': tf.constant(10.0, dtype=tf.float32)})
             model_input_spec = self._generate_dataset_tensor_signature()
             model_input_data_spec, _ = model_input_spec  # Drop labels
             csq_consequence_tensor_idx = None
