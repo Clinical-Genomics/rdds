@@ -515,7 +515,7 @@ class VariantRankScoreModel:
              'incomplete_terminal_codon_variant']
             regexp_category_weights = dict()
             for category in vep_variant_weighted_categories:
-                regexp_category_weights.update({f'.*({category}).*': tf.constant(10.0, dtype=tf.float32)})
+                regexp_category_weights.update({f'.*({category}).*': tf.constant(15.0, dtype=tf.float32)})
             model_input_spec = self._generate_dataset_tensor_signature()
             model_input_data_spec, _ = model_input_spec  # Drop labels
             csq_consequence_tensor_idx = None
