@@ -493,7 +493,7 @@ class VariantRankScoreModel:
                                                          pattern=regexp,
                                                          name=f'variant_category_weight_regexp')
             sample_weight = tf.where(condition=regexp_matches,
-                                      x=tf.ones_like(labels) * tf.constant(5.0, dtype=tf.float32),  # cond == True
+                                      x=tf.ones_like(labels) * tf.constant(10.0, dtype=tf.float32),  # cond == True
                                       y=tf.ones_like(labels))  # cond == False
             return data, labels, sample_weight
 
