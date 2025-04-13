@@ -487,17 +487,15 @@ class VariantRankScoreModel:
             for a particular variant.
             """
             # FIXME: Issue here is that complex multi category variants is higher weighted than single type variants
-            regexp_category_weights = kwargs.get('regexp_category_weights')
+            regexp = kwargs.get('regexp')
             csq_consequence_tensor = data[kwargs.get('csq_consequence_tensor_idx')]
-            all_sample_weights = tf.ones_like(labels)  # Default weight is 1.0 (neutral)
-            for i, (regexp, weight) in enumerate(regexp_category_weights.items()):
-                regexp_matches = tf.strings.regex_full_match(input=csq_consequence_tensor,
-                                                             pattern=regexp,
-                                                             name=f'variant_category_weight_{i}_regexp')
-                all_sample_weights = tf.where(condition=regexp_matches,
-                                              x=all_sample_weights * weight,  # cond == True
-                                              y=all_sample_weights)  # cond == False
-            return data, labels, all_sample_weights
+            regexp_matches = tf.strings.regex_full_match(input=csq_consequence_tensor,
+                                                         pattern=regexp,
+                                                         name=f'variant_category_weight_regexp')
+            sample_weight = tf.where(condition=regexp_matches,
+                                      x=tf.ones_like(labels) * tf.constant(5.0, dtype=tf.float32),  # cond == True
+                                      y=tf.ones_like(labels))  # cond == False
+            return data, labels, sample_weight
 
         if variant_category_weights:
             # intron_variant is ignored
@@ -513,9 +511,13 @@ class VariantRankScoreModel:
              'transcript_ablation', 'start_lost', 'stop_retained_variant',
              'coding_sequence_variant', 'mature_miRNA_variant',
              'incomplete_terminal_codon_variant']
-            regexp_category_weights = dict()
+            regexp = ''
             for category in vep_variant_weighted_categories:
-                regexp_category_weights.update({f'.*({category}).*': tf.constant(15.0, dtype=tf.float32)})
+                if regexp == '':
+                    regexp += f'.*({category}'
+                else:
+                    regexp += f'|{category}'
+            regexp += ').*'
             model_input_spec = self._generate_dataset_tensor_signature()
             model_input_data_spec, _ = model_input_spec  # Drop labels
             csq_consequence_tensor_idx = None
@@ -524,7 +526,7 @@ class VariantRankScoreModel:
                     csq_consequence_tensor_idx = idx
             assert csq_consequence_tensor_idx is not None
             dataset_train = dataset_train.map(map_func=lambda *args: add_weights_per_variant_category(*args,
-                                                                                 regexp_category_weights=regexp_category_weights,
+                                                                                 regexp=regexp,
                                                                                  csq_consequence_tensor_idx=csq_consequence_tensor_idx),
                                               num_parallel_calls=tf.data.AUTOTUNE)
 
