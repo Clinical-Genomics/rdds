@@ -34,9 +34,8 @@ class MeanScalarMetric(tf.keras.metrics.Metric):
 
     def update_state(self, y, y_pred, sample_weight):
         metric = self.fn(y, y_pred)
-        count = tf.cast(tf.size(y), tf.float32)
         self.metric.assign_add(metric)
-        self.count.assign_add(count)
+        self.count.assign_add(1.0)  # +1 batch
 
     def result(self):
         return tf.math.divide_no_nan(self.metric, self.count)
@@ -77,7 +76,7 @@ class RegexpF1(tf.keras.metrics.Metric):
             initializer='zeros',
             name=f'f1_{self.name}'
         )
-        self.total_samples: tf.Variable = self.add_variable(
+        self.n_batches: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
             name=f'total_{self.name}'
@@ -94,21 +93,19 @@ class RegexpF1(tf.keras.metrics.Metric):
         matching_labels = tf.gather(labels, matching_idx)
         matching_predictions = tf.gather(y_pred, matching_idx)
         score = f1(matching_labels, matching_predictions)
-        n_samples = tf.cast(tf.size(matching_labels), tf.float32)
         with tf.control_dependencies([score]):
             self.binary_f1.assign_add(score)
-        with tf.control_dependencies([n_samples]):
-            self.total_samples.assign_add(n_samples)
+            self.n_batches.assign_add(1.0)
 
     def result(self):
         return {
-            f'{self.name}': tf.math.divide_no_nan(self.binary_f1, self.total_samples),
-            f'{self.name}Count': self.total_samples
+            f'{self.name}': tf.math.divide_no_nan(self.binary_f1, self.n_batches),
+            f'{self.name}Count': self.n_batches
         }
 
     def reset_state(self):
         self.binary_f1.assign(0)
-        self.total_samples.assign(0)
+        self.n_batches.assign(0)
 
 
 class RareVariantF1(tf.keras.metrics.Metric):
@@ -147,6 +144,11 @@ class RareVariantF1(tf.keras.metrics.Metric):
             initializer='zeros',
             name=f'total_common_samples_{self.name}'
         )
+        self.n_batches: tf.Variable = self.add_variable(
+            shape=(),
+            initializer='zeros',
+            name=f'n_batches{self.name}'
+        )
         self._ignore_zero_padded_values = ignore_zero_padded_values
 
     def update_state(self, x, y, y_pred, sample_weight):
@@ -179,10 +181,11 @@ class RareVariantF1(tf.keras.metrics.Metric):
             self.binary_f1_common.assign_add(common_f1)
         with tf.control_dependencies([n_common_samples]):
             self.total_common_samples.assign_add(n_common_samples)
+            self.n_batches.assign_add(1.0)  # + 1 batch
 
     def result(self) -> dict:
-        mean_rare = tf.math.divide_no_nan(self.binary_f1_rare, self.total_rare_samples)
-        mean_common = tf.math.divide_no_nan(self.binary_f1_common, self.total_common_samples)
+        mean_rare = tf.math.divide_no_nan(self.binary_f1_rare, self.n_batches)
+        mean_common = tf.math.divide_no_nan(self.binary_f1_common, self.n_batches)
         return {
             f'{self.name}Rare': mean_rare,
             f'{self.name}Common': mean_common,
@@ -195,6 +198,7 @@ class RareVariantF1(tf.keras.metrics.Metric):
         self.binary_f1_common.assign(0)
         self.total_rare_samples.assign(0)
         self.total_common_samples.assign(0)
+        self.n_batches.assign(0)
 
 
 class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
@@ -225,6 +229,11 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
             initializer='zeros',
             name=f'total_samples_{self.name}'
         )
+        self.n_batches: tf.Variable = self.add_variable(
+            shape=(),
+            initializer='zeros',
+            name=f'n_batches_{self.name}'
+        )
         self._ignore_zero_padded_values = ignore_zero_padded_values
 
     def update_state(self, x, y, y_pred, sample_weight):
@@ -251,9 +260,10 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
             self.binary_f1.assign_add(score)
         with tf.control_dependencies([n_samples]):
             self.total_samples.assign_add(n_samples)
+            self.n_batches.assign_add(1.0)  # +1 batch
 
     def result(self) -> dict:
-        mean = tf.math.divide_no_nan(self.binary_f1, self.total_samples)
+        mean = tf.math.divide_no_nan(self.binary_f1, self.n_batches)
         return {
             f'{self.name}': mean,
             f'{self.name}Count': self.total_samples,
@@ -262,6 +272,7 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
     def reset_state(self):
         self.binary_f1.assign(0)
         self.total_samples.assign(0)
+        self.n_batches.assign(0)
 
 
 CUSTOM_METRICS: List[MetricSpec] = []
