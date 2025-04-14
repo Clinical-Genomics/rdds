@@ -492,8 +492,9 @@ class VariantRankScoreModel:
             regexp_matches = tf.strings.regex_full_match(input=csq_consequence_tensor,
                                                          pattern=regexp,
                                                          name=f'variant_category_weight_regexp')
+            # frameshift: 1 / (80000/5.4E6)
             sample_weight = tf.where(condition=regexp_matches,
-                                      x=tf.ones_like(labels) * tf.constant(15.0, dtype=tf.float32),  # cond == True
+                                      x=tf.ones_like(labels) * tf.constant(67.5, dtype=tf.float32),  # cond == True
                                       y=tf.ones_like(labels))  # cond == False
             return data, labels, sample_weight
 
@@ -511,6 +512,7 @@ class VariantRankScoreModel:
              'transcript_ablation', 'start_lost', 'stop_retained_variant',
              'coding_sequence_variant', 'mature_miRNA_variant',
              'incomplete_terminal_codon_variant']
+            vep_variant_weighted_categories = ['frameshift_variant']
             regexp = ''
             for category in vep_variant_weighted_categories:
                 if regexp == '':
