@@ -76,10 +76,15 @@ class RegexpF1(tf.keras.metrics.Metric):
             initializer='zeros',
             name=f'f1_{self.name}'
         )
+        self.total_samples: tf.Variable = self.add_variable(
+            shape=(),
+            initializer='zeros',
+            name=f'total_samples_{self.name}'
+        )
         self.n_batches: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'total_{self.name}'
+            name=f'n_batches_{self.name}'
         )
         self._pattern = pattern
 
@@ -92,20 +97,24 @@ class RegexpF1(tf.keras.metrics.Metric):
         matching_idx = tf.where(regexp_matches)[:, 0]
         matching_labels = tf.gather(labels, matching_idx)
         matching_predictions = tf.gather(y_pred, matching_idx)
+        n_samples = tf.cast(tf.size(matching_labels), tf.float32)
         score = f1(matching_labels, matching_predictions)
         with tf.control_dependencies([score]):
             self.binary_f1.assign_add(score)
             self.n_batches.assign_add(1.0)
+        with tf.control_dependencies([n_samples]):
+            self.total_samples.assign_add(n_samples)
 
     def result(self):
         return {
             f'{self.name}': tf.math.divide_no_nan(self.binary_f1, self.n_batches),
-            f'{self.name}Count': self.n_batches
+            f'{self.name}Count': self.total_samples
         }
 
     def reset_state(self):
         self.binary_f1.assign(0)
         self.n_batches.assign(0)
+        self.total_samples.assign(0)
 
 
 class RareVariantF1(tf.keras.metrics.Metric):
