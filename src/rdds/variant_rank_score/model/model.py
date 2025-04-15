@@ -450,14 +450,23 @@ class VariantRankScoreModel:
             """
             weight_pathogenic = kwargs.get('weight_pathogenic')
             weight_benign = kwargs.get('weight_benign')
-            weights = tf.where(condition=tf.equal(labels, tf.constant(LABEL_PATHOGENIC_VARIANT)),
-                               x=tf.ones_like(labels) * tf.constant(weight_pathogenic),  # cond == True
-                               y=tf.ones_like(labels) * tf.constant(weight_benign))  # cond == False
+
+            is_pathogenic = tf.equal(labels, tf.constant(LABEL_PATHOGENIC_VARIANT))
+
+            frq = data[20] + data[21] + data[24]
+            frq = tf.math.divide(frq, 3)
+            is_rare = tf.math.less_equal(frq, 1/2000.0)
+
+            cond=tf.math.logical_and(is_pathogenic, is_rare)
+
+            weights = tf.where(condition=cond,
+                               x=tf.ones_like(labels) * tf.constant(10.0),  # cond == True
+                               y=tf.ones_like(labels))  # cond == False
             return data, labels, weights
 
         training_weights = hparams.Choice('training_weights',
                                           values=[False, True],
-                                          default=False)
+                                          default=True)
         if training_weights:
             # Setup class weights so that dataset is perfectly balanced w.r.t class-ratio-loss imbalance
             weight_pathogenic = (1.0 / float(n_pathogenic)) * (float(hd5_data_generator_train.data_length) / 2.0)
