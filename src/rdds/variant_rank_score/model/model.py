@@ -444,27 +444,58 @@ class VariantRankScoreModel:
         model_bias_estimate: float = np.log(float(n_pathogenic) / float(n_benign))
 
         @tf.function
-        def add_weights(data, labels, **kwargs):
+        def weight_rare_pathogenic_variants(data, labels, **kwargs):
+            """
+            Helper function to generate weights for rare pathogenic variants.
+            Set sample weight to "rare_variant_weight" only if
+            variant population frequency is less than 1/2000 or
+            variant is previously unseen (zero initialized).
+            """
+            rare_variant_weight = kwargs.get('rare_variant_weight')
+
+            is_pathogenic = tf.equal(labels, tf.constant(LABEL_PATHOGENIC_VARIANT))
+
+            frq = data[19] + data[20] + data[23]  # FIXME: Don't hardcode tensor positions like this
+            frq = tf.math.divide(frq, 3)
+            is_rare = tf.math.less_equal(frq, 1/2000.0)
+            cond = tf.math.logical_and(is_pathogenic, is_rare)
+            weights = tf.where(condition=cond,
+                               x=tf.ones_like(labels) * tf.constant(rare_variant_weight),  # cond == True
+                               y=tf.ones_like(labels))  # cond == False
+            return data, labels, weights
+
+        rare_variant_weight = hparams.Choice('rare_variant_weight',
+                                             [0.0, 800.0],
+                                             default=800.0)
+        if rare_variant_weight > 0:
+            _LOGGER.info(f'Weighting rare pathogenic variants with weight {rare_variant_weight}')
+            dataset_train = dataset_train.map(map_func=lambda *args: weight_rare_pathogenic_variants(*args,
+                                                                                 rare_variant_weight=rare_variant_weight),
+                                              num_parallel_calls=tf.data.AUTOTUNE)
+
+        @tf.function
+        def balance_dataset_using_weights(data, labels, **kwargs):
             """
             Helper function to compute weights for balanced loss
             """
             weight_pathogenic = kwargs.get('weight_pathogenic')
             weight_benign = kwargs.get('weight_benign')
+
             weights = tf.where(condition=tf.equal(labels, tf.constant(LABEL_PATHOGENIC_VARIANT)),
                                x=tf.ones_like(labels) * tf.constant(weight_pathogenic),  # cond == True
                                y=tf.ones_like(labels) * tf.constant(weight_benign))  # cond == False
             return data, labels, weights
 
-        training_weights = hparams.Choice('training_weights',
+        balance_dataset_classes_using_weights = hparams.Choice('balance_dataset_classes_using_weights',
                                           values=[False, True],
                                           default=False)
-        if training_weights:
+        if balance_dataset_classes_using_weights:
             # Setup class weights so that dataset is perfectly balanced w.r.t class-ratio-loss imbalance
             weight_pathogenic = (1.0 / float(n_pathogenic)) * (float(hd5_data_generator_train.data_length) / 2.0)
             weight_benign = (1.0 / float(n_benign)) * (float(hd5_data_generator_train.data_length) / 2.0)
             _LOGGER.info(f'class weights: benign:{weight_benign}, pathogenic:{weight_pathogenic}')
             assert weight_pathogenic >= weight_benign
-            dataset_train = dataset_train.map(map_func=lambda *args: add_weights(*args,
+            dataset_train = dataset_train.map(map_func=lambda *args: balance_dataset_using_weights(*args,
                                                                                  weight_pathogenic=weight_pathogenic,
                                                                                  weight_benign=weight_benign),
                                               num_parallel_calls=tf.data.AUTOTUNE)
