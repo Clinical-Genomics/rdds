@@ -460,7 +460,7 @@ class VariantRankScoreModel:
             cond=tf.math.logical_and(is_pathogenic, is_rare)
 
             weights = tf.where(condition=cond,
-                               x=tf.ones_like(labels) * tf.constant(100.0),  # cond == True
+                               x=tf.ones_like(labels) * tf.constant(200.0),  # cond == True
                                y=tf.ones_like(labels))  # cond == False
             return data, labels, weights
 
