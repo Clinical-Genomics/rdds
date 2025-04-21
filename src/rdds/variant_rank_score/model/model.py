@@ -25,7 +25,7 @@ from rdds.lib.tf import TextPreprocessingLayer
 from rdds.lib.tf import EmbeddingsReductionLayer
 from rdds.lib.tf import DnaSequenceTrimmer
 from rdds.lib.tf import InstanceNormalisationLayer
-from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset
+from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset, NumericalAugmentDropoutDataset
 from ..dataset.class_labels import LABEL_PATHOGENIC_VARIANT, LABEL_BENIGN_VARIANT
 from rdds.lib.tf import rejection_resample
 from rdds.lib.tf import print_tensor_op
@@ -487,6 +487,23 @@ class VariantRankScoreModel:
                                                                  seed=2,
                                                                  dropout_ratio=feature_dropout_ratio)
             dataset_train = clinvar_clnsig_novelizer(dataset_train)
+            # WARNING: Below index depends on modelscore feature removed!
+            swegen_af_novelizer = NumericalAugmentDropoutDataset(target_data_tensor_idx=19,
+                                                           dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
+                                                           seed=3,
+                                                           dropout_ratio=feature_dropout_ratio)
+            dataset_train = swegen_af_novelizer(dataset_train)
+            gnomad_af_novelizer = NumericalAugmentDropoutDataset(target_data_tensor_idx=20,
+                                                           dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
+                                                           seed=4,
+                                                           dropout_ratio=feature_dropout_ratio)
+            dataset_train = gnomad_af_novelizer(dataset_train)
+            frq_novelizer = NumericalAugmentDropoutDataset(target_data_tensor_idx=23,
+                                                           dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
+                                                           seed=5,
+                                                           dropout_ratio=feature_dropout_ratio)
+            dataset_train = frq_novelizer(dataset_train)
+
 
         # Training occurrence sampling
         expected_amount_of_variants_in_case = float(3.5E6)
