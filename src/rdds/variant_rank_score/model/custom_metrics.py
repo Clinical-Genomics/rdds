@@ -1,9 +1,8 @@
+import abc
 from typing import Type, List, Tuple, Dict, Union
 import tensorflow as tf
 from dataclasses import dataclass, field
 # https://keras.io/api/metrics/#as-subclasses-of-metric-stateful
-from rdds.lib.tf import mcc, f1
-
 
 @dataclass
 class MetricSpec:
@@ -13,49 +12,112 @@ class MetricSpec:
     Kwargs: Dict = field(default_factory=lambda: dict())
 
 
-class MeanScalarMetric(tf.keras.metrics.Metric):
+class ConfusionMatrixTracker(tf.keras.metrics.Metric, abc.ABC):
 
-    def __init__(self,
-                 fn: callable,
-                 *args,
-                 **kwargs):
+    def __init__(self, *args, threshold=0.5, **kwargs):
         super().__init__(*args, **kwargs)
-        self.metric: tf.Variable = self.add_variable(
+        self.threshold = threshold
+        self._tps: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'{self.name}'
+            name=f'{self.name}TPs',
+            dtype=tf.int32
         )
-        self.count: tf.Variable = self.add_variable(
+        self._tns: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'{self.name}Count'
+            name=f'{self.name}TNs',
+            dtype=tf.int32
         )
-        self.fn = fn
+        self._fns: tf.Variable = self.add_variable(
+            shape=(),
+            initializer='zeros',
+            name=f'{self.name}FNs',
+            dtype=tf.int32
+        )
+        self._fps: tf.Variable = self.add_variable(
+            shape=(),
+            initializer='zeros',
+            name=f'{self.name}FPs',
+            dtype=tf.int32
+        )
 
-    def update_state(self, y, y_pred, sample_weight):
-        metric = self.fn(y, y_pred)
-        self.metric.assign_add(metric)
-        self.count.assign_add(1.0)  # +1 batch
+    def update_state(self, y, y_pred, sample_weight=None):
+        del sample_weight
+        # Check inputs
+        tf.debugging.assert_equal(tf.size(y), tf.size(y_pred))
+        # Ground truth
+        ground_truth_positives = tf.cast(y, tf.bool)
+        ground_truth_negatives = tf.math.logical_not(ground_truth_positives)
+        # Predictions
+        prediction_positives = tf.math.greater_equal(y_pred, tf.constant(self.threshold, dtype=tf.float32))
+        prediction_negatives = tf.math.logical_not(prediction_positives)
+        # Confusion matrix
+        tps = tf.size(tf.where(tf.math.logical_and(ground_truth_positives, prediction_positives))[:, 0])
+        self._tps.assign_add(tps)
+        tns = tf.size(tf.where(tf.math.logical_and(ground_truth_negatives, prediction_negatives))[:, 0])
+        self._tns.assign_add(tns)
+        fns = tf.size(tf.where(tf.math.logical_and(ground_truth_positives, prediction_negatives))[:, 0])
+        self._fns.assign_add(fns)
+        fps = tf.size(tf.where(tf.math.logical_and(ground_truth_negatives, prediction_positives))[:, 0])
+        self._fps.assign_add(fps)
 
-    def result(self):
-        return tf.math.divide_no_nan(self.metric, self.count)
+    @staticmethod
+    def _as_float(v: tf.Variable) -> tf.Tensor:
+        return tf.cast(v, tf.float32)
+
+    @property
+    def tps(self):
+        return self._as_float(self._tps)
+
+    @property
+    def tns(self):
+        return self._as_float(self._tns)
+
+    @property
+    def fps(self):
+        return self._as_float(self._fps)
+
+    @property
+    def fns(self):
+        return self._as_float(self._fns)
+
+    @abc.abstractmethod
+    def result(self) -> tf.Tensor:
+        """
+        Compute metric score in subclass.
+        """
+        pass
 
     def reset_state(self):
-        self.metric.assign(0)
-        self.count.assign(0)
+        super().reset_state()
+        self._tps.assign(0)
+        self._tns.assign(0)
+        self._fns.assign(0)
+        self._fps.assign(0)
 
 
-class MccScore(MeanScalarMetric):
-    def __init__(self):
-        super().__init__(fn=mcc, name='MCC')
+class MccScore(ConfusionMatrixTracker):
+    def __init__(self, *args, name='MCC', **kwargs):
+        super().__init__(*args, name=name, **kwargs)
+
+    def result(self) -> tf.Tensor:
+        numerator = (self.tps * self.tns) - (self.fps * self.fns)
+        denominator = ((self.tps + self.fps) * (self.tps + self.fns) * (self.tns + self.fps) * (self.tns + self.fns)) ** 0.5
+        return tf.math.divide_no_nan(numerator, denominator)
 
 
-class F1Score(MeanScalarMetric):
-    def __init__(self):
-        super().__init__(fn=f1, name='F1')
+class F1Score(ConfusionMatrixTracker):
+    def __init__(self, *args, name='F1', **kwargs):
+        super().__init__(*args, name=name, **kwargs)
+
+    def result(self) -> tf.Tensor:
+        numerator = 2 * self.tps
+        denominator = (2 * self.tps) + self.fps + self.fns
+        return tf.math.divide_no_nan(numerator, denominator)
 
 
-class RegexpF1(tf.keras.metrics.Metric):
+class RegexpF1(F1Score):
 
     """
     A metric that collects TPs and FNs matching a particular tensor and regexp to compute F1 score.
@@ -70,25 +132,14 @@ class RegexpF1(tf.keras.metrics.Metric):
                  **kwargs):
         super().__init__(*args, **kwargs)
         self._tensor_idx = tensor_idx
-
-        self.binary_f1: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'f1_{self.name}'
-        )
         self.total_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
             name=f'total_samples_{self.name}'
         )
-        self.n_batches: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'n_batches_{self.name}'
-        )
         self._pattern = pattern
 
-    def update_state(self, x, y, y_pred, sample_weight):
+    def update_state(self, x, y, y_pred, sample_weight=None):
         data_tensor = x[self._tensor_idx]
         labels = y[0]  # -> [batch_size, ]
         regexp_matches = tf.strings.regex_full_match(input=data_tensor,
@@ -98,119 +149,82 @@ class RegexpF1(tf.keras.metrics.Metric):
         matching_labels = tf.gather(labels, matching_idx)
         matching_predictions = tf.gather(y_pred, matching_idx)
         n_samples = tf.cast(tf.size(matching_labels), tf.float32)
-        score = f1(matching_labels, matching_predictions)
-        with tf.control_dependencies([score]):
-            self.binary_f1.assign_add(score)
-            self.n_batches.assign_add(1.0)
+        super().update_state(y=matching_labels, y_pred=matching_predictions)
         with tf.control_dependencies([n_samples]):
             self.total_samples.assign_add(n_samples)
 
     def result(self):
         return {
-            f'{self.name}': tf.math.divide_no_nan(self.binary_f1, self.n_batches),
+            f'{self.name}': super().result(),
             f'{self.name}Count': self.total_samples
         }
 
     def reset_state(self):
-        self.binary_f1.assign(0)
-        self.n_batches.assign(0)
+        super().reset_state()
         self.total_samples.assign(0)
 
 
-class RareVariantF1(tf.keras.metrics.Metric):
+class FrequencyFilteredF1(F1Score):
     # TODO: Merge multiple tensors and compute average frq?
     def __init__(self,
                  *args,
                  tensor_idx: int,
+                 frequency_threshold: float = 1.0 / 2000.0,
+                 frequency_filter_method: str = 'less_equal',
                  ignore_zero_padded_values: bool = True,
                  **kwargs):
         """
         :param args: subclass
         :param tensor_idx: Index of tensor containing variant population frequencies
+        :param frequency_threshold: Cutoff frequency to incorporate a variant in subset for metric computation
+        :param frequency_filter_method: Comparison method to incorporate variant in subset for metric computation
         :param ignore_zero_padded_values: Ignore variant if 0.0 is detected in frq tensor (zero padded, lacking annotation)
         :param kwargs: subclass
         """
         super().__init__(*args, **kwargs)
         self._tensor_idx = tensor_idx
-
-        self.binary_f1_rare: tf.Variable = self.add_variable(
+        self.total_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
-            name=f'binary_f1_rare_{self.name}'
-        )
-        self.binary_f1_common: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'binary_f1_common_{self.name}'
-        )
-        self.total_rare_samples: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'total_rare_samples_{self.name}'
-        )
-        self.total_common_samples: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'total_common_samples_{self.name}'
-        )
-        self.n_batches: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'n_batches{self.name}'
+            name=f'total_samples_{self.name}'
         )
         self._ignore_zero_padded_values = ignore_zero_padded_values
+        self.frequency_threshold = tf.constant(frequency_threshold, dtype=tf.float32)
+        self.frequency_filter_method = frequency_filter_method
 
     def update_state(self, x, y, y_pred, sample_weight):
         frq_tensor = x[self._tensor_idx]
         labels = y[0]  # -> [batch_size, ]
-        # Find indexes of rare vs common data points
-        is_rare_variant_cond = tf.math.less_equal(frq_tensor, tf.constant(1.0/2000.0, dtype=tf.float32))  # to boolean vector
+        # Find indexes of variants with a particular occurrence frequency in population
+        if self.frequency_filter_method == 'less_equal':
+            frq_cond = tf.math.less_equal(frq_tensor, self.frequency_threshold)  # to boolean vector
+        elif self.frequency_filter_method == 'greater':
+            frq_cond = tf.math.greater(frq_tensor, self.frequency_threshold)
+        else:
+            raise ValueError(f'Unsupported frequency filter method: {self.frequency_filter_method}')
         if self._ignore_zero_padded_values:
             is_not_zero_padded_cond = tf.math.greater(frq_tensor, tf.constant(0, dtype=tf.float32))
-            is_rare_variant_cond = tf.math.logical_and(is_rare_variant_cond, is_not_zero_padded_cond)
-        is_common_variant_cond = tf.math.logical_not(is_rare_variant_cond)
-        rare_idx = tf.where(is_rare_variant_cond)[:, 0]  # to index vector (flattened)
-        common_idx = tf.where(is_common_variant_cond)[:, 0]
-        # Rare data
-        rare_labels = tf.gather(labels, rare_idx)
-        y_pred_rare = tf.gather(y_pred, rare_idx)
-        # Common data
-        common_labels = tf.gather(labels, common_idx)
-        y_pred_common = tf.gather(y_pred, common_idx)
-        # Compute f1
-        rare_f1 = f1(rare_labels, y_pred_rare)
-        n_rare_samples = tf.cast(tf.size(rare_labels), tf.float32)
-        with tf.control_dependencies([rare_f1]):
-            self.binary_f1_rare.assign_add(rare_f1)
-        with tf.control_dependencies([n_rare_samples]):
-            self.total_rare_samples.assign_add(n_rare_samples)
-        common_f1 = f1(common_labels, y_pred_common)
-        n_common_samples = tf.cast(tf.size(common_labels), tf.float32)
-        with tf.control_dependencies([common_f1]):
-            self.binary_f1_common.assign_add(common_f1)
-        with tf.control_dependencies([n_common_samples]):
-            self.total_common_samples.assign_add(n_common_samples)
-            self.n_batches.assign_add(1.0)  # + 1 batch
+            frq_cond = tf.math.logical_and(frq_cond, is_not_zero_padded_cond)
+        idx = tf.where(frq_cond)[:, 0]  # to index vector (flattened)
+        # Select labels and predictions and update internal counters
+        filtered_labels = tf.gather(labels, idx)
+        filtered_predictions = tf.gather(y_pred, idx)
+        super().update_state(y=filtered_labels, y_pred=filtered_predictions)
+        n_samples = tf.cast(tf.size(filtered_labels), tf.float32)
+        self.total_samples.assign_add(n_samples)
 
     def result(self) -> dict:
-        mean_rare = tf.math.divide_no_nan(self.binary_f1_rare, self.n_batches)
-        mean_common = tf.math.divide_no_nan(self.binary_f1_common, self.n_batches)
         return {
-            f'{self.name}Rare': mean_rare,
-            f'{self.name}Common': mean_common,
-            f'{self.name}RareCount': self.total_rare_samples,
-            f'{self.name}CommonCount': self.total_common_samples,
+            f'{self.name}': super().result(),
+            f'{self.name}Count': self.total_samples
         }
 
     def reset_state(self):
-        self.binary_f1_rare.assign(0)
-        self.binary_f1_common.assign(0)
-        self.total_rare_samples.assign(0)
-        self.total_common_samples.assign(0)
-        self.n_batches.assign(0)
+        super().reset_state()
+        self.total_samples.assign(0)
 
 
-class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
+class RareVariantWithoutClinvarSupportF1(F1Score):
     def __init__(self,
                  *args,
                  tensor_idx_frq: int,
@@ -227,21 +241,10 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
         super().__init__(*args, **kwargs)
         self._tensor_idx_frq = tensor_idx_frq
         self._tensor_idx_clinvar_clnsig = tensor_idx_clinvar_clnsig
-
-        self.binary_f1: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'binary_f1{self.name}'
-        )
         self.total_samples: tf.Variable = self.add_variable(
             shape=(),
             initializer='zeros',
             name=f'total_samples_{self.name}'
-        )
-        self.n_batches: tf.Variable = self.add_variable(
-            shape=(),
-            initializer='zeros',
-            name=f'n_batches_{self.name}'
         )
         self._ignore_zero_padded_values = ignore_zero_padded_values
 
@@ -260,28 +263,22 @@ class RareVariantWithoutClinvarSupportF1(tf.keras.metrics.Metric):
         rare_and_no_clinvar_support_cond = tf.math.logical_and(is_rare_variant_cond, no_clinvar_support_cond)
         idx = tf.where(rare_and_no_clinvar_support_cond)[:, 0]  # to index vector (flattened)
         # Subset data
-        labels_subset = tf.gather(labels, idx)
-        y_pred_subset = tf.gather(y_pred, idx)
-        # Compute f1
-        score = f1(labels_subset, y_pred_subset)
-        n_samples = tf.cast(tf.size(labels_subset), tf.float32)
-        with tf.control_dependencies([score]):
-            self.binary_f1.assign_add(score)
-        with tf.control_dependencies([n_samples]):
-            self.total_samples.assign_add(n_samples)
-            self.n_batches.assign_add(1.0)  # +1 batch
+        filtered_labels = tf.gather(labels, idx)
+        filtered_predictions = tf.gather(y_pred, idx)
+        # Update internal counters
+        super().update_state(y=filtered_labels, y_pred=filtered_predictions)
+        n_samples = tf.cast(tf.size(filtered_labels), tf.float32)
+        self.total_samples.assign_add(n_samples)
 
     def result(self) -> dict:
-        mean = tf.math.divide_no_nan(self.binary_f1, self.n_batches)
         return {
-            f'{self.name}': mean,
+            f'{self.name}': super().result(),
             f'{self.name}Count': self.total_samples,
         }
 
     def reset_state(self):
-        self.binary_f1.assign(0)
+        super().reset_state()
         self.total_samples.assign(0)
-        self.n_batches.assign(0)
 
 
 CUSTOM_METRICS: List[MetricSpec] = []
@@ -305,12 +302,20 @@ for term in vep_consequence_terms:
     )
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='GNOMADAF_popmax',
-    MetricClass=RareVariantF1,
+    MetricClass=FrequencyFilteredF1,
     Kwargs={'name': 'RareVariantF1Gnomad'}))
 CUSTOM_METRICS.append(
+    MetricSpec(InputTensorName='GNOMADAF_popmax',
+    MetricClass=FrequencyFilteredF1,
+    Kwargs={'name': 'CommonVariantF1Gnomad', 'frequency_filter_method': 'greater'}))
+CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='Frq',
-    MetricClass=RareVariantF1,
+    MetricClass=FrequencyFilteredF1,
     Kwargs={'name': 'RareVariantF1Frq'}))
+CUSTOM_METRICS.append(
+    MetricSpec(InputTensorName='Frq',
+    MetricClass=FrequencyFilteredF1,
+    Kwargs={'name': 'CommonVariantF1Frq', 'frequency_filter_method': 'greater'}))
 CUSTOM_METRICS.append(
     MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
     MetricClass=RegexpF1,

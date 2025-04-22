@@ -10,6 +10,23 @@ from rdds.variant_rank_score.model.custom_metrics import RegexpF1, F1Score, MccS
 METRICS = []
 METRICS.append(MetricSpec('input', F1Score))
 
+
+@pt.mark.parametrize('cls', [F1Score, MccScore])
+def test_score_across_batches(cls):
+    """
+    Test to make sure TP performance is not watered out in a TN-rich dataset.
+    """
+    # GIVEN a metric
+    obj = cls()
+    obj.update_state(y=[1], y_pred=[0.89])
+    for i in range(0, 10):
+        # WHEN tracking performance across batches
+        obj.update_state(y=[0], y_pred=[0])
+    # THEN make sure a TN rich dataset is not degrading TP performance
+    assert isclose(obj.result(), 1.0, atol=1E-6)
+
+
+
 @pt.mark.parametrize('train',
                      # batch 0
                      [((tf.constant([[1.0, 0.0, 0.0]], dtype=tf.float32), tf.constant(b'USE', dtype=tf.string)),
