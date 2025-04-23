@@ -7,7 +7,7 @@ from rdds.lib.tf import get_tf_dataset_from_hd5_data_generator
 from rdds.lib.hdf5 import Hd5DataGenerator
 
 # Test fixtures
-from tests.tf.test_data_generator import output_signature
+from tests.lib.tf.test_data_generator import output_signature
 
 from rdds.lib.tf import rejection_resample
 
