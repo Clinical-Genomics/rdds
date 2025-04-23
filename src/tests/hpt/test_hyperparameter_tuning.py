@@ -27,12 +27,12 @@ def bootstrap_model(mnist_dataset) -> Tuple[Callable, Callable]:
         tf.keras.layers.Flatten(),
         tf.keras.layers.Dense(hparams.Int('dense', 32, 128, 32), activation=tf.nn.relu),
         tf.keras.layers.Dropout(hparams.Float('dropout', 0.2, 0.5, 0.25)),
-        tf.keras.layers.Dense(10, activation=tf.nn.softmax),
+        tf.keras.layers.Dense(1, activation=tf.nn.sigmoid),
         ])
 
         model.compile(
           optimizer=hparams.Choice("optimizer", ["adam", "adadelta"]),
-          loss='sparse_categorical_crossentropy',
+          loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
           metrics=['accuracy'],
         )
 
