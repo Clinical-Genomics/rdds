@@ -453,7 +453,7 @@ class VariantRankScoreModel:
 
             is_pathogenic = tf.equal(labels, tf.constant(LABEL_PATHOGENIC_VARIANT))
 
-            frq = data[20] + data[21] + data[24]
+            frq = data[19] + data[20] + data[23]  # FIXME: Don't hardcode tensor positions like this
             frq = tf.math.divide(frq, 3)
             is_rare = tf.math.less_equal(frq, 1/2000.0)
 
