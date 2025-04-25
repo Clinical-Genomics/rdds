@@ -188,7 +188,7 @@ class VariantRankScoreModel:
         embedding_dimensions = hparams.Int('embedding-dimensions',
                                            min_value=1,
                                            max_value=20,
-                                           default=5,
+                                           default=20,
                                            step=1)
         embeddings_layer: EmbeddingsReductionLayer = \
             EmbeddingsReductionLayer(precompiled_vocabulary_file=precompiled_vocabulary_file,
@@ -230,12 +230,12 @@ class VariantRankScoreModel:
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=160)
+                                     default=256)
         branch_dense_1 = hparams.Int('branch_dense_1',
                                      min_value=32,
                                      max_value=256,
                                      step=32,
-                                     default=224)
+                                     default=192)
         activation = hparams.Choice('dense-activation',
                                     values=['relu', 'sigmoid'],
                                     default='relu')
@@ -257,7 +257,7 @@ class VariantRankScoreModel:
 
         # Autoencoder dense layer
         with_feature_multicollinearity_regularizer = hparams.Boolean('feature_multicollinearity_regularisation',
-                                                                     default=False)
+                                                                     default=True)
         with hparams.conditional_scope('feature_multicollinearity_regularisation', [True]):
             if with_feature_multicollinearity_regularizer:
                 # L2; regularisation to deal with multicollinearity
@@ -275,23 +275,23 @@ class VariantRankScoreModel:
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
                                   max_value=max_stacked_layers,
-                                  default=3,
+                                  default=4,
                                   step=1)
         units: int = hparams.Int('dense-units',
                                  min_value=32,
                                  max_value=1024,
-                                 default=608,
+                                 default=128,
                                  step=32)
         delta_factor: float = hparams.Float('dense-units-reduction',
                                             min_value=0.1,
                                             max_value=1.0 / (max_stacked_layers - 1.0),  # Must match 1 / max(n_layers - 1)
-                                            default=0.14,
+                                            default=0.16,
                                             step=0.01)
         dropout_rate = hparams.Float(name='dropout_rate',
                                      min_value=0,
                                      max_value=0.9,
                                      step=0.1,
-                                     default=0.2)
+                                     default=0.4)
         x = complete_feature_vector
         for layer_idx in range(0, layers):
             x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
@@ -421,7 +421,7 @@ class VariantRankScoreModel:
                                       min_value=64,
                                       max_value=256,
                                       step=32,
-                                      default=64)
+                                      default=160)
 
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
@@ -475,7 +475,7 @@ class VariantRankScoreModel:
         # Annotation augmentation for generating novel/ undocumented variants (annotation dropout)
         feature_dropout_ratio = hparams.Choice('feature_dropout_ratio',
                                                values=[0.0, float(1E-3), float(1E-2), 0.5],
-                                               default=0.5)
+                                               default=0.75)
         if feature_dropout_ratio > 0:
             clinvar_clnrevstat_novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=2,
                                                                      dropout_on_categorical_label_value=LABEL_PATHOGENIC_VARIANT,
