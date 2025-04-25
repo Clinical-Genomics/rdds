@@ -483,7 +483,7 @@ class VariantRankScoreModel:
 
         # Annotation augmentation for generating novel/ undocumented variants (annotation dropout)
         feature_dropout_ratio = hparams.Choice('feature_dropout_ratio',
-                                               values=[0.0, float(1E-3), float(1E-2), 0.5],
+                                               values=[0.0, float(1E-3), float(1E-2), 0.5, 0.75],
                                                default=0.75)
         if feature_dropout_ratio > 0:
             clinvar_clnrevstat_novelizer = TextAugmentDropoutDataset(target_data_tensor_idx=2,
