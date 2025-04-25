@@ -154,19 +154,6 @@ class VariantRankScoreModel:
 
         # Concatenate inputs
         input_numerical: tf.Tensor = tf.concat(numerical_inputs, axis=1, name='concat_input_numerical')
-        input_text: tf.RaggedTensor = tf.concat(text_inputs, axis=1, name='concat_input_text')
-
-        # Text preprocessing
-        split_regex = '\s|\n|_|&|/|\||:|,|-|0|1|2|3|4|5|6|7|8|9'
-        text_preprocessing_layer = TextPreprocessingLayer(split_regex=split_regex)
-        preprocessed_dataset = \
-            self._datasets.dataset_train_vocabulary.map(map_func=text_preprocessing_layer) \
-            if self._datasets.dataset_train_vocabulary else None
-        input_text_preprocessed = text_preprocessing_layer(input_text)  # -> [bdim, n_words, n_features]
-        dna_sequence_trimmer_layer = DnaSequenceTrimmer()
-        preprocessed_dataset = \
-            preprocessed_dataset.map(map_func=dna_sequence_trimmer_layer) if preprocessed_dataset else None
-        input_text_preprocessed = dna_sequence_trimmer_layer(input_text_preprocessed)  # tensor shape preserved
 
         with_feature_selection_regularisation = hparams.Boolean('feature_selection_regularisation',
                                                                 default=True)
@@ -183,25 +170,52 @@ class VariantRankScoreModel:
             else:
                 feature_selection_regularizer = None
 
-        # Text vectorization
-        precompiled_vocabulary_file = None if preprocessed_dataset else self._vocabulary_file_path
-        embedding_dimensions = hparams.Int('embedding-dimensions',
-                                           min_value=1,
-                                           max_value=20,
-                                           default=5,
-                                           step=1)
-        embeddings_layer: EmbeddingsReductionLayer = \
-            EmbeddingsReductionLayer(precompiled_vocabulary_file=precompiled_vocabulary_file,
-                                     embedding_dimensions=embedding_dimensions,
-                                     embeddings_regularizer=feature_selection_regularizer)
-        if preprocessed_dataset:
-            embeddings_layer.adapt(dataset=preprocessed_dataset)
-        _LOGGER.info(f'Vocabulary length: {len(embeddings_layer.vocabulary)} words')
-        _LOGGER.info(embeddings_layer.vocabulary)
-        # Store vocabulary to training output dir
-        embeddings_layer.save_vocabulary_to_file(file_path=os.path.join(self._train_log_dir, 'vocabulary.txt'))
-        # Lookup embeddings and perform word reduction
-        embeddings = embeddings_layer(input_text_preprocessed)  # -> [bdim, n_features, n_words=1, n_embeddings]
+        def generate_textual_embeddings(input_text: tf.RaggedTensor) -> tf.Tensor:
+            # Text preprocessing
+            split_regex = '\s|\n|_|&|/|\||:|,|-|0|1|2|3|4|5|6|7|8|9'
+            text_preprocessing_layer = TextPreprocessingLayer(split_regex=split_regex)
+            preprocessed_dataset = \
+                self._datasets.dataset_train_vocabulary.map(map_func=text_preprocessing_layer) \
+                    if self._datasets.dataset_train_vocabulary else None
+            input_text_preprocessed = text_preprocessing_layer(input_text)  # -> [bdim, n_words, n_features]
+            dna_sequence_trimmer_layer = DnaSequenceTrimmer()
+            preprocessed_dataset = \
+                preprocessed_dataset.map(map_func=dna_sequence_trimmer_layer) if preprocessed_dataset else None
+            input_text_preprocessed = dna_sequence_trimmer_layer(input_text_preprocessed)  # tensor shape preserved
+            # Text vectorization
+            precompiled_vocabulary_file = None if preprocessed_dataset else self._vocabulary_file_path
+            embedding_dimensions = hparams.Int('embedding-dimensions',
+                                               min_value=1,
+                                               max_value=20,
+                                               default=5,
+                                               step=1)
+            embeddings_layer: EmbeddingsReductionLayer = \
+                EmbeddingsReductionLayer(name=f'EmbeddingsReduction{input_text.name}',
+                                         precompiled_vocabulary_file=precompiled_vocabulary_file,
+                                         embedding_dimensions=embedding_dimensions,
+                                         embeddings_regularizer=feature_selection_regularizer)
+            if preprocessed_dataset:
+                embeddings_layer.adapt(dataset=preprocessed_dataset)
+            _LOGGER.info(f'Vocabulary length: {len(embeddings_layer.vocabulary)} words')
+            _LOGGER.info(embeddings_layer.vocabulary)
+            # Store vocabulary to training output dir'
+            vocabulary_file_path = os.path.join(self._train_log_dir, 'vocabulary.txt')
+            embeddings_layer.save_vocabulary_to_file(file_path=vocabulary_file_path)
+            # Allow reuse of precompiled vocabulary on next call (skip re-adaptation of embedding layers)
+            # FIXME: Split input on tensor, and dont use all of text data here in adapt()
+            self._vocabulary_file_path = vocabulary_file_path
+            self._datasets.dataset_train_vocabulary = None
+            # Lookup embeddings and perform word reduction
+            embeddings = embeddings_layer(input_text_preprocessed)  # -> [bdim, n_features, n_words=1, n_embeddings]
+            # Flatten word vector to -> [bdim, n_embeddings]
+            embeddings_flat = tf.reshape(embeddings, (-1, embedding_dimensions))
+            return embeddings_flat
+
+        text_embeddings = []
+        for text_input in text_inputs:
+            text_embeddings.append(generate_textual_embeddings(text_input))
+
+        embeddings_flat = tf.concat(text_embeddings, axis=1, name='concatEmbeddings')
 
         # Numerical preprocessing
         numerical_normalisation_layer = InstanceNormalisationLayer(axis=-1,
@@ -219,9 +233,6 @@ class VariantRankScoreModel:
         normalisation_weights_file_path: str = os.path.join(self._train_log_dir, 'normalisation.tar')
         numerical_normalisation_layer.save_weights_to_file(file_path=normalisation_weights_file_path)
         _LOGGER.info(f'Saved normalisation weights to {normalisation_weights_file_path}')
-
-        # Flatten word vector to -> [bdim, n_features * n_embeddings]
-        embeddings_flat = tf.reshape(embeddings, (-1, len(self._features_text) * embedding_dimensions))
 
         # Normalization of numerical features (per feature channel)
         # No need to normalize the embeddings since they're nicely distributed
