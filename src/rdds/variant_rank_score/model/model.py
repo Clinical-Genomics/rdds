@@ -212,10 +212,24 @@ class VariantRankScoreModel:
             embeddings_flat = tf.reshape(embeddings, (-1, embedding_dimensions))
             return embeddings_flat
 
-        text_embeddings = []
-        for text_input in text_inputs:
-            text_embeddings.append(generate_textual_embeddings(text_input))
+        def group_embeddings(grouped_tensor_names: List[str]) -> List[tf.Tensor]:
+            output_tensors: List[tf.Tensor] = []
+            for text_input in text_inputs:
+                if text_input.name in grouped_tensor_names:
+                    output_tensors.append(generate_textual_embeddings(text_input))
+            assert len(output_tensors) == len(grouped_tensor_names)
+            return output_tensors
 
+        clinvar_embeddings = group_embeddings(['CSQ_CLINVAR_CLNREVSTAT', 'CSQ_CLINVAR_CLNSIG'])
+        polyphen_embeddings = group_embeddings(['CSQ_PolyPhen'])
+        sift_embeddings = group_embeddings(['CSQ_SIFT'])
+        consequence_embeddings = group_embeddings(['most_severe_consequence'])
+
+        text_embeddings = []
+        text_embeddings.extend(clinvar_embeddings)
+        text_embeddings.extend(polyphen_embeddings)
+        text_embeddings.extend(sift_embeddings)
+        text_embeddings.extend(consequence_embeddings)
         embeddings_flat = tf.concat(text_embeddings, axis=1, name='concatEmbeddings')
 
         # Numerical preprocessing
