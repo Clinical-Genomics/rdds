@@ -97,6 +97,7 @@ class ConfusionMatrixTracker(tf.keras.metrics.Metric, abc.ABC):
         self._fps.assign(0)
 
 
+@tf.keras.saving.register_keras_serializable()
 class MccScore(ConfusionMatrixTracker):
     def __init__(self, *args, name='MCC', **kwargs):
         super().__init__(*args, name=name, **kwargs)
@@ -107,6 +108,7 @@ class MccScore(ConfusionMatrixTracker):
         return tf.math.divide_no_nan(numerator, denominator)
 
 
+@tf.keras.saving.register_keras_serializable()
 class F1Score(ConfusionMatrixTracker):
     def __init__(self, *args, name='F1', **kwargs):
         super().__init__(*args, name=name, **kwargs)

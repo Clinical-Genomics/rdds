@@ -4,6 +4,7 @@ from typing import List
 from .custom_metrics import MetricSpec
 
 
+@tf.keras.saving.register_keras_serializable()
 class KerasCustomMetricModel(tf.keras.Model):
 
     def __init__(self, *args, metric_specs: List[MetricSpec], **kwargs):
