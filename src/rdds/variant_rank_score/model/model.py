@@ -33,7 +33,6 @@ from rdds.lib.hpt import HyperParameters
 from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
-from .keras_custom_metric_model import KerasCustomMetricModel, MetricSpec
 from .custom_metrics import CUSTOM_METRICS, MccScore, F1Score
 
 
@@ -321,9 +320,8 @@ class VariantRankScoreModel:
         model_inputs = []  # Flat list of model inputs [feature0, feature1, ... ]
         for feature_name in self._features:
             model_inputs.append(_get_input_tensor_with_name(name=feature_name))
-        self._keras_model = KerasCustomMetricModel(inputs=model_inputs,
-                                                   outputs=confidences,
-                                                   metric_specs=CUSTOM_METRICS)
+        self._keras_model = tf.keras.Model(inputs=model_inputs,
+                                           outputs=confidences)
 
         metrics = [tf.keras.metrics.TruePositives(),
                    tf.keras.metrics.TrueNegatives(),
@@ -363,6 +361,66 @@ class VariantRankScoreModel:
 
         self._keras_model.default_loss = self._keras_model.compute_loss  # Save loss computation method as default_loss
         self._keras_model.compute_loss = loss_wrapper  # Replace model loss computation with wrapper
+
+        def setup_custom_metrics():
+
+            def get_tensor_input_index_from_name(name: str,
+                                                 inputs: List[tf.Tensor]) -> int:
+                """
+                Helper method to return idx of input tensor.
+                :param name: A tensor name
+                :return: Index of tensor in input array
+                """
+                for idx, input_tensor in enumerate(inputs):
+                    if name == input_tensor.name:
+                        return idx
+                raise ValueError(f'No matching input tensor with name {name} in {inputs}')
+
+            inputs: List[tf.Tensor] = self._keras_model.inputs
+            custom_metrics: List = []
+            for metric_spec in CUSTOM_METRICS:
+                if isinstance(metric_spec.InputTensorName, str):
+                    metric_spec.Kwargs.update({'tensor_idx':
+                                               get_tensor_input_index_from_name(
+                                               name=metric_spec.InputTensorName,
+                                               inputs=inputs)})
+                elif isinstance(metric_spec.InputTensorName, dict):
+                    tensor_kwargs = {}
+                    for kwarg, tensor_name in metric_spec.InputTensorName.items():
+                        tensor_kwargs.update({kwarg: get_tensor_input_index_from_name(name=tensor_name,
+                                                                                      inputs=inputs)})
+                    metric_spec.Kwargs.update(tensor_kwargs)
+                else:
+                    raise ValueError(f'Unsupported InputTensorName Type {type(metric_spec.InputTensorName)}')
+                custom_metrics.append(metric_spec.MetricClass(
+                    *metric_spec.Args,
+                    **metric_spec.Kwargs
+                ))
+            self._custom_metrics = custom_metrics
+
+            def compute_metrics(x, y, y_pred, sample_weight=None):
+                """
+                Compute custom metrics and log to Tensorboard.
+                Overrides tf.keras.Model.compute_metrics()
+                :param x: training data
+                :param y: training labels
+                :param y_pred: model predictions
+                :param sample_weight: sample weight
+                :return: Updated metrics dict
+                """
+                # Compute "standard" metrics supplied in the metrics argument to self.compile()
+                metric_results: dict = self._keras_model._compute_metrics(x, y, y_pred, sample_weight)
+                # Compute custom metrics
+                for custom_metric in self._custom_metrics:
+                    custom_metric.update_state(x, y, y_pred, sample_weight)
+                    metric_results.update(custom_metric.result())
+                return metric_results
+
+            self._keras_model._compute_metrics = self._keras_model.compute_metrics
+            self._keras_model.compute_metrics = compute_metrics
+
+        setup_custom_metrics()
+
         self._keras_model.compile(optimizer=optimizer,
                                   loss=self.loss_fn,
                                   metrics=metrics)
