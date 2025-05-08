@@ -33,7 +33,7 @@ from rdds.lib.hpt import HyperParameters
 from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
-from .keras_custom_metric_model import KerasCustomMetricModel, MetricSpec
+from .functional_keras_model_with_custom_metrics import FunctionalKerasModelWithCustomMetrics, MetricSpec
 from .custom_metrics import CUSTOM_METRICS, MccScore, F1Score
 
 
@@ -321,9 +321,9 @@ class VariantRankScoreModel:
         model_inputs = []  # Flat list of model inputs [feature0, feature1, ... ]
         for feature_name in self._features:
             model_inputs.append(_get_input_tensor_with_name(name=feature_name))
-        self._keras_model = KerasCustomMetricModel(inputs=model_inputs,
-                                                   outputs=confidences,
-                                                   metric_specs=CUSTOM_METRICS)
+        self._keras_model = FunctionalKerasModelWithCustomMetrics(inputs=model_inputs,
+                                                                  outputs=confidences,
+                                                                  metric_specs=CUSTOM_METRICS)
 
         metrics = [tf.keras.metrics.TruePositives(),
                    tf.keras.metrics.TrueNegatives(),
@@ -750,7 +750,10 @@ class VariantRankScoreModel:
         # Load Keras Model
         if self._keras_model is not None:
             raise ValueError('The model already contains a loaded keras model!')
-        model = tf.keras.saving.load_model(model_path)
+        with tf.keras.saving.custom_object_scope({'FunctionalKerasModelWithCustomMetrics': FunctionalKerasModelWithCustomMetrics,
+                                                  'MccScore': MccScore,
+                                                  'F1Score': F1Score}):
+            model = tf.keras.saving.load_model(model_path)
         _LOGGER.info(f'Model input: {model.inputs}')
         _LOGGER.info(f'Model output: {model.outputs}')
         model.summary(line_length=160)
