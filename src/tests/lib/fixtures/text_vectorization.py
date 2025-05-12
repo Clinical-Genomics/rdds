@@ -8,17 +8,6 @@ import tensorflow as tf
 
 
 @pytest.fixture
-def work_dir() -> str:
-    """
-    Return a temporary working directory.
-    :return: A path
-    """
-    work_dir = tempfile.mkdtemp(dir='/tmp')
-    yield work_dir
-    shutil.rmtree(work_dir)
-
-
-@pytest.fixture
 def word_dataset() -> tf.data.Dataset:
     """
     Return a tensorflow.data.Dataset containing a sentence.
