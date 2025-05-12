@@ -11,16 +11,6 @@ from rdds.variant_rank_score.model.functional_keras_model_with_custom_metrics im
 
 from rdds.variant_rank_score.model.custom_metrics import F1Score, FrequencyFilteredF1, MetricSpec
 
-@pt.fixture
-def work_dir() -> str:
-    """
-    Return a temporary working directory.
-    :return: A path
-    """
-    work_dir = tempfile.mkdtemp(dir='/tmp')
-    yield work_dir
-    shutil.rmtree(work_dir)
-
 
 def test_model_save_load(work_dir):
 
