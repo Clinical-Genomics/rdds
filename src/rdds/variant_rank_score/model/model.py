@@ -802,7 +802,7 @@ class VariantRankScoreModel:
                                                          group_name=group_name,
                                                          output_tensor_format=self._features,
                                                          label='label',
-                                                         expand_1d_categorical_to_2d=True)
+                                                         expand_1d_categorical_to_2d=False)
             dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=datagen,
                                                              output_signature=self._generate_dataset_tensor_signature())
             dataset = dataset.batch(batch_size)
@@ -836,7 +836,7 @@ class VariantRankScoreModel:
             for data, labels in dataset.as_numpy_iterator():
                 data: Tuple[tf.Tensor]
                 label, = labels
-                label_class_pathogenic = label[:, 1]
+                label_class_pathogenic = label[:, 0]
                 input_tensor_dict: Dict[str, tf.Tensor] = {}
                 for input_feature_idx, tensor_spec in enumerate(model_input_data_spec):
                     input_tensor_dict.update({
