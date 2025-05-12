@@ -1,5 +1,4 @@
 from fixtures.text_vectorization import (
-    work_dir,
     word_dataset,
     vocabulary_file,
     feature_columns_dataset
