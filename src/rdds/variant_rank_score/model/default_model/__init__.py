@@ -1,9 +1,9 @@
 import os
 from .model_file_spec import ModelFileSpec
 
-DEFAULT_MODEL_VERSION = "drop-modelscore"
+DEFAULT_MODEL_VERSION = "drop-modelscore-rc1-128d131"
 DEFAULT_MODEL_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__), DEFAULT_MODEL_VERSION))
-DEFAULT_KERAS_MODEL_FILE = os.path.join(DEFAULT_MODEL_DIRECTORY, 'saved-models', '51-0.0007.keras')
+DEFAULT_KERAS_MODEL_FILE = os.path.join(DEFAULT_MODEL_DIRECTORY, 'saved-models', '20-0.0048.keras')
 DEFAULT_VOCABULARY_FILE = os.path.join(DEFAULT_MODEL_DIRECTORY, 'vocabulary.txt')
 DEFAULT_NUMERICAL_NORMALISATION_WEIGHTS = os.path.join(DEFAULT_MODEL_DIRECTORY, 'normalisation.tar')
 DEFAULT_MODEL_EXPLAINER = os.path.join(DEFAULT_MODEL_DIRECTORY, 'model-explainer.bin')
