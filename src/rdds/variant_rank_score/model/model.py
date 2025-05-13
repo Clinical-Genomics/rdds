@@ -34,7 +34,7 @@ from rdds.lib.vcf import ParsableVariant
 from .model_explainer import ModelExplainer
 from .default_model import DEFAULT_MODEL_SPEC
 from .functional_keras_model_with_custom_metrics import FunctionalKerasModelWithCustomMetrics, MetricSpec
-from .custom_metrics import CUSTOM_METRICS, MccScore, F1Score
+from .custom_metrics import custom_metrics, MccScore, F1Score
 
 
 
@@ -130,9 +130,11 @@ class VariantRankScoreModel:
         self._model_explainer: ModelExplainer = None
 
     def _build_model(self,
-                     hparams: HyperParameters) -> tf.keras.models.Model:
+                     hparams: HyperParameters,
+                     extensive_training_metrics: bool) -> tf.keras.models.Model:
         """
         :param hparams: Hyperparameters for the model
+        :param extensive_training_metrics: Enable verbose variant performance metrics in training
         """
 
         text_inputs = []
@@ -321,9 +323,10 @@ class VariantRankScoreModel:
         model_inputs = []  # Flat list of model inputs [feature0, feature1, ... ]
         for feature_name in self._features:
             model_inputs.append(_get_input_tensor_with_name(name=feature_name))
+        metric_spec = custom_metrics(extended_vep_metrics=extensive_training_metrics)
         self._keras_model = FunctionalKerasModelWithCustomMetrics(inputs=model_inputs,
                                                                   outputs=confidences,
-                                                                  metric_specs=CUSTOM_METRICS)
+                                                                  metric_specs=metric_spec)
 
         metrics = [tf.keras.metrics.TruePositives(),
                    tf.keras.metrics.TrueNegatives(),
@@ -646,6 +649,7 @@ class VariantRankScoreModel:
               hd5_file_path: str,
               hparams: HyperParameters,
               compile_vocabulary_normalisation_factors: bool,
+              extensive_training_metrics: bool = False,
               train_log_dir_already_exist: bool = False) -> tf.keras.Model:
         """
         Main method to initialize datasets and build model based on hyperparameter config.
@@ -653,6 +657,7 @@ class VariantRankScoreModel:
         :param hparams: hyperparameter config (new empty instance or as created by hyperparameter tuner)
           Supplying a new instance of Hyperparameters creates a model with default hyperparam configs.
         :param compile_vocabulary_normalisation_factors: Compile new vocabulary and normalisation factors from data
+        :param extensive_training_metrics: Additional metrics for performance stratification in train loop
         :param train_log_dir_already_exist: Reuse existing directory for this build-training run
         :return: built keras model
         """
@@ -661,7 +666,8 @@ class VariantRankScoreModel:
         self._init_datasets(hd5_file_path=hd5_file_path,
                             hparams=hparams,
                             compile_vocabulary_normalisation_factors=compile_vocabulary_normalisation_factors)
-        self._build_model(hparams=hparams)
+        self._build_model(hparams=hparams,
+                          extensive_training_metrics=extensive_training_metrics)
         _LOGGER.info(f'Hyperparameters: {hparams.values}')
         with open(os.path.join(self._train_log_dir, 'hyperparams.txt'), 'w') as file:
             for key, value in hparams.values.items():
