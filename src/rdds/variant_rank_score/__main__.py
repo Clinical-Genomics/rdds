@@ -58,6 +58,10 @@ subparser.add_argument('--fast_debug_init',
                        help='Throttle data set size and shuffling to improve init, training speed (debug)',
                        type=bool,
                        default=False)
+subparser.add_argument('--epochs',
+                       help='Number of training epochs',
+                       type=int,
+                       default=None)
 def train(args):
     from .model import VariantRankScoreModel
     from .hyperparameter_tuner import VRSBayesianTuner, HyperParameters
@@ -74,7 +78,7 @@ def train(args):
                     compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors,
                     extensive_training_metrics=args.extensive_training_metrics,
                     fast_debug_init=args.fast_debug_init)
-        model.train()
+        model.train(train_epochs=args.epochs)
         model.train_model_explainer()
 subparser.set_defaults(func=train)
 
