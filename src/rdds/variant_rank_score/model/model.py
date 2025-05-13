@@ -697,15 +697,20 @@ class VariantRankScoreModel:
         return self._keras_model
 
     def train(self,
-              hparam_tuning_callbacks: List[tf.keras.callbacks.Callback] = None) -> tf.keras.callbacks.History:
+              hparam_tuning_callbacks: List[tf.keras.callbacks.Callback] = None,
+              train_epochs: int = None) -> tf.keras.callbacks.History:
         """
         Execute training and evaluation of pre built model.
         :param hparam_tuning_callbacks: List of keras tuner callbacks to be appended to fit() call
+        :param train_epochs: Number of training epochs
         :return: A History object containing the training progress
         """
 
         if self._datasets is None:
             raise ValueError('Expected initialized datasets, but got None')
+
+        if train_epochs is None:
+            train_epochs = int(1E2)
 
         steps_per_epoch = int(np.ceil(float(self._datasets.train_data_length) / float(self._datasets.batch_size)))
 
@@ -744,7 +749,7 @@ class VariantRankScoreModel:
 
         history = self._keras_model.fit(x=self._datasets.dataset_train,
                                         batch_size=1,
-                                        epochs=int(1E2),
+                                        epochs=train_epochs,
                                         steps_per_epoch=steps_per_epoch,
                                         validation_data=self._datasets.dataset_test,
                                         validation_steps=validation_steps,
