@@ -54,6 +54,10 @@ subparser.add_argument('--extensive_training_metrics',
                        help='Add additional performance metrics to stratify variant performance (debug)',
                        type=bool,
                        default=False)
+subparser.add_argument('--fast_debug_init',
+                       help='Throttle data set size and shuffling to improve init, training speed (debug)',
+                       type=bool,
+                       default=False)
 def train(args):
     from .model import VariantRankScoreModel
     from .hyperparameter_tuner import VRSBayesianTuner, HyperParameters
@@ -68,7 +72,8 @@ def train(args):
         model.build(hd5_file_path=args.hd5,
                     hparams=model.get_uninitialized_hyperparameters(),
                     compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors,
-                    extensive_training_metrics=args.extensive_training_metrics)
+                    extensive_training_metrics=args.extensive_training_metrics,
+                    fast_debug_init=args.fast_debug_init)
         model.train()
         model.train_model_explainer()
 subparser.set_defaults(func=train)
