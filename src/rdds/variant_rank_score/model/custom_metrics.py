@@ -281,55 +281,63 @@ class RareVariantWithoutClinvarSupportF1(F1Score):
         self.total_samples.assign(0)
 
 
-CUSTOM_METRICS: List[MetricSpec] = []
-vep_consequence_terms = \
-['missense_variant', 'downstream_gene_variant', 'upstream_gene_variant',
- 'intron_variant', 'non_coding_transcript_exon_variant',
- 'splice_donor_variant', 'splice_donor_region_variant',
- 'splice_region_variant', '5_prime_UTR_variant',
- 'splice_polypyrimidine_tract_variant', '3_prime_UTR_variant',
- 'synonymous_variant', 'frameshift_variant', 'stop_gained',
- 'splice_acceptor_variant', 'splice_donor_5th_base_variant', 'stop_lost',
- 'protein_altering_variant', 'inframe_insertion', 'inframe_deletion',
- 'transcript_ablation', 'start_lost', 'stop_retained_variant',
- 'coding_sequence_variant', 'mature_miRNA_variant',
- 'incomplete_terminal_codon_variant']
-for term in vep_consequence_terms:
-    CUSTOM_METRICS.append(
-        MetricSpec(InputTensorName='most_severe_consequence',
+def custom_metrics(extended_vep_metrics: bool = False) -> List[MetricSpec]:
+    """
+    Generate custom metric spec.
+    Adds additional load to training procedure, so this is mainly on a debug need basis only.
+    :param extended_vep_metrics: Add metrics to stratify performance based on VEP annotation
+    """
+    custom_metrics_list: List[MetricSpec] = []
+    vep_consequence_terms = \
+    ['missense_variant', 'downstream_gene_variant', 'upstream_gene_variant',
+     'intron_variant', 'non_coding_transcript_exon_variant',
+     'splice_donor_variant', 'splice_donor_region_variant',
+     'splice_region_variant', '5_prime_UTR_variant',
+     'splice_polypyrimidine_tract_variant', '3_prime_UTR_variant',
+     'synonymous_variant', 'frameshift_variant', 'stop_gained',
+     'splice_acceptor_variant', 'splice_donor_5th_base_variant', 'stop_lost',
+     'protein_altering_variant', 'inframe_insertion', 'inframe_deletion',
+     'transcript_ablation', 'start_lost', 'stop_retained_variant',
+     'coding_sequence_variant', 'mature_miRNA_variant',
+     'incomplete_terminal_codon_variant']
+    if extended_vep_metrics:
+        for term in vep_consequence_terms:
+            custom_metrics_list.append(
+                MetricSpec(InputTensorName='most_severe_consequence',
+                MetricClass=RegexpF1,
+                Kwargs={'pattern': f'.*({term}).*', 'name': f'{term}F1'})
+            )
+    custom_metrics_list.append(
+        MetricSpec(InputTensorName='GNOMADAF_popmax',
+        MetricClass=FrequencyFilteredF1,
+        Kwargs={'name': 'RareVariantF1Gnomad'}))
+    custom_metrics_list.append(
+        MetricSpec(InputTensorName='GNOMADAF_popmax',
+        MetricClass=FrequencyFilteredF1,
+        Kwargs={'name': 'CommonVariantF1Gnomad', 'frequency_filter_method': 'greater'}))
+    custom_metrics_list.append(
+        MetricSpec(InputTensorName='Frq',
+        MetricClass=FrequencyFilteredF1,
+        Kwargs={'name': 'RareVariantF1Frq'}))
+    custom_metrics_list.append(
+        MetricSpec(InputTensorName='Frq',
+        MetricClass=FrequencyFilteredF1,
+        Kwargs={'name': 'CommonVariantF1Frq', 'frequency_filter_method': 'greater'}))
+    custom_metrics_list.append(
+        MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
         MetricClass=RegexpF1,
-        Kwargs={'pattern': f'.*({term}).*', 'name': f'{term}F1'})
+        Kwargs={'pattern': '.*(pathogenic|Pathogenic).*',
+        'name': 'ClinvarPathogenicF1'}))
+    custom_metrics_list.append(
+        MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
+        MetricClass=RegexpF1,
+        Kwargs={'pattern': '.*(benign|Benign).*',
+        'name': 'ClinvarBenignF1'}))
+    custom_metrics_list.append(
+        MetricSpec(
+            InputTensorName={'tensor_idx_frq': 'GNOMADAF_popmax',
+                             'tensor_idx_clinvar_clnsig': 'CSQ_CLINVAR_CLNSIG'},
+            MetricClass=RareVariantWithoutClinvarSupportF1,
+            Kwargs={'name': 'RareVariantWithoutClinvarSupportF1'})
     )
-CUSTOM_METRICS.append(
-    MetricSpec(InputTensorName='GNOMADAF_popmax',
-    MetricClass=FrequencyFilteredF1,
-    Kwargs={'name': 'RareVariantF1Gnomad'}))
-CUSTOM_METRICS.append(
-    MetricSpec(InputTensorName='GNOMADAF_popmax',
-    MetricClass=FrequencyFilteredF1,
-    Kwargs={'name': 'CommonVariantF1Gnomad', 'frequency_filter_method': 'greater'}))
-CUSTOM_METRICS.append(
-    MetricSpec(InputTensorName='Frq',
-    MetricClass=FrequencyFilteredF1,
-    Kwargs={'name': 'RareVariantF1Frq'}))
-CUSTOM_METRICS.append(
-    MetricSpec(InputTensorName='Frq',
-    MetricClass=FrequencyFilteredF1,
-    Kwargs={'name': 'CommonVariantF1Frq', 'frequency_filter_method': 'greater'}))
-CUSTOM_METRICS.append(
-    MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
-    MetricClass=RegexpF1,
-    Kwargs={'pattern': '.*(pathogenic|Pathogenic).*',
-    'name': 'ClinvarPathogenicF1'}))
-CUSTOM_METRICS.append(
-    MetricSpec(InputTensorName='CSQ_CLINVAR_CLNSIG',
-    MetricClass=RegexpF1,
-    Kwargs={'pattern': '.*(benign|Benign).*',
-    'name': 'ClinvarBenignF1'}))
-CUSTOM_METRICS.append(
-    MetricSpec(
-        InputTensorName={'tensor_idx_frq': 'GNOMADAF_popmax',
-                         'tensor_idx_clinvar_clnsig': 'CSQ_CLINVAR_CLNSIG'},
-        MetricClass=RareVariantWithoutClinvarSupportF1,
-        Kwargs={'name': 'RareVariantWithoutClinvarSupportF1'})
-)
+    return custom_metrics_list

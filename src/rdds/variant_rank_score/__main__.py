@@ -50,6 +50,10 @@ subparser.add_argument('--tune-hyperparams',
                        help='Tune model hyperparameters',
                        type=bool,
                        default=False)
+subparser.add_argument('--extensive_training_metrics',
+                       help='Add additional performance metrics to stratify variant performance (debug)',
+                       type=bool,
+                       default=False)
 def train(args):
     from .model import VariantRankScoreModel
     from .hyperparameter_tuner import VRSBayesianTuner, HyperParameters
@@ -63,7 +67,8 @@ def train(args):
         model = VariantRankScoreModel()
         model.build(hd5_file_path=args.hd5,
                     hparams=model.get_uninitialized_hyperparameters(),
-                    compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors)
+                    compile_vocabulary_normalisation_factors=args.compile_vocabulary_normalisation_factors,
+                    extensive_training_metrics=args.extensive_training_metrics)
         model.train()
         model.train_model_explainer()
 subparser.set_defaults(func=train)
