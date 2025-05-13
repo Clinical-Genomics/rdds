@@ -418,7 +418,17 @@ class VariantRankScoreModel:
                        hd5_file_path: str,
                        hparams: HyperParameters,
                        compile_vocabulary_normalisation_factors: bool = True,
-                       init_test_data: bool = True) -> InitializedDatasets:
+                       init_test_data: bool = True,
+                       fast_debug_init: bool = False) -> InitializedDatasets:
+        """
+
+        :param hd5_file_path:
+        :param hparams:
+        :param compile_vocabulary_normalisation_factors:
+        :param init_test_data:
+        :param fast_debug_init: Throttle dataset loading and reduce shuffling to improve init speed (DEBUG ONLY)
+        :return:
+        """
 
         batch_size: int = hparams.Int('batch_size',
                                       min_value=64,
@@ -426,12 +436,20 @@ class VariantRankScoreModel:
                                       step=32,
                                       default=160)
 
+        load_max_n_samples: Union[int, None] = None
+        shuffle_buffer_size: int = int(5E5)
+        if fast_debug_init:
+            load_max_n_samples = int(1E3)
+            shuffle_buffer_size = int(5E1)
+
+
         # Training setup
         hd5_data_generator_train: Hd5DataGenerator = Hd5DataGenerator(hd5_file_path=hd5_file_path,
                                                                       group_name='train',
                                                                       output_tensor_format=self._features,
                                                                       label='label',
-                                                                      expand_1d_categorical_to_2d=False)
+                                                                      expand_1d_categorical_to_2d=False,
+                                                                      max_n_samples=load_max_n_samples)
 
         dataset_train: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_train,
                                                                                 output_signature=self._generate_dataset_tensor_signature())
@@ -577,7 +595,7 @@ class VariantRankScoreModel:
             # Setup new bias estimate, since training data is now skewed
             model_bias_estimate = np.log(likelihood_pathogenic)
 
-        dataset_train = dataset_train.shuffle(buffer_size=int(5E5),
+        dataset_train = dataset_train.shuffle(buffer_size=shuffle_buffer_size,
                                               seed=1)  # FIXME: Seed
 
         dataset_train = dataset_train.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
@@ -614,12 +632,13 @@ class VariantRankScoreModel:
                                                                          group_name='test',
                                                                          output_tensor_format=self._features,
                                                                          label='label',
-                                                                         expand_1d_categorical_to_2d=False)
+                                                                         expand_1d_categorical_to_2d=False,
+                                                                         max_n_samples=load_max_n_samples)
             dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
                                                                                    output_signature=self._generate_dataset_tensor_signature())
             dataset_test = dataset_test.cache()
             dataset_test = dataset_test.repeat(-1)
-            dataset_test = dataset_test.shuffle(buffer_size=int(5E5),
+            dataset_test = dataset_test.shuffle(buffer_size=shuffle_buffer_size,
                                                 seed=1)  # FIXME: Seed
             dataset_test = dataset_test.batch(batch_size, num_parallel_calls=tf.data.AUTOTUNE)
             dataset_test = dataset_test.prefetch(buffer_size=tf.data.AUTOTUNE)
@@ -650,6 +669,7 @@ class VariantRankScoreModel:
               hparams: HyperParameters,
               compile_vocabulary_normalisation_factors: bool,
               extensive_training_metrics: bool = False,
+              fast_debug_init: bool = False,
               train_log_dir_already_exist: bool = False) -> tf.keras.Model:
         """
         Main method to initialize datasets and build model based on hyperparameter config.
@@ -658,6 +678,7 @@ class VariantRankScoreModel:
           Supplying a new instance of Hyperparameters creates a model with default hyperparam configs.
         :param compile_vocabulary_normalisation_factors: Compile new vocabulary and normalisation factors from data
         :param extensive_training_metrics: Additional metrics for performance stratification in train loop
+        :param fast_debug_init: Reduce dataset init and train time by throttling data and shuffling (DEBUG ONLY)
         :param train_log_dir_already_exist: Reuse existing directory for this build-training run
         :return: built keras model
         """
@@ -665,7 +686,8 @@ class VariantRankScoreModel:
         os.makedirs(self._train_log_dir, exist_ok=train_log_dir_already_exist)
         self._init_datasets(hd5_file_path=hd5_file_path,
                             hparams=hparams,
-                            compile_vocabulary_normalisation_factors=compile_vocabulary_normalisation_factors)
+                            compile_vocabulary_normalisation_factors=compile_vocabulary_normalisation_factors,
+                            fast_debug_init=fast_debug_init)
         self._build_model(hparams=hparams,
                           extensive_training_metrics=extensive_training_metrics)
         _LOGGER.info(f'Hyperparameters: {hparams.values}')
