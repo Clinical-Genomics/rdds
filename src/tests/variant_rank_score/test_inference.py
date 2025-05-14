@@ -61,7 +61,9 @@ def test_inference(work_dir):
                 # Model prediction comes with a precision of 5 decimal points (rest is just noise in comparison)
                 assert isclose(variant.INFO['VrsModelPrediction'],
                                variant_ref.INFO['VrsModelPrediction'],
-                               atol=1E-5), (variant.INFO['VrsModelPrediction'], variant_ref.INFO['VrsModelPrediction'])
+                               atol=1E-5), (variant.INFO['VrsModelPrediction'],
+                                            variant_ref.INFO['VrsModelPrediction'],
+                                            variant.ID, variant_ref.ID)
                 # Test model explanations
                 explanation = parse_vrs_explanations(variant.INFO['VrsModelExplanation'])
                 explanation_ref = parse_vrs_explanations(variant_ref.INFO['VrsModelExplanation'])
@@ -70,7 +72,7 @@ def test_inference(work_dir):
                     for key in explanation_ref.keys():
                         assert isclose(explanation_ref[key],
                                        explanation[key],
-                                       atol=1E-2), (explanation, explanation_ref)
+                                       atol=1E-2), (explanation, explanation_ref, variant.ID, variant_ref.ID)
                 is_checked = True
         assert is_checked, f'Variant {variant_ref} is missing in predicted VCF'
 
