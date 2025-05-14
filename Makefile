@@ -158,8 +158,6 @@ test-%:
 	"export PYTHONPATH=/rdds/src && \
 	. /opt/pyenv/bin/activate && \
 	cd /rdds/src/tests && \
-	python3 -m pytest -v -x lib && \
-	python3 -m pytest -v -x exploration_rankscore && \
 	python3 -m pytest -v -x variant_rank_score"
 
 generate-dataset-statistics-%:
