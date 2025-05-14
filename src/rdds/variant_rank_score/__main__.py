@@ -94,7 +94,7 @@ subparser.add_argument('--pretrained_model_explainer_path', help='Path to VRS pr
                        default=DEFAULT_MODEL_SPEC.explainer_model)
 subparser.add_argument('--cpu_cores',
                        help='Number of CPU cores to allocate for processing',
-                       default=os.cpu_count() - 1)
+                       default=1)
 def predict_on_vcf(args):
     from .vcf_inference import predict_on_vcf
     if '*' in args.vcf_file_path:
