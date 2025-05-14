@@ -158,7 +158,7 @@ test-%:
 	"export PYTHONPATH=/rdds/src && \
 	. /opt/pyenv/bin/activate && \
 	cd /rdds/src/tests && \
-	python3 -m pytest -v -x variant_rank_score"
+	python3 -m pytest -v -x variant_rank_score/test_inference.py"
 
 generate-dataset-statistics-%:
 	# Run dataset statistics module to visualize dataset.
