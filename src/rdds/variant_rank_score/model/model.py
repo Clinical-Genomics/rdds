@@ -853,7 +853,7 @@ class VariantRankScoreModel:
         """
         if self._keras_model is None:
             raise ValueError('No keras model available for inference computation!')
-        score_classes = self._keras_model(tensor_dict)  # [class benign, class pathogenic]
+        score_classes = self._keras_model(tensor_dict)
         score_classes = score_classes.numpy()
         prediction_class_pathogenic = score_classes[:, 0]
         return prediction_class_pathogenic
