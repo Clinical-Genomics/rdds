@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import pytest
 
@@ -82,3 +83,56 @@ def test(feature_columns_dataset, work_dir, x):
     model.get_config()
     model.save(work_dir)
     tf.keras.models.load_model(work_dir)
+
+
+def test_batch_composition_independent_batch_embeddings(feature_columns_dataset):
+    """
+    Test embedding generation are agnostic to batch composition.
+    """
+    # GIVEN some input data and an embeddings layer
+    input = tf.keras.Input(shape=(2),  # [bdim, n_features]
+                           ragged=True,
+                           dtype=tf.string,
+                           name='input_text')
+
+    text_preprocessing_layer = TextPreprocessingLayer()
+    preprocessed_dataset = feature_columns_dataset.map(map_func=text_preprocessing_layer)
+    preprocessed_input = text_preprocessing_layer(input)  # [bdim, n_features, n_words]
+    embeddings_reduction_layer = EmbeddingsReductionLayer(embedding_dimensions=5)
+    embeddings_reduction_layer.adapt(preprocessed_dataset)
+    # WHEN computing the embeddings
+    embedding_features = embeddings_reduction_layer(preprocessed_input)
+    model = tf.keras.Model(input, embedding_features)
+    model.compile()
+
+    input_words = [
+        [b'cake first', b'then some'],
+        [b'champagne', b'next'],
+        [b'unknownWord', b''],
+        [b'the', b'end']
+    ]
+
+    batch_sizes = range(1, len(input_words)+1)
+    outputs = {}
+    for batch_size in batch_sizes:
+        batch = input_words[:batch_size]
+        batch_tensor = tf.constant(batch)  # [bdim, 1]
+        output = model(batch_tensor).numpy()
+        batch_df = None
+        for batch_idx in range(0, batch_size):
+            for feature_idx in range(0, 2):
+                index = f'{batch[batch_idx][feature_idx]}'
+                df = pd.DataFrame(index=[index], data=output[batch_idx, feature_idx])
+                if batch_df is None:
+                    batch_df = df
+                else:
+                    batch_df = pd.concat((batch_df, df), axis=0)
+        outputs.update({batch_size: batch_df})
+
+    # THEN make sure they're not affected by batch (input word order) composition
+    for output in outputs.values():
+        for outputs_inner in outputs.values():
+            error_df = output - outputs_inner
+            error_df: pd.DataFrame = error_df.dropna()
+            error = np.sum(error_df.values)
+            assert np.isclose(error, 0, atol=1E-5)
