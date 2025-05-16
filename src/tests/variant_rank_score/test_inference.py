@@ -31,7 +31,8 @@ def parse_vrs_explanations(explanation: str) -> dict:
     return explanation_dict
 
 
-def test_inference(work_dir):
+@pt.mark.parametrize('n_cores', [1, 2, 10, 20])
+def test_inference(work_dir, n_cores):
     """
     Test for model inference.
 
@@ -42,7 +43,7 @@ def test_inference(work_dir):
     test_data_path = os.path.join(work_dir, test_data_path)
     shutil.copyfile(TEST_DATA_PATH, test_data_path)
     # WHEN running inference
-    sp.check_call(f'python3 -m rdds.variant_rank_score predict-on-vcf {test_data_path}', shell=True)
+    sp.check_call(f'python3 -m rdds.variant_rank_score predict-on-vcf --cpu_cores {n_cores} {test_data_path}', shell=True, stderr=sp.STDOUT)
     model_output_file = test_data_path.replace('.vcf', '-predictions.vcf')
     # THEN expect that for every variant, the inference behavior is unchanged
     vcf_reader = VCFReader(model_output_file)
