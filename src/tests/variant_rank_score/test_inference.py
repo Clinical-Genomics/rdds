@@ -1,10 +1,13 @@
 import subprocess as sp
 import os
 import shutil
-from numpy import isclose
+import pandas as pd
+import numpy as np
+from numpy import isclose, sum
 import pytest as pt
 
 from rdds.lib.vcf import VCFReader, ParsableVariant
+from rdds.variant_rank_score.model import VariantRankScoreModel
 
 TEST_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_data.vcf'))
 TEST_REFERENCE_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_data-predictions-ref.vcf'))
@@ -29,6 +32,48 @@ def parse_vrs_explanations(explanation: str) -> dict:
                     key: float(value)
                 })
     return explanation_dict
+
+
+def test_inference_single_vs_batch(work_dir):
+    """
+    Test to see that magnitude of data/ composition does not
+    affect individual variant scoring.
+    """
+
+    # GIVEN some input data and model
+    test_data_path = os.path.basename(TEST_DATA_PATH)
+    test_data_path = os.path.join(work_dir, test_data_path)
+    shutil.copyfile(TEST_DATA_PATH, test_data_path)
+    vcf_reader = VCFReader(test_data_path)
+    variants = list(vcf_reader)
+    vcf_reader.close()
+    parsed_variants = [ParsableVariant(variant=variant,
+                                       vep_csq_description=vcf_reader.csq_description) for variant in variants]
+
+    batch_predictions = dict()
+    batch_sizes = [1, 2, 5, len(parsed_variants), len(parsed_variants) * 2]
+    # WHEN running inference on a set of variants
+    for batch_size in batch_sizes:
+        model = VariantRankScoreModel()
+        model.load_saved_model()
+        scores = None
+        # TODO: Assemble batch_variants randomly from parsed_variants
+        for idx in range(0, len(parsed_variants), batch_size):
+            batch_variants = parsed_variants[idx: idx + batch_size]
+            score_batch = model.score_variant(variants=batch_variants)
+            if scores is None:
+                scores = score_batch
+            else:
+                scores = pd.concat((scores, score_batch), axis=0)
+        batch_predictions.update({batch_size: scores})
+
+    # THEN expect variant scoring to be identical regardless of batch composition
+    for batch_size, df in batch_predictions.items():
+        for batch_size_inner, df_inner in batch_predictions.items():
+            predictions = df.pathogenicity_score.values
+            predictions_inner = df_inner.pathogenicity_score.values
+            err = sum(predictions - predictions_inner)
+            assert isclose(err, 0, atol=1E-5), (predictions, predictions_inner, batch_size, batch_size_inner)
 
 
 @pt.mark.parametrize('n_cores', [1, 2, 10, 20])
