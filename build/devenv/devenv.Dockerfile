@@ -18,7 +18,8 @@ RUN apt-get update && \
     xorg \
     xauth \
     python3-venv \
-    python3-tk
+    python3-tk \
+    bcftools
 
 # Install python deps
 COPY src/requirements-pip.txt /tmp
@@ -32,6 +33,21 @@ RUN echo "export PS1=\"\[\033[1;31m\]\u@RD-DSDev:\w>\033[0m\]$\"" >> /root/.bash
 
 # Setup aliases
 RUN echo "alias ls=\"ls -lah --color=always\"" >> /root/.bashrc
+
+FROM base AS vrs-production
+RUN mkdir -p /rdds/src
+COPY src /rdds/src
+COPY <<EOF /entrypoint-vrs.bash
+#!/bin/bash
+set -x
+set -e
+. /opt/pyenv/bin/activate
+export PYTHONPATH=/rdds/src
+python3 -m pytest /rdds/src/tests/variant_rank_score -k test_inference
+python3 -m rdds.variant_rank_score predict-on-vcf \$@
+EOF
+RUN chmod +x /entrypoint-vrs.bash
+ENTRYPOINT ["/entrypoint-vrs.bash"]
 
 FROM base AS motd
 # Setup a login message via motd

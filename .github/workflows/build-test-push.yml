@@ -40,6 +40,19 @@ jobs:
         run: |
           make devenv-ubuntu_20_04-push
 
+      # TODO: Refactor to not have VRS production image in this block
+      - name: Build Docker VRS model production image
+        run: |
+          make vrs-production-image-build
+
+      - name: Test VRS Inference CLI
+        run: |
+          make test-vrs-inference-cli
+
+      - name: Push Docker Image
+        run: |
+          make vrs-production-image-push
+
   build-devenv-nvidia-docker-image:
     timeout-minutes: 60
     runs-on: ubuntu-latest
