@@ -50,6 +50,19 @@ devenv-%-build:
 	--target devenv \
 	-f build/devenv/devenv.Dockerfile .
 
+vrs-production-image-build:
+	# Build docker VRS model production inference image
+	# This target is identical to devenv-%-build except for the --target.
+	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
+	$(DOCKER) build \
+	--build-arg="OS_FLAVOUR=ubuntu_20_04" \
+	--build-arg="VERSION=$(VERSION)" \
+	-t $(DOCKERHUB)/rdds$(DEVENV_IMAGE_SUFFIX)_vrs:$(VERSION) \
+	--force-rm=true \
+	--rm=true \
+	--target vrs-production \
+	-f build/devenv/devenv.Dockerfile .
+
 cosmograph-build:
 	$(DOCKER) build \
 	--build-arg="VERSION=$(VERSION)" \
@@ -80,6 +93,10 @@ devenv-%-push:
 	# https://hub.docker.com/repository/docker/clinicalgenomics/rdds
 	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
 	$(DOCKER) push $(DOCKERHUB)/rdds${DEVENV_IMAGE_SUFFIX}:$(VERSION)
+
+vrs-production-image-push:
+	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
+	$(DOCKER) push $(DOCKERHUB)/rdds${DEVENV_IMAGE_SUFFIX}_vrs:$(VERSION)
 
 devenv-%-docker-sshd:
 	# Start development environment locally
@@ -161,6 +178,12 @@ test-%:
 	python3 -m pytest -v -x lib && \
 	python3 -m pytest -v -x exploration_rankscore && \
 	python3 -m pytest -v -x variant_rank_score"
+
+test-vrs-inference-cli:
+	$(DOCKER) run \
+	--rm \
+	-v ./src/tests/variant_rank_score:/data \
+	$(DOCKERHUB)/rdds${DEVENV_IMAGE_SUFFIX}_vrs:$(VERSION) /data/test_data.vcf
 
 generate-dataset-statistics-%:
 	# Run dataset statistics module to visualize dataset.
