@@ -143,9 +143,9 @@ def view_ranked_vcf(args):
     """
     from .inference_exploration import view_vcf_rank_results, aggregate_vcf_rank_results
     case_names: List[str] = []
-    if '*' in args.vcf_file_path:
+    if len(args.vcf_file_path) == 1 and '*' in args.vcf_file_path[0]:
         # Globbing
-        vcf_file_paths = glob(args.vcf_file_path)
+        vcf_file_paths = glob(args.vcf_file_path[0])
     else:
         vcf_file_paths = args.vcf_file_path
     print(f'About to process files: {vcf_file_paths}')
