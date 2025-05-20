@@ -940,11 +940,15 @@ class VariantRankScoreModel:
 
     def score_variant(self,
                       variants: List[ParsableVariant],
-                      explain_variant_score_threshold: float = 0.9) -> pd.DataFrame:
+                      explain_variant_score_threshold: float = 0.9,
+                      ignore_clinvar_uncertain_conflicting_annotations: bool = True) -> pd.DataFrame:
         """
         Run model inference step on ParsableVariant instance.
         :param variants: The variants to score
         :param explain_variant_score_threshold: Explain variant predictions >= this threshold
+        :param ignore_clinvar_uncertain_conflicting_annotations: Drop CLINVAR_CLNSIG, CLINVAR_CLNREVSTAT annotation data
+            in case CLNSIG field contains conflicting or uncertain keywords.
+            If set to False, model will reduce inference score for conflicting or uncertain variants.
         :return: Rank scores, (0, 1), the higher the more pathogenic.
           Input-output order is preserved.
         """
@@ -974,7 +978,16 @@ class VariantRankScoreModel:
             input_dict.update({tensor_spec.name: []})
             for variant in variants:
                 if tensor_spec.dtype == tf.string:
-                    input_dict[tensor_spec.name].append(get_str_feature(variant=variant, name=tensor_spec.name))
+                    str_data = get_str_feature(variant=variant, name=tensor_spec.name)
+                    if ignore_clinvar_uncertain_conflicting_annotations:
+                        try:
+                            if 'CLINVAR' in tensor_spec.name:  # TODO: Issue 257
+                                clinvar_clnsig = str(variant.__getattribute__('CSQ_CLINVAR_CLNSIG')).lower()
+                                if 'uncertain' in clinvar_clnsig or 'conflicting' in clinvar_clnsig:
+                                    str_data = b''
+                        except AttributeError:
+                            pass
+                    input_dict[tensor_spec.name].append(str_data)
                 elif tensor_spec.dtype == tf.float32:
                     input_dict[tensor_spec.name].append(get_num_feature(variant=variant, name=tensor_spec.name))
                 else:
