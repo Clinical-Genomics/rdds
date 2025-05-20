@@ -1,5 +1,5 @@
 import os.path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from os.path import join
 from json import loads
 import matplotlib.pyplot as plt
@@ -46,49 +46,68 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
     df_rank_comparison = df_rank_comparison.explode('vrs_rank_frqfilt')
     df_rank_comparison = df_rank_comparison.explode('genmod_rank')
 
-    wdir = os.path.join(os.path.dirname(view_rank_result_output_dir), 'aggregate-statistics')
+    wdir = os.path.join(view_rank_result_output_dir, 'aggregate-statistics')
     os.makedirs(wdir, exist_ok=True)
 
-    points_vrs = 0
-    points_genmod = 0
-    ties = 0
-    for index, row in df_rank_comparison.iterrows():
-        # NaN check
-        if not row.vrs_rank_frqfilt == row.vrs_rank_frqfilt:
-            points_genmod += 1
-        elif not row.genmod_rank == row.genmod_rank:
-            points_vrs += 1
-        # Performance based on rank
-        elif row.genmod_rank > row.vrs_rank_frqfilt:
-            points_vrs += 1
-        elif row.genmod_rank < row.vrs_rank_frqfilt:
-            points_genmod += 1
-        elif row.genmod_rank == row.vrs_rank_frqfilt:
-            ties += 1
-        else:
-            raise ValueError(row)
+    def compute_algorithm_points(df: pd.DataFrame,
+                                 vrs_target_column: str) -> Dict[str, float]:
+        points_vrs = 0
+        points_genmod = 0
+        ties = 0
+        for index, row in df.iterrows():
+            # NaN check
+            if not row[vrs_target_column] == row[vrs_target_column]:
+                points_genmod += 1
+            elif not row.genmod_rank == row.genmod_rank:
+                points_vrs += 1
+            # Performance based on rank
+            elif row.genmod_rank > row[vrs_target_column]:
+                points_vrs += 1
+            elif row.genmod_rank < row[vrs_target_column]:
+                points_genmod += 1
+            elif row.genmod_rank == row[vrs_target_column]:
+                ties += 1
+            else:
+                raise ValueError(row)
+        return {
+            'points_vrs': points_vrs,
+            'points_genmod': points_genmod,
+            'ties': ties
+        }
 
+    points_nonfilt = compute_algorithm_points(df=df_rank_comparison.copy(),
+                                              vrs_target_column='vrs_rank')
+    points_frqfilt = compute_algorithm_points(df=df_rank_comparison.copy(),
+                                              vrs_target_column='vrs_rank_frqfilt')
 
-    fig = plt.figure(figsize=FIGSIZE)
-    ax = fig.add_subplot()
-    ax.scatter(x=df_rank_comparison.case_name,
-                y=df_rank_comparison['genmod_rank'],
-               marker='o',
-               alpha=0.75)
-    # FIXME: The vrs nonfilt rank is messing with the dynrange. Plot separately
-    #ax.scatter(x=df_rank_comparison.case_name,
-    #            y=df_rank_comparison['vrs_rank'])
-    ax.scatter(x=df_rank_comparison.case_name,
-                y=df_rank_comparison['vrs_rank_frqfilt'],
-               marker='D',
-               alpha=0.75)
-    ax.grid(True)
-    plt.xticks(rotation=45)
-    ax.legend(['genmod', 'vrs-frqfilt'])
-    fig.tight_layout()
-    fig.suptitle(f'Pathogenic Variant Rank Per Model\nvrs {points_vrs}, genmod {points_genmod}, ties {ties}')
-    fig_path = os.path.join(wdir, 'rank.png')
-    fig.savefig(fig_path)
-    print(f'Saving figure {fig_path}. Completed aggregate analysis.')
+    def plot_rank_scores_across_patient_cases(df: pd.DataFrame,
+                                              points_dict: Dict[str, float],
+                                              vrs_target_column: str):
+        fig = plt.figure(figsize=FIGSIZE)
+        ax = fig.add_subplot()
+        ax.scatter(x=df.case_name,
+                   y=df['genmod_rank'],
+                   marker='o',
+                   alpha=0.75)
+        ax.scatter(x=df.case_name,
+                   y=df[vrs_target_column],
+                   marker='D',
+                   alpha=0.75)
+        ax.grid(True)
+        plt.xticks(rotation=45)
+        ax.legend(['genmod', vrs_target_column])
+        fig.tight_layout()
+        fig.suptitle(f'Pathogenic Variant Rank Per Model {vrs_target_column}\nvrs {points_dict["points_vrs"]}, genmod {points_dict["points_genmod"]}, ties {points_dict["ties"]}')
+        fig_path = os.path.join(wdir, f'rank-{vrs_target_column}.png')
+        fig.savefig(fig_path)
+        print(f'Saving figure {fig_path}.')
 
+    plot_rank_scores_across_patient_cases(df=df_rank_comparison.copy(),
+                                          points_dict=points_nonfilt,
+                                          vrs_target_column='vrs_rank')
+    plot_rank_scores_across_patient_cases(df=df_rank_comparison.copy(),
+                                          points_dict=points_frqfilt,
+                                          vrs_target_column='vrs_rank_frqfilt')
+
+    print('Completed aggregate analysis.')
     return df_rank_comparison
