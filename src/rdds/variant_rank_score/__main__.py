@@ -102,6 +102,8 @@ def predict_on_vcf(args):
         vcf_file_paths = glob(args.vcf_file_path)
     else:
         vcf_file_paths = args.vcf_file_path
+    if len(vcf_file_paths) == 0:
+        raise ValueError('No input VCF files. Expected at least one.')
     print(f'About to process files: {vcf_file_paths}')
     for vcf_file_path in vcf_file_paths:
         predict_on_vcf(vrs_model_file_path=args.pretrained_model_path,
