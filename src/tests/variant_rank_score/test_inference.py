@@ -80,7 +80,10 @@ def test_inference(work_dir):
                            scored_variants[key]['vrs_model_explanation'][key_explain],
                            atol=1E-2), (key, key_explain)
 
-def test_inference_reproducibility():
+@pt.mark.parametrize('ignore_clinvar_uncertain_conflicting_annotations', [True, False])
+@pt.mark.parametrize('explain_variant_score_threshold', [0.9, 1.0])
+def test_inference_reproducibility(ignore_clinvar_uncertain_conflicting_annotations,
+                                   explain_variant_score_threshold):
     """
     Run inference 10 times per variant, to check inference reproducibility.
 
@@ -96,11 +99,13 @@ def test_inference_reproducibility():
         parsed_variant = ParsableVariant(variant)
         reference_score: float = None
         # THEN expect variant scoring to behave identically if recomputed
-        for _ in range(0, 10):
+        for _ in range(0, 5):
             model = VariantRankScoreModel()
             model.load_saved_model()
             iter_prediction_df = model.score_variant(variants=[parsed_variant],
-                                                     explain_variant_score_threshold=100.0)
+                                                     explain_variant_score_threshold=explain_variant_score_threshold,
+                                                     ignore_clinvar_uncertain_conflicting_annotations=ignore_clinvar_uncertain_conflicting_annotations
+                                                     )
             pathogenicity_score = iter_prediction_df.pathogenicity_score.values[0]
             if reference_score is None:
                 reference_score = pathogenicity_score
