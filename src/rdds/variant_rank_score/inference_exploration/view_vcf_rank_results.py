@@ -137,9 +137,36 @@ def view_vcf_rank_results(vcf_file_path: str,
     if len(pathogenic_variant_ids) == 0:
         raise ValueError(f'Expected some pathogenic variants, but found none in {vcf_pathogenic_path}')
     pathogenic_variants = df.query(f'id == {pathogenic_variant_ids}')
-    if len(pathogenic_variants) != len(pathogenic_variant_ids):
+    """
+    In case of pre-applied clinical gene panel filter, pathogenic variants might be lost from the inference VCF.
+    If so, make note of this and don't try to compute performance scores, plots etc since there's no
+    data to visualize.
+    """
+    available_inferred_pathogenic_variants = True
+    if len(pathogenic_variants) == 0:  # Check for pathogenic variant(s) in inference VCF.
+        available_inferred_pathogenic_variants = False
+    if available_inferred_pathogenic_variants and len(pathogenic_variants) != len(pathogenic_variant_ids):
         raise ValueError(f'Expected identical amounts of pathogenic variants,\
 got {pathogenic_variant_ids}!={pathogenic_variants}')
+
+    def _write_performance_summary(performance_summary: dict):
+        with open(os.path.join(workdir, 'performance.json'), 'w') as file:
+            meta_str = json.dumps(performance_summary, indent=2)
+            file.write(meta_str)
+
+    # Initialize empty summary performance statistic in case of not available_inferred_pathogenic_variants
+    performance_summary = {
+        'pathogenic_variants': pd.DataFrame().to_dict(),
+        'genmod_rank': pd.DataFrame().to_dict(),
+        'vrs_rank': pd.DataFrame().to_dict(),
+        'vrs_rank_frqfilt': pd.DataFrame().to_dict(),
+        'available_inferred_pathogenic_variants': available_inferred_pathogenic_variants
+    }
+
+    if not available_inferred_pathogenic_variants:
+        _write_performance_summary(performance_summary)
+        _LOGGER.info(f'Completed analysis of case {vcf_file_path}, {vcf_pathogenic_path} (no pathogenic variant(s) in VCF)')
+        return
 
     fig: plt.Figure = plt.figure(figsize=FIGSIZE)
     ax = fig.add_subplot()
@@ -276,15 +303,13 @@ got {pathogenic_variant_ids}!={pathogenic_variants}')
                            file_name='pathogenic_variants.vcf')
     _LOGGER.debug('Pathogenic variants storage complete')
 
-    meta = {
+    performance_summary.update({
         'pathogenic_variants': pathogenic_variants.to_dict(),
         'genmod_rank': ranks_genmod.to_dict(),
         'vrs_rank': ranks_vrs.to_dict(),
         'vrs_rank_frqfilt': ranks_vrs_frqfilt.to_dict()
-    }
+    })
 
-    with open(os.path.join(workdir, 'performance.json'), 'w') as file:
-        meta_str = json.dumps(meta, indent=1)
-        file.write(meta_str)
+    _write_performance_summary(performance_summary)
 
     _LOGGER.info(f'Completed analysis of case {vcf_file_path}, {vcf_pathogenic_path}')
