@@ -1,11 +1,14 @@
 import os.path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 from os.path import join
 from json import loads
 import matplotlib.pyplot as plt
 import pandas as pd
 
 FIGSIZE = (30, 20)
+
+_CONST_NO_INFERRED_PATHOGENIC_VARIANT = -1  # Occurs for example in a hard clinical filter (causing FN)
+
 
 def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
                                case_names: List[str]) -> pd.DataFrame:
@@ -21,8 +24,11 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
         print(f'Loading {meta_file_path}')
         with open(meta_file_path, 'r') as file:
             data_dict: Dict[str, Any] = loads(file.read())
-            print(data_dict)
+            # Parse serialized pandas Dataframes
             for sub_dict_key, sub_dict in data_dict.items():
+                if sub_dict_key == 'available_inferred_pathogenic_variants':
+                    # Not a serialized DF
+                    continue
                 df = pd.DataFrame.from_dict(sub_dict)
                 data_dict[sub_dict_key] = df
             case_metas.update({case_name: data_dict})
@@ -30,14 +36,20 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
     # Assemble a plot case name as x, rank score as y for genmod and vrs model
     dict_rank_comparison = {}
     for case_name, case_meta in case_metas.items():
+        vrs_rank = case_meta['vrs_rank'].index.values.astype(int)
+        vrs_rank_frqfilt = case_meta['vrs_rank_frqfilt'].index.values.astype(int)
+        genmod_rank = case_meta['genmod_rank'].index.values.astype(int)
+        if not case_meta['available_inferred_pathogenic_variants']:
+            vrs_rank = _CONST_NO_INFERRED_PATHOGENIC_VARIANT
+            vrs_rank_frqfilt = _CONST_NO_INFERRED_PATHOGENIC_VARIANT
+            genmod_rank = _CONST_NO_INFERRED_PATHOGENIC_VARIANT
         dict_rank_comparison.update({
             case_name: {
-                'vrs_rank': case_meta['vrs_rank'].index.values.astype(int),
-                'vrs_rank_frqfilt': case_meta['vrs_rank_frqfilt'].index.values.astype(int),
-                'genmod_rank': case_meta['genmod_rank'].index.values.astype(int)
+                'vrs_rank': vrs_rank,
+                'vrs_rank_frqfilt': vrs_rank_frqfilt,
+                'genmod_rank': genmod_rank
             }
         })
-    # df[index=case_names, columns=[rank score of models]
     df_rank_comparison = pd.DataFrame.from_dict(dict_rank_comparison, orient='index')
     df_rank_comparison['case_name'] = df_rank_comparison.index
     df_rank_comparison.reset_index(inplace=True)
@@ -54,9 +66,14 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
         points_vrs = 0
         points_genmod = 0
         ties = 0
+        not_inferred = 0
         for index, row in df.iterrows():
+            # No rank generated
+            if row[vrs_target_column] == _CONST_NO_INFERRED_PATHOGENIC_VARIANT or \
+               row.genmod_rank == _CONST_NO_INFERRED_PATHOGENIC_VARIANT:
+                not_inferred += 1
             # NaN check
-            if not row[vrs_target_column] == row[vrs_target_column]:
+            elif not row[vrs_target_column] == row[vrs_target_column]:
                 points_genmod += 1
             elif not row.genmod_rank == row.genmod_rank:
                 points_vrs += 1
@@ -72,7 +89,8 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
         return {
             'points_vrs': points_vrs,
             'points_genmod': points_genmod,
-            'ties': ties
+            'ties': ties,
+            'not_inferred': not_inferred,
         }
 
     points_nonfilt = compute_algorithm_points(df=df_rank_comparison.copy(),
@@ -97,7 +115,7 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
         plt.xticks(rotation=45)
         ax.legend(['genmod', vrs_target_column])
         fig.tight_layout()
-        fig.suptitle(f'Pathogenic Variant Rank Per Model {vrs_target_column}\nvrs {points_dict["points_vrs"]}, genmod {points_dict["points_genmod"]}, ties {points_dict["ties"]}')
+        fig.suptitle(f'Pathogenic Variant Rank Per Model {vrs_target_column}\nvrs {points_dict["points_vrs"]}, genmod {points_dict["points_genmod"]}, ties {points_dict["ties"]} not_inferred {points_dict["not_inferred"]}')
         fig_path = os.path.join(wdir, f'rank-{vrs_target_column}.png')
         fig.savefig(fig_path)
         print(f'Saving figure {fig_path}.')
