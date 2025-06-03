@@ -83,15 +83,19 @@ def train(args):
 subparser.set_defaults(func=train)
 
 subparser = subparsers.add_parser('inference_exploration', help='Visualize model performance on .hd5 dataset')
-subparser.add_argument('saved_model_path', help='Path to keras saved model (*.keras)')
-subparser.add_argument('saved_model_explainer_path', help='Path to saved model explainer (model-explainer.bin)')
+subparser.add_argument('--pretrained_model_path',
+                       help='Path to keras saved model (*.keras)',
+                       default=DEFAULT_MODEL_SPEC.keras_model)
+subparser.add_argument('--pretrained_model_explainer_path',
+                       help='Path to saved model explainer (model-explainer.bin)',
+                       default=DEFAULT_MODEL_SPEC.explainer_model)
 subparser.add_argument('hd5', help='Path to .hd5 data file containing data for computing inferences')
 def inference_exploration(args):
     from .model import VariantRankScoreModel
     from .inference_exploration import InferenceExplorer
     variant_rank_score_model: VariantRankScoreModel = VariantRankScoreModel()
-    variant_rank_score_model.load_saved_model(keras_model_path=args.saved_model_path,
-                                              model_explainer_path=args.saved_model_explainer_path)
+    variant_rank_score_model.load_saved_model(keras_model_path=args.pretrained_model_path,
+                                              model_explainer_path=args.pretrained_model_explainer_path)
     inferences_file_path = variant_rank_score_model.predict_on_hd5(args.hd5)
     del variant_rank_score_model
     gc.collect()
