@@ -127,5 +127,42 @@ def aggregate_vcf_rank_results(view_rank_result_output_dir: str,
                                           points_dict=points_frqfilt,
                                           vrs_target_column='vrs_rank_frqfilt')
 
+    def plot_rank_scores_boxplot(df: pd.DataFrame,
+                                 vrs_target_columns: List[str]):
+        fig = plt.figure(figsize=FIGSIZE)
+        ax = fig.add_subplot(1, 2, 1)
+        x_labels = ['genmod_rank']
+        x_labels.extend(vrs_target_columns)
+        data = df[x_labels].astype(float)
+        data = data[data != _CONST_NO_INFERRED_PATHOGENIC_VARIANT]
+        data = data.dropna()
+        data = data.values
+
+        def add_grid_ticks(ax):
+            ax.yaxis.grid(True)
+            ax.set_xticks(range(1, len(x_labels) + 1), labels=x_labels)
+            ax.set_ylabel('Pathogenic Variant Rank Position')
+
+        # Violin plot
+        ax.violinplot(data,
+                      showmeans=False,
+                      showmedians=True)
+        add_grid_ticks(ax)
+        # Boxplot
+        ax = fig.add_subplot(1, 2, 2)
+        ax.boxplot(data)
+        add_grid_ticks(ax)
+        fig.tight_layout()
+        fig.suptitle(f'Pathogenic Rank Positions ({x_labels})\nn={len(data)}')
+        filename_columns = ''
+        for name in x_labels:
+            filename_columns += f'-{name}'
+        fig_path = os.path.join(wdir, f'viobox{filename_columns}.png')
+        fig.savefig(fig_path)
+        print(f'Saving figure {fig_path}.')
+
+    plot_rank_scores_boxplot(df=df_rank_comparison.copy(),
+                             vrs_target_columns=['vrs_rank', 'vrs_rank_frqfilt'])
+
     print('Completed aggregate analysis.')
     return df_rank_comparison
