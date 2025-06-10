@@ -108,7 +108,7 @@ def test_batch_composition_independent_batch_embeddings(feature_columns_dataset)
     input_words = [
         [b'cake first', b'then some'],
         [b'champagne', b'next'],
-        [b'unknownWord', b''],
+        [b'unknownWord', b'123 extra next some then'],
         [b'the', b'end']
     ]
 
