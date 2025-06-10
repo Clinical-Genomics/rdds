@@ -34,6 +34,37 @@ def parse_vrs_explanations(explanation: str) -> dict:
     return explanation_dict
 
 
+class LayerOutputMismatch(ValueError): pass
+
+
+def _recursively_compare_arrays(output: np.ndarray, output_ref: np.ndarray):
+    """
+    Helper function to compare nD arrays in a recursive fashion.
+    Method is throwing an error in case arrays output != output_ref.
+    """
+    is_all_empty = output.size == 0 and output_ref.size == 0
+    is_equal_size = output.size == output_ref.size
+    is_high_rank = output.ndim > 1 and output_ref.ndim > 1
+    try:
+        arr = output[0]
+        is_nested_array = isinstance(arr, np.ndarray)
+    except IndexError:
+        is_nested_array = False
+    if is_all_empty:
+        return  # Nothing to check since there's no data
+    if not is_equal_size:
+        raise ValueError(f'Different sizes for arrays {output.shape}, {output_ref.shape}. Expected identical')
+    if is_high_rank or is_nested_array:
+        outer_dim_size = output.shape[0]
+        for idx in range(0, outer_dim_size):
+            _recursively_compare_arrays(output=output[idx],
+                                        output_ref=output_ref[idx])
+    else:
+        # Now expect a 1D array
+        err = np.sum(output - output_ref)
+        if not np.isclose(err, 0, atol=1E-5):
+            raise LayerOutputMismatch(f'err={err}')
+
 def test_inference_single_vs_batch(work_dir):
     """
     Test to see that magnitude of data/ composition does not
