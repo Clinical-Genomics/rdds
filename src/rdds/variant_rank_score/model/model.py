@@ -89,7 +89,6 @@ FEATURES_FLOAT = ['CSQ_MaxEntScan_alt',
                   'GNOMADAF_popmax',
                   'SPIDEX',
                   'CSQ_SpliceAI_pred_DS_AG',
-                  #'MTAF',
                   'Frq'
                   ]
 
