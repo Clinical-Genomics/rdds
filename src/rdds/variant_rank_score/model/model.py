@@ -471,12 +471,16 @@ class VariantRankScoreModel:
             variant population frequency is less than 1/2000 or
             variant is previously unseen (zero initialized).
             """
-            rare_variant_weight = kwargs.get('rare_variant_weight')
+            rare_variant_weight: float = kwargs.get('rare_variant_weight')
+            frq_tensor_idx: List[int] = kwargs.get('frq_tensor_idx')
 
             is_pathogenic = tf.equal(labels, tf.constant(LABEL_PATHOGENIC_VARIANT))
 
-            frq = data[19] + data[20] + data[23]  # FIXME: Don't hardcode tensor positions like this
-            frq = tf.math.divide(frq, 3)
+            frq: List[tf.Tensor] = []
+            for idx in frq_tensor_idx:
+                frq.append(data[idx])
+            frq = tf.math.reduce_mean(frq, axis=-1, name='sum_frq_tensors_rare_weight')
+            tf.assert_rank(frq, 0)
             is_rare = tf.math.less_equal(frq, 1/2000.0)
             cond = tf.math.logical_and(is_pathogenic, is_rare)
             weights = tf.where(condition=cond,
@@ -489,8 +493,13 @@ class VariantRankScoreModel:
                                              default=800.0)
         if rare_variant_weight > 0:
             _LOGGER.info(f'Weighting rare pathogenic variants with weight {rare_variant_weight}')
+            target_frq_tensors = ['SWEGENAF', 'GNOMADAF_popmax', 'Frq']
+            frq_tensor_idx = [input_feature_idx for input_feature_idx, annotation_name in enumerate(self._features)\
+                           if annotation_name in target_frq_tensors]
+            _LOGGER.info(f'Rare variant weight input frq tensors: {frq_tensor_idx}={target_frq_tensors}')
             dataset_train = dataset_train.map(map_func=lambda *args: weight_rare_pathogenic_variants(*args,
-                                                                                 rare_variant_weight=rare_variant_weight),
+                                                                                 rare_variant_weight=rare_variant_weight,
+                                                                                 frq_tensor_idx=frq_tensor_idx),
                                               num_parallel_calls=tf.data.AUTOTUNE)
 
         @tf.function
