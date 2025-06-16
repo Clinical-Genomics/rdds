@@ -1,8 +1,12 @@
 process VRS_INFER {
+    debug true
     def version = 'v1.11.0-rc3'
     println "Running VRS version: ${version}"
 
-    publishDir "${params.output_dir}", mode: 'copy', overwrite: true
+    // TODO: Adjust to 10cores - 125GB RAM
+    cpus 5
+    memory '75 GB'
+    publishDir "${params.output_dir}", mode: 'copy', overwrite: true, failOnError: true
     //container 'docker.io/clinicalgenomics/rdds_vrs:v1.11.0-rc3'
 
     input:
@@ -15,6 +19,11 @@ process VRS_INFER {
 
     script:
     """
-    touch asd.vcf
+    docker run \
+    -t \
+    --rm \
+    -v ${workDir}:/data docker.io/clinicalgenomics/rdds_vrs:$version \
+    --cpu_cores ${task.cpus} \
+    /data/test_data.vcf
     """
 }
