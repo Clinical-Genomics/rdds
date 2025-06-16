@@ -43,15 +43,15 @@ jobs:
       # TODO: Refactor to not have VRS production image in this block
       - name: Build Docker VRS model production image
         run: |
-          make vrs-production-image-build
+          make mivmir-image-build
 
       - name: Test VRS Inference CLI
         run: |
-          make test-vrs-inference-cli
+          make test-mivmir-inference-cli
 
       - name: Push Docker Image
         run: |
-          make vrs-production-image-push
+          make mivmir-image-push
 
   build-devenv-nvidia-docker-image:
     timeout-minutes: 60

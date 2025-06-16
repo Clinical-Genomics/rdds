@@ -35,10 +35,10 @@ RUN echo "export PS1=\"\[\033[1;31m\]\u@RD-DSDev:\w>\033[0m\]$\"" >> /root/.bash
 # Setup aliases
 RUN echo "alias ls=\"ls -lah --color=always\"" >> /root/.bashrc
 
-FROM base AS vrs-production
+FROM base AS mivmir-production
 RUN mkdir -p /rdds/src
 COPY src /rdds/src
-COPY <<EOF /entrypoint-vrs.bash
+COPY <<EOF /entrypoint-mivmir.bash
 #!/bin/bash
 set -x
 set -e
@@ -47,8 +47,7 @@ export PYTHONPATH=/rdds/src
 python3 -m pytest /rdds/src/tests/variant_rank_score -k test_inference
 python3 -m rdds.variant_rank_score predict-on-vcf \$@
 EOF
-RUN chmod +x /entrypoint-vrs.bash
-ENTRYPOINT ["/entrypoint-vrs.bash"]
+RUN chmod +x /entrypoint-mivmir.bash
 
 FROM base AS motd
 # Setup a login message via motd
