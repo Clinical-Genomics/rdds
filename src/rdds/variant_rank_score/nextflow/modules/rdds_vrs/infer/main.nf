@@ -2,7 +2,7 @@
 process VRS_INFER {
     debug false
 
-    def version = 'vrs-testnextflow'
+    def version = 'v1.11.0-rc4'
     println "Running VRS version: ${version}"
 
     stageInMode('copy')
