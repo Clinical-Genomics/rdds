@@ -1,6 +1,7 @@
 
 process VRS_INFER {
     debug false
+
     def version = 'vrs-testnextflow'
     println "Running VRS version: ${version}"
 
@@ -14,9 +15,6 @@ process VRS_INFER {
     output:
     path '*-predictions.vcf', emit: vcf_with_inferences
 
-    // TODO: Adjust to 10cores - 125GB RAM
-    cpus 5
-    memory '75 GB'
     container "docker.io/clinicalgenomics/rdds_vrs:${version}"
 
     script:
