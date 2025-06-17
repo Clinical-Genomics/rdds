@@ -1,11 +1,10 @@
-// Nextflow does not support docker containers with set ENTRYPOINTs, https://nextflow.io/docs/latest/container.html
 
 process VRS_INFER {
     debug false
     def version = 'vrs-testnextflow'
     println "Running VRS version: ${version}"
 
-    stageInMode('copy')  // Copy files into workDir instead of symlinking
+    stageInMode('copy')
     publishDir "${params.output_dir}", mode: 'copy', overwrite: true, failOnError: true
 
     input:
