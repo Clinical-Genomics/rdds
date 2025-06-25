@@ -32,7 +32,8 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
         """
 
         shape = ragged_tensor.bounding_shape()
-        word_dim = tf.maximum(shape[2], tf.constant(1, dtype=tf.int64), name='maxshape')  # Make sure at least 1 word was seen with embedding value 0.0 padded
+        # Make sure at least 1 word was seen with embedding value 0.0 padded
+        word_dim = tf.maximum(shape[2], tf.constant(1, dtype=tf.int64), name='maxshape')
         with tf.control_dependencies([word_dim]):
             shape_padded = tf.concat([tf.cast([shape[0]], tf.int32),  # bdim
                                       tf.cast([shape[1]], tf.int32),  # feature dim
