@@ -134,5 +134,5 @@ def test_batch_composition_independent_batch_embeddings(feature_columns_dataset)
         for outputs_inner in outputs.values():
             error_df = output - outputs_inner
             error_df: pd.DataFrame = error_df.dropna()
-            error = np.sum(error_df.values)
+            error = np.sum(abs(error_df.values))
             assert np.isclose(error, 0, atol=1E-5)
