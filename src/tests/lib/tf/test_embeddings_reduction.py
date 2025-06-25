@@ -40,7 +40,7 @@ def test(feature_columns_dataset, work_dir, x):
 
     # GIVEN a model using embeddings reduction
     n_features = 2
-    embedding_dimensions = 5
+    embedding_dimensions = reduce_sum_scale_factor = 5
     input = tf.keras.Input(shape=(n_features),  # [bdim, n_features]
                            ragged=True,
                            dtype=tf.string,
@@ -70,7 +70,8 @@ def test(feature_columns_dataset, work_dir, x):
             for feature in range(0, y.shape[1]):
                 for word in range(0, y.shape[2]):
                     for embedding in range(0, y.shape[3]):
-                        assert np.isclose(y[batch, feature, word, embedding], 0, atol=1E-1)
+                        avg_embedding_from_reduce_sum_op = y[batch, feature, word, embedding] / float(reduce_sum_scale_factor)
+                        assert np.isclose(avg_embedding_from_reduce_sum_op, 0, atol=1E-1)
 
     # THEN make sure return tensor is filled with embeddings or zero initialized
     for batch in feature_columns_dataset:
