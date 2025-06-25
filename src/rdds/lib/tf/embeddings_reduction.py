@@ -23,6 +23,10 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
         If this is not the case, empty embedding dimensions are filled with unallocated values from RAM.
         [[], ['foo bar']] --> [ [[0, 0], [0, 0]], [[1, 2], [3, 4]] ]
 
+        Note that the `embeddings.to_tensor(default_value=v, ...)` padding value and the reduction technique
+        are interdependent; padding with 0.0 works well with a reduce_sum operation but not
+        well with reduce_prod or reduce_max.
+
         Additionally make sure the output shape has at least one populated word dimension
         [bdim, feature_dim, word_dim, embeddings]
         """
@@ -40,5 +44,5 @@ class EmbeddingsReductionLayer(TextVectorizationLayer):
             zero_padded_embeddings: tf.Tensor = embeddings.to_tensor(default_value=tf.constant(0.0), shape=shape_padded)
 
         # Do the reduction
-        embeddings_dim_reduced = tf.math.reduce_max(zero_padded_embeddings, axis=2, keepdims=True)
+        embeddings_dim_reduced = tf.math.reduce_sum(zero_padded_embeddings, axis=2, keepdims=True)
         return embeddings_dim_reduced
