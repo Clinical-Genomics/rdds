@@ -31,7 +31,6 @@ def parse_vrs_explanations(explanation: str) -> dict:
     return explanation_dict
 
 
-@pt.mark.skip('Issue 201')
 def test_inference(work_dir):
     """
     Test for model inference.
