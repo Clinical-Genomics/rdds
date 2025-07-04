@@ -1,0 +1,219 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=MONOALLELIC,Description="Site represents one ALT allele in a region with multiple variants that could not be unified into non-overlapping multi-allelic sites">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype Likelihoods">
+##FORMAT=<ID=RNC,Number=2,Type=Character,Description="Reason for No Call in GT: . = n/a, M = Missing data, P = Partial data, I = gVCF input site is non-called, D = insufficient Depth of coverage, - = unrepresentable overlapping deletion, L = Lost/unrepresentable allele (other than deletion), U = multiple Unphased variants present, O = multiple Overlapping variants present, 1 = site is Monoallelic, no assertion about presence of REF or ALT allele">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency estimate for each alternate allele">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=AQ,Number=A,Type=Integer,Description="Allele Quality score reflecting evidence for each alternate allele (Phred scale)">
+##INFO=<ID=AZ,Number=1,Type=Flag,Description="Autozygous positon call">
+##INFO=<ID=AZLENGTH,Number=1,Type=String,Description="Autozygous region length">
+##INFO=<ID=AZMARKERS,Number=1,Type=String,Description="Autozygous region length">
+##INFO=<ID=AZQUAL,Number=1,Type=String,Description="Autozygous positon call quality">
+##INFO=<ID=AZTYPE,Number=1,Type=String,Description="Autozygous region type">
+##INFO=<ID=CADD,Number=1,Type=Float,Description="calculated by mean of overlapping values in column 6 from /home/proj/production/rare-disease/references/references_12.0/grch37_cadd_whole_genome_snvs_-v1.6-.tsv.gz">
+##INFO=<ID=CLINVAR,Number=.,Type=String,Description="/home/proj/production/rare-disease/references/references_12.0/grch37_clinvar_reformatted_-20241001-.vcf.gz">
+##INFO=<ID=CLINVAR_CLNREVSTAT,Number=.,Type=String,Description="CLNREVSTAT field from /home/proj/production/rare-disease/references/references_12.0/grch37_clinvar_reformatted_-20241001-.vcf.gz">
+##INFO=<ID=CLINVAR_CLNSIG,Number=.,Type=String,Description="CLNSIG field from /home/proj/production/rare-disease/references/references_12.0/grch37_clinvar_reformatted_-20241001-.vcf.gz">
+##INFO=<ID=CLINVAR_CLNVID,Number=.,Type=String,Description="CLNVID field from /home/proj/production/rare-disease/references/references_12.0/grch37_clinvar_reformatted_-20241001-.vcf.gz">
+##INFO=<ID=FOUND_IN,Number=1,Type=String,Description="Program that called the variant">
+##INFO=<ID=Frq,Number=1,Type=Float,Description="Observation frequency of the variant (not allele frequency) (from /home/proj/production/rare-disease/references/references_12.0/grch37_loqusdb_snv_indel_variants_export-20241004-.vcf.gz)">
+##INFO=<ID=GNOMADAF,Number=A,Type=Float,Description="Alternate allele frequency in samples (from /home/proj/production/rare-disease/references/references_12.0/grch37_gnomad_reformated_-r2.1.1-.vcf.gz)">
+##INFO=<ID=GNOMADAF_popmax,Number=A,Type=Float,Description="Maximum allele frequency across populations (excluding samples of Ashkenazi, Finnish, and indeterminate ancestry) (from /home/proj/production/rare-disease/references/references_12.0/grch37_gnomad_reformated_-r2.1.1-.vcf.gz)">
+##INFO=<ID=GNOMAD_MTAF_het,Number=1,Type=Float,Description="Allele frequency restricted to variants with a heteroplasmy level >= 0.10 and < 0.95 (from /home/proj/production/rare-disease/references/references_12.0/grch37_gnomad_genomes_mt_-r3.1-.vcf.gz)">
+##INFO=<ID=GNOMAD_MTAF_hom,Number=1,Type=Float,Description="Allele frequency restricted to variants with a heteroplasmy level >= 0.95 (from /home/proj/production/rare-disease/references/references_12.0/grch37_gnomad_genomes_mt_-r3.1-.vcf.gz)">
+##INFO=<ID=HW,Number=1,Type=Flag,Description="Hardy-Weinberg equilibrium (non-autozyous) positon call">
+##INFO=<ID=Hom,Number=1,Type=Integer,Description="The number of observed homozygotes (from /home/proj/production/rare-disease/references/references_12.0/grch37_loqusdb_snv_indel_variants_export-20241004-.vcf.gz)">
+##INFO=<ID=MTAF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed (from /home/proj/production/rare-disease/references/references_12.0/grch37_genbank_haplogroup_-2015-08-01-.vcf.gz)">
+##INFO=<ID=Obs,Number=1,Type=Integer,Description="The number of observations for the variant (from /home/proj/production/rare-disease/references/references_12.0/grch37_loqusdb_snv_indel_variants_export-20241004-.vcf.gz)">
+##INFO=<ID=SPIDEX,Number=1,Type=Float,Description="calculated by mean of overlapping values in column 6 from /home/proj/production/rare-disease/references/references_12.0/grch37_spidex_public_noncommercial_-v1.1-.tsv.gz">
+##INFO=<ID=SWEGENAAC_Hemi,Number=A,Type=Integer,Description="Allele counts in hemizygous genotypes (from /home/proj/production/rare-disease/references/references_12.0/grch37_anon-swegen_str_nsphs_-1000samples-.vcf.gz)">
+##INFO=<ID=SWEGENAAC_Het,Number=A,Type=Integer,Description="Allele counts in heterozygous genotypes (from /home/proj/production/rare-disease/references/references_12.0/grch37_anon-swegen_str_nsphs_-1000samples-.vcf.gz)">
+##INFO=<ID=SWEGENAAC_Hom,Number=A,Type=Integer,Description="Allele counts in homozygous genotypes (from /home/proj/production/rare-disease/references/references_12.0/grch37_anon-swegen_str_nsphs_-1000samples-.vcf.gz)">
+##INFO=<ID=SWEGENAF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed (from /home/proj/production/rare-disease/references/references_12.0/grch37_anon-swegen_str_nsphs_-1000samples-.vcf.gz)">
+##INFO=<ID=genomic_superdups_frac_match,Number=.,Type=String,Description="/home/proj/production/rare-disease/references/references_12.0/grch37_genomic_superdups_reformated_-20181009-.bed.gz">
+##INFO=<ID=mitotip_score,Number=1,Type=Float,Description="MitoTip raw score (from /home/proj/production/rare-disease/references/references_12.0/grch37_gnomad_genomes_mt_-r3.1-.vcf.gz)">
+##INFO=<ID=mitotip_trna_prediction,Number=1,Type=String,Description="MitoTip score interpretation (from /home/proj/production/rare-disease/references/references_12.0/grch37_gnomad_genomes_mt_-r3.1-.vcf.gz)">
+##INFO=<ID=most_severe_consequence,Number=.,Type=String,Description="Most severe genomic consequence.">
+##INFO=<ID=1KGenomesHeteroplasmy,Number=A,Type=String,Description="The variant was found as heteroplasmic in 1KGenomes datasets (Y=yes,N=no)">
+##INFO=<ID=1KGenomesHomoplasmy,Number=A,Type=String,Description="The variant was found as homoplasmic in 1KGenomes datasets (Y=yes,N=no)">
+##INFO=<ID=AaChange,Number=A,Type=String,Description="Aminoacidic change determined">
+##INFO=<ID=AaVarH,Number=A,Type=String,Description="Aminoacid variability of the position in healthy individuals">
+##INFO=<ID=AaVarP,Number=A,Type=String,Description="Aminoacid variability of the position in patient individuals">
+##INFO=<ID=AlleleFreqH,Number=A,Type=String,Description="Allele frequency of the variant in healthy individuals overall">
+##INFO=<ID=AlleleFreqH_AF,Number=A,Type=String,Description="Allele frequency of the variant in healthy individuals from Africa">
+##INFO=<ID=AlleleFreqH_AM,Number=A,Type=String,Description="Allele frequency of the variant in healthy individuals from America">
+##INFO=<ID=AlleleFreqH_AS,Number=A,Type=String,Description="Allele frequency of the variant in healthy individuals from Asia">
+##INFO=<ID=AlleleFreqH_EU,Number=A,Type=String,Description="Allele frequency of the variant in healthy individuals from Europe">
+##INFO=<ID=AlleleFreqH_OC,Number=A,Type=String,Description="Allele frequency of the variant in healthy individuals from Oceania">
+##INFO=<ID=AlleleFreqP,Number=A,Type=String,Description="Allele frequency of the variant in patient individuals overall">
+##INFO=<ID=AlleleFreqP_AF,Number=A,Type=String,Description="Allele frequency of the variant in patient individuals from Africa">
+##INFO=<ID=AlleleFreqP_AM,Number=A,Type=String,Description="Allele frequency of the variant in patient individuals from America">
+##INFO=<ID=AlleleFreqP_AS,Number=A,Type=String,Description="Allele frequency of the variant in patient individuals from Asia">
+##INFO=<ID=AlleleFreqP_EU,Number=A,Type=String,Description="Allele frequency of the variant in patient individuals from Europe">
+##INFO=<ID=AlleleFreqP_OC,Number=A,Type=String,Description="Allele frequency of the variant in patient individuals from Oceania">
+##INFO=<ID=Clinvar,Number=A,Type=String,Description="Clinvar ID of the variant">
+##INFO=<ID=DiseaseScore,Number=A,Type=String,Description="Disease score calculated by HmtVar">
+##INFO=<ID=HmtVar,Number=A,Type=String,Description="HmtVar ID of the variant (can be used to view the related VariantCard on https://www.hmtvar.uniba.it/varCard/<HmtVarID>)">
+##INFO=<ID=Locus,Number=A,Type=String,Description="Locus to which the variant belongs">
+##INFO=<ID=MitomapAssociatedDiseases,Number=A,Type=String,Description="Diseases associated to the variant according to Mitomap">
+##INFO=<ID=MitomapHeteroplasmy,Number=A,Type=String,Description="The variant was found as heteroplasmic in Mitomap datasets (Y=yes,N=no)">
+##INFO=<ID=MitomapHomoplasmy,Number=A,Type=String,Description="The variant was found as homoplasmic in Mitomap datasets (Y=yes,N=no)">
+##INFO=<ID=MitomapSomaticMutations,Number=A,Type=String,Description="Diseases associated to the variant according to Mitomap Somatic Mutations">
+##INFO=<ID=MutPred_Prediction,Number=A,Type=String,Description="Pathogenicity prediction offered by MutPred">
+##INFO=<ID=MutPred_Probability,Number=A,Type=String,Description="Confidence of the pathogenicity prediction offered by MutPred">
+##INFO=<ID=NtVarH,Number=A,Type=String,Description="Nucleotide variability of the position in healthy individuals">
+##INFO=<ID=NtVarP,Number=A,Type=String,Description="Nucleotide variability of the position in patient individuals">
+##INFO=<ID=OMIM,Number=A,Type=String,Description="OMIM ID of the variant">
+##INFO=<ID=Panther_Prediction,Number=A,Type=String,Description="Pathogenicity prediction offered by Panther">
+##INFO=<ID=Panther_Probability,Number=A,Type=String,Description="Confidence of the pathogenicity prediction offered by Panther">
+##INFO=<ID=Pathogenicity,Number=A,Type=String,Description="Pathogenicity predicted by HmtVar">
+##INFO=<ID=PhDSNP_Prediction,Number=A,Type=String,Description="Pathogenicity prediction offered by PhD SNP">
+##INFO=<ID=PhDSNP_Probability,Number=A,Type=String,Description="Confidence of the pathogenicity prediction offered by PhD SNP">
+##INFO=<ID=Polyphen2HumDiv_Prediction,Number=A,Type=String,Description="Pathogenicity prediction offered by Polyphen2 HumDiv">
+##INFO=<ID=Polyphen2HumDiv_Probability,Number=A,Type=String,Description="Confidence of the pathogenicity prediction offered by Polyphen2 HumDiv">
+##INFO=<ID=Polyphen2HumVar_Prediction,Number=A,Type=String,Description="Pathogenicity prediction offered by Polyphen2 HumVar">
+##INFO=<ID=Polyphen2HumVar_Probability,Number=A,Type=String,Description="Confidence of the pathogenicity prediction offered by Polyphen2 HumVar">
+##INFO=<ID=SNPsGO_Prediction,Number=A,Type=String,Description="Pathogenicity prediction offered by SNPs & GO">
+##INFO=<ID=SNPsGO_Probability,Number=A,Type=String,Description="Confidence of the pathogenicity prediction offered by SNPs & GO">
+##INFO=<ID=SomaticMutationsHeteroplasmy,Number=A,Type=String,Description="The variant was found as heteroplasmic in Mitomap Somatic Mutations datasets (Y=yes,N=no)">
+##INFO=<ID=SomaticMutationsHomoplasmy,Number=A,Type=String,Description="The variant was found as homoplasmic in Mitomap Somatic Mutations datasets (Y=yes,N=no)">
+##INFO=<ID=dbSNP,Number=A,Type=String,Description="dbSNP ID of the variant">
+##INFO=<ID=VrsModelPrediction,Number=1,Type=Float,Description="Rank score from VRS model (5 points precision)">
+##INFO=<ID=VrsModelExplanation,Number=.,Type=String,Description="List of annotation impact scores on VrsModelPrediction (2 points precision)">
+##INFO=<ID=Annotation,Number=.,Type=String,Description="Annotates what feature(s) this variant belongs to.">
+##INFO=<ID=GeneticModels,Number=.,Type=String,Description="':'-separated list of genetic models for this variant.">
+##INFO=<ID=ModelScore,Number=.,Type=String,Description="PHRED score for genotype models.">
+##INFO=<ID=Compounds,Number=.,Type=String,Description="List of compound pairs for this variant.The list is splitted on ',' family id is separated with compoundswith ':'. Compounds are separated with '|'.">
+##INFO=<ID=RankScore,Number=.,Type=String,Description="The rank score for this variant in this family. family_id:rank_score.">
+##INFO=<ID=RankScoreNormalized,Number=.,Type=String,Description="The normalized rank score in range(0, 1) for this variant in this family. family_id:rank_score.">
+##INFO=<ID=RankScoreMinMax,Number=.,Type=String,Description="The rank score MIN-MAX bounds. family_id:min:max.">
+##INFO=<ID=RankResult,Number=.,Type=String,Description="allele_frequency|inheritance_models|variant_call_quality_filter">
+##contig=<ID=1,length=249250621>
+##contig=<ID=2,length=243199373>
+##contig=<ID=3,length=198022430>
+##contig=<ID=4,length=191154276>
+##contig=<ID=5,length=180915260>
+##contig=<ID=6,length=171115067>
+##contig=<ID=7,length=159138663>
+##contig=<ID=8,length=146364022>
+##contig=<ID=9,length=141213431>
+##contig=<ID=10,length=135534747>
+##contig=<ID=11,length=135006516>
+##contig=<ID=12,length=133851895>
+##contig=<ID=13,length=115169878>
+##contig=<ID=14,length=107349540>
+##contig=<ID=15,length=102531392>
+##contig=<ID=16,length=90354753>
+##contig=<ID=17,length=81195210>
+##contig=<ID=18,length=78077248>
+##contig=<ID=19,length=59128983>
+##contig=<ID=20,length=63025520>
+##contig=<ID=21,length=48129895>
+##contig=<ID=22,length=51304566>
+##contig=<ID=X,length=155270560>
+##contig=<ID=Y,length=59373566>
+##contig=<ID=MT,length=16569>
+##contig=<ID=GL000207.1,length=4262>
+##contig=<ID=GL000226.1,length=15008>
+##contig=<ID=GL000229.1,length=19913>
+##contig=<ID=GL000231.1,length=27386>
+##contig=<ID=GL000210.1,length=27682>
+##contig=<ID=GL000239.1,length=33824>
+##contig=<ID=GL000235.1,length=34474>
+##contig=<ID=GL000201.1,length=36148>
+##contig=<ID=GL000247.1,length=36422>
+##contig=<ID=GL000245.1,length=36651>
+##contig=<ID=GL000197.1,length=37175>
+##contig=<ID=GL000203.1,length=37498>
+##contig=<ID=GL000246.1,length=38154>
+##contig=<ID=GL000249.1,length=38502>
+##contig=<ID=GL000196.1,length=38914>
+##contig=<ID=GL000248.1,length=39786>
+##contig=<ID=GL000244.1,length=39929>
+##contig=<ID=GL000238.1,length=39939>
+##contig=<ID=GL000202.1,length=40103>
+##contig=<ID=GL000234.1,length=40531>
+##contig=<ID=GL000232.1,length=40652>
+##contig=<ID=GL000206.1,length=41001>
+##contig=<ID=GL000240.1,length=41933>
+##contig=<ID=GL000236.1,length=41934>
+##contig=<ID=GL000241.1,length=42152>
+##contig=<ID=GL000243.1,length=43341>
+##contig=<ID=GL000242.1,length=43523>
+##contig=<ID=GL000230.1,length=43691>
+##contig=<ID=GL000237.1,length=45867>
+##contig=<ID=GL000233.1,length=45941>
+##contig=<ID=GL000204.1,length=81310>
+##contig=<ID=GL000198.1,length=90085>
+##contig=<ID=GL000208.1,length=92689>
+##contig=<ID=GL000191.1,length=106433>
+##contig=<ID=GL000227.1,length=128374>
+##contig=<ID=GL000228.1,length=129120>
+##contig=<ID=GL000214.1,length=137718>
+##contig=<ID=GL000221.1,length=155397>
+##contig=<ID=GL000209.1,length=159169>
+##contig=<ID=GL000218.1,length=161147>
+##contig=<ID=GL000220.1,length=161802>
+##contig=<ID=GL000213.1,length=164239>
+##contig=<ID=GL000211.1,length=166566>
+##contig=<ID=GL000199.1,length=169874>
+##contig=<ID=GL000217.1,length=172149>
+##contig=<ID=GL000216.1,length=172294>
+##contig=<ID=GL000215.1,length=172545>
+##contig=<ID=GL000205.1,length=174588>
+##contig=<ID=GL000219.1,length=179198>
+##contig=<ID=GL000224.1,length=179693>
+##contig=<ID=GL000223.1,length=180455>
+##contig=<ID=GL000195.1,length=182896>
+##contig=<ID=GL000212.1,length=186858>
+##contig=<ID=GL000222.1,length=186861>
+##contig=<ID=GL000200.1,length=187035>
+##contig=<ID=GL000193.1,length=189789>
+##contig=<ID=GL000194.1,length=191469>
+##contig=<ID=GL000225.1,length=211173>
+##contig=<ID=GL000192.1,length=547496>
+##contig=<ID=NC_007605,length=171823>
+##contig=<ID=hs37d5,length=35477943>
+##SpliceAI_pred_DP_AG=SpliceAI predicted effect on splicing. Delta position for acceptor gain
+##SpliceAI_pred_DP_AL=SpliceAI predicted effect on splicing. Delta position for acceptor loss
+##SpliceAI_pred_DP_DG=SpliceAI predicted effect on splicing. Delta position for donor gain
+##SpliceAI_pred_DP_DL=SpliceAI predicted effect on splicing. Delta position for donor loss
+##SpliceAI_pred_DS_AG=SpliceAI predicted effect on splicing. Delta score for acceptor gain
+##SpliceAI_pred_DS_AL=SpliceAI predicted effect on splicing. Delta score for acceptor loss
+##SpliceAI_pred_DS_DG=SpliceAI predicted effect on splicing. Delta score for donor gain
+##SpliceAI_pred_DS_DL=SpliceAI predicted effect on splicing. Delta score for donor loss
+##SpliceAI_pred_SYMBOL=SpliceAI gene symbol
+##MES-NCSS_downstream_acceptor=Nearest downstream canonical splice acceptor sequence score
+##MES-NCSS_downstream_donor=Nearest downstream canonical splice donor sequence score
+##MES-NCSS_upstream_acceptor=Nearest upstream canonical splice acceptor sequence score
+##MES-NCSS_upstream_donor=Nearest upstream canonical splice donor sequence score
+##MES-SWA_acceptor_alt=Highest splice acceptor alternate sequence score
+##MES-SWA_acceptor_diff=Difference between the acceptor reference comparison and alternate sequence scores
+##MES-SWA_acceptor_ref=Highest splice acceptor reference sequence score
+##MES-SWA_acceptor_ref_comp=Acceptor reference comparison sequence score
+##MES-SWA_donor_alt=Highest splice donor alternate sequence score
+##MES-SWA_donor_diff=Difference between the donor reference comparison and alternate sequence scores
+##MES-SWA_donor_ref=Highest splice donor reference sequence score
+##MES-SWA_donor_ref_comp=Donor reference comparison sequence score
+##MaxEntScan_alt=MaxEntScan alternate sequence score
+##MaxEntScan_diff=MaxEntScan score difference
+##MaxEntScan_ref=MaxEntScan reference sequence score
+##pLI_gene_value=pLI value by gene
+##GERP++_NR=GERP++_NR from dbNSFP file
+##GERP++_RS=GERP++_RS from dbNSFP file
+##REVEL_rankscore=REVEL_rankscore from dbNSFP file
+##REVEL_score=REVEL_score from dbNSFP file
+##phastCons100way_vertebrate=phastCons100way_vertebrate from dbNSFP file
+##phyloP100way_vertebrate=phyloP100way_vertebrate from dbNSFP file
+##rs_dbSNP150=rs_dbSNP150 from dbNSFP file
+##LoFtool=LoFtool score for gene
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLENAME
+1	2	1_C_A	C	A	68	.	VrsModelPrediction=0.98754;RankScore=casename:8.0;RankScoreNormalized=casename:1.0;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|3	GT:DP:AD:GQ:PL:RNC	0/1:32:13,18:67:68,0,76:..
+1	3	1_3_AG_A	AG	A	40	.	VrsModelPrediction=0.00123;RankScore=casename:6.0;RankScoreNormalized=casename:0.9459459459459459;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|1	GT:DP:AD:GQ:PL:RNC	1/1:16:3,13:18:40,17,0:..
+1	4	1_4_C_G	C	G	49	.	VrsModelPrediction=1.00000;RankScore=casename:8.0;RankScoreNormalized=casename:1.0;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|3	GT:DP:AD:GQ:PL:RNC	0/1:12:5,7:49:49,0,60:..
