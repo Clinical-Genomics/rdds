@@ -177,7 +177,8 @@ test-%:
 	cd /rdds/src/tests && \
 	python3 -m pytest -v -x lib && \
 	python3 -m pytest -v -x exploration_rankscore && \
-	python3 -m pytest -v -x variant_rank_score"
+	python3 -m pytest -v -x variant_rank_score && \
+	python3 -m pytest -v -x gicam"
 
 test-mivmir-inference-cli:
 	$(DOCKER) run \
