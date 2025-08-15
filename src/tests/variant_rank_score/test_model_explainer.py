@@ -3,13 +3,15 @@ import numpy as np
 import pandas as pd
 import os
 import tensorflow as tf
-from typing import List
+from typing import List, Dict
 import gc
 
 from rdds.variant_rank_score.model.model_explainer import ModelExplainer
 # For usage of LABEL_BENIGN_VARIANT, see generate_labels()
 from rdds.variant_rank_score.dataset.class_labels import LABEL_BENIGN_VARIANT
 
+class DummyTensorSpec:
+    pass
 
 class DummyKerasModel:
 
@@ -17,11 +19,13 @@ class DummyKerasModel:
     Test class to mimic TF Keras Model API.
     """
 
-    def __call__(self, tensors: List[tf.Tensor]) -> np.ndarray:
+    def __call__(self, tensors: Dict[str, tf.Tensor]) -> np.ndarray:
         """
         Return faked predictions as 1D array with size equal to batch dimension
         """
-        batch_dim = tensors[0].shape[0]
+        # Deduce batch (outermost) dimension
+        name = list(tensors.keys())[0]
+        batch_dim = tensors[name].shape[0]
         return np.ones(batch_dim)
 
 
@@ -34,13 +38,15 @@ def dataset() -> tf.data.Dataset:  # ((text_tensor, num_tensor), (labels, ))
         'n1': np.random.random(10)
     })
 
-    dataset = tf.data.Dataset.from_tensors((df[['t0', 't1']].values, df[['n0', 'n1']].values))
+    dataset = tf.data.Dataset.from_tensors((df.t0.values,
+                                           df.t1.values,
+                                           df.n0.values,
+                                           df.n1.values))
     dataset = dataset.unbatch()
 
     @tf.function
-    def generate_labels(t0, t1):
-        # [benign_class, pathogenic_class], below is considered LABEL_BENIGN_VARIANT
-        return (t0, t1), (tf.constant([1.0, 0.0]), )
+    def generate_labels(t0, t1, n0, n1):
+        return (t0, t1, n0, n1), (tf.constant([LABEL_BENIGN_VARIANT]), )
 
     dataset = dataset.map(generate_labels)
     dataset = dataset.batch(5)
@@ -51,15 +57,24 @@ def test_save_load(work_dir, dataset: tf.data.Dataset):
     """
     Test for saving and loading ModelExplainer with a pre-initialized Keras Model.
     """
-    features_text = ['t0', 't1']
-    features_numerical = ['n0', 'n1']
     all_features = ['t0', 't1', 'n0', 'n1']
+
+    input_tensor_spec = []
+    for name in all_features:
+        dummy_tensor_spec = DummyTensorSpec()
+        dummy_tensor_spec.name = name
+        if 't' in name:
+            dummy_tensor_spec.dtype = tf.string
+        elif 'n' in name:
+            dummy_tensor_spec.dtype = tf.float32
+        else:
+            raise ValueError(name)
+        input_tensor_spec.append(dummy_tensor_spec)
+
     # GIVEN a keras model
     dummy_model = DummyKerasModel()
     model_explainer = ModelExplainer(model=dummy_model,
-                                     features_text=features_text,
-                                     features_numerical=features_numerical,
-                                     input_feature_names=all_features)
+                                     input_tensor_spec=input_tensor_spec)
     model_explainer.adapt(dataset=dataset,
                           n_reference_samples=10)
     file_path = os.path.join(work_dir, 'shap.model')
@@ -71,7 +86,6 @@ def test_save_load(work_dir, dataset: tf.data.Dataset):
     new_model = DummyKerasModel()
     model_explainer = ModelExplainer.from_saved_file(file_path=file_path,
                                                      keras_model=new_model,
-                                                     features_text=features_text,
-                                                     features_numerical=features_numerical)
+                                                     input_tensor_spec=input_tensor_spec)
     # THEN expect this model to be used
     assert hex(id(model_explainer.model.f._keras_model)) == hex(id(new_model))
