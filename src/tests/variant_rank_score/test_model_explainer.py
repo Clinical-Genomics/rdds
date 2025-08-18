@@ -6,6 +6,8 @@ import tensorflow as tf
 from typing import List, Dict
 import gc
 
+from rdds.lib.determinism import SEED
+
 from rdds.variant_rank_score.model.model_explainer import ModelExplainer
 # For usage of LABEL_BENIGN_VARIANT, see generate_labels()
 from rdds.variant_rank_score.dataset.class_labels import LABEL_BENIGN_VARIANT
@@ -89,3 +91,67 @@ def test_save_load(work_dir, dataset: tf.data.Dataset):
                                                      input_tensor_spec=input_tensor_spec)
     # THEN expect this model to be used
     assert hex(id(model_explainer.model.f._keras_model)) == hex(id(new_model))
+
+def test_reproducibility(dataset):
+    """
+    Given some inputs, see if the data is identical for one large batch
+    or multiple small batches.
+
+    Create a simple model that sums input data.
+    In this way, the data feature perturbation and inference averaging is tested.
+    """
+
+    def drop_features(x, labels):
+        (t0, t1, n0, n1) = x
+        return (n0, n1), labels
+
+    dataset = dataset.map(drop_features)
+
+    input_tensor_spec = []
+    for name in ['n0', 'n1']:
+        dummy_tensor_spec = DummyTensorSpec()
+        dummy_tensor_spec.name = name
+        if 't' in name:
+            dummy_tensor_spec.dtype = tf.string
+        elif 'n' in name:
+            dummy_tensor_spec.dtype = tf.float32
+        else:
+            raise ValueError(name)
+        input_tensor_spec.append(dummy_tensor_spec)
+
+    class Model:
+
+        def __call__(self, data: Dict[str, tf.Tensor]) -> np.ndarray:
+            y = data['n0'] + data['n1']
+            return y
+
+    model = Model()
+
+    model_explainer = ModelExplainer(model=model,
+                                     input_tensor_spec=input_tensor_spec)
+    model_explainer.adapt(dataset=dataset,
+                          n_reference_samples=10)
+
+    results = {}
+    epochs = 2
+    for epoch in range(0, epochs):
+        batches = []
+        for batch_idx, ((n0, n1), labels) in enumerate(dataset.as_numpy_iterator()):
+            X = np.concatenate((np.expand_dims(n0, 1),
+                                np.expand_dims(n1, 1)), axis=1)  # X: [bdim, 2]
+            explanation = model_explainer._explainer.shap_values(X=X, gc_collect=True)
+
+            batch = {'data': X, 'explanations': explanation}
+            batches.append(batch)
+        results.update({epoch: batches})
+
+    # Compare and check results
+    n_batches = len(results[0])
+    for batch_idx in range(0, n_batches):
+        for epoch in range(0, epochs):
+            ref = results[0][batch_idx]['explanations']
+            trgt = results[epoch][batch_idx]['explanations']
+            delta = np.subtract(trgt, ref)  # [bdim, 2]
+            errors = np.abs(delta)
+            is_no_error = np.isclose(errors, 0, atol=1E-2)
+            assert np.all(is_no_error)
