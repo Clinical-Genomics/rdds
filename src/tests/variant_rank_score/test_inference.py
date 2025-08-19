@@ -149,7 +149,7 @@ def test_inference(work_dir, n_cores):
                     for key in explanation_ref.keys():
                         assert isclose(explanation_ref[key],
                                        explanation[key],
-                                       atol=1E-2), (explanation, explanation_ref, variant.ID, variant_ref.ID)
+                                       atol=1E-2), (explanation, explanation_ref, variant.ID, variant_ref.ID, key)
                 is_checked = True
         assert is_checked, f'Variant {variant_ref} is missing in predicted VCF'
 
