@@ -69,6 +69,8 @@ def test_inference_single_vs_batch(work_dir):
     """
     Test to see that magnitude of data/ composition does not
     affect individual variant scoring.
+
+    This tests compare single execution scoring to batched scoring behavior.
     """
 
     # GIVEN some input data and model
@@ -88,7 +90,6 @@ def test_inference_single_vs_batch(work_dir):
         model = VariantRankScoreModel()
         model.load_saved_model()
         scores = None
-        # TODO: Assemble batch_variants randomly from parsed_variants
         for idx in range(0, len(parsed_variants), batch_size):
             batch_variants = parsed_variants[idx: idx + batch_size]
             score_batch = model.score_variant(variants=batch_variants)
@@ -153,17 +154,24 @@ def test_inference(work_dir, n_cores):
                 is_checked = True
         assert is_checked, f'Variant {variant_ref} is missing in predicted VCF'
 
+@pt.mark.parametrize('ignore_clinvar_uncertain_conflicting_annotations', [True, False])
+@pt.mark.parametrize('explain_variant_score_threshold', [0.9, 1.0])
 @pt.mark.parametrize('shuffle_batch', [False, True])
-def test_inference_batch_composition(shuffle_batch):
+def test_inference_batch_composition(ignore_clinvar_uncertain_conflicting_annotations,
+                                     explain_variant_score_threshold,
+                                     shuffle_batch):
+    """
+    Test for deterministic inference behavior across shuffled batches.
+    """
     from rdds.variant_rank_score.model import VariantRankScoreModel
     from random import shuffle
-    import gc
+
     vcf_reader = VCFReader(TEST_DATA_PATH)
     variants = list(vcf_reader)
 
     n_batches = 5
 
-    # Create random batches
+    # GIVEN some (potentially shuffled) batches
     indexes = []
     for _ in range(0, n_batches):
         idx = list(range(0, vcf_reader.number_of_variants))
@@ -171,28 +179,27 @@ def test_inference_batch_composition(shuffle_batch):
             shuffle(idx)
         indexes.append(idx)
 
+    # WHEN scoring the variants
     results = []
-
     for index in indexes:
         # Create a batch
         variants_subset = []
         for i in index:
-            parsed_variant = ParsableVariant(variants[i])
+            parsed_variant = ParsableVariant(variant=variants[i],
+                                             vep_csq_description=vcf_reader.csq_description)
             variants_subset.append(parsed_variant)
-        # THEN expect variant scoring to behave identically if recomputed
         model = VariantRankScoreModel()
         model.load_saved_model()
-        iter_prediction_df = model.score_variant(variants=variants_subset)
+        iter_prediction_df = model.score_variant(variants=variants_subset,
+                                                 explain_variant_score_threshold=explain_variant_score_threshold,
+                                                 ignore_clinvar_uncertain_conflicting_annotations=ignore_clinvar_uncertain_conflicting_annotations)
         # Append the IDs to the DF
         variant_ids = [variant.ID for variant in variants_subset]
         iter_prediction_df['ID'] = variant_ids
         iter_prediction_df.set_index('ID', inplace=True)
-        #pd.set_option('display.max_columns', None)
-        #pd.set_option('display.max_colwidth', 800)
-        #print(iter_prediction_df)
         results.append(iter_prediction_df)
 
-    # Compare and check results
+    # THEN expect variant scoring to behave identically across all batches
     ref = results[0]
     for result in results:
         for column in ref.columns:
@@ -201,36 +208,3 @@ def test_inference_batch_composition(shuffle_batch):
             err = np.sum(np.abs(d.values))
             assert np.isclose(err, 0.0, atol=1E-3), (column, d)
 
-@pt.mark.parametrize('ignore_clinvar_uncertain_conflicting_annotations', [True, False])
-@pt.mark.parametrize('explain_variant_score_threshold', [0.9, 1.0])
-def test_inference_reproducibility(ignore_clinvar_uncertain_conflicting_annotations,
-                                   explain_variant_score_threshold):
-    """
-    Run inference 10 times per variant, to check inference reproducibility.
-
-    Disable model explanation step since it's too computationally expensive.
-    """
-    from rdds.variant_rank_score.model import VariantRankScoreModel
-    import gc
-
-    # GIVEN a model
-    # WHEN computing inferences
-    vcf_reader = VCFReader(TEST_DATA_PATH)
-    for variant in vcf_reader:
-        parsed_variant = ParsableVariant(variant)
-        reference_score: float = None
-        # THEN expect variant scoring to behave identically if recomputed
-        for _ in range(0, 5):
-            model = VariantRankScoreModel()
-            model.load_saved_model()
-            iter_prediction_df = model.score_variant(variants=[parsed_variant],
-                                                     explain_variant_score_threshold=explain_variant_score_threshold,
-                                                     ignore_clinvar_uncertain_conflicting_annotations=ignore_clinvar_uncertain_conflicting_annotations
-                                                     )
-            pathogenicity_score = iter_prediction_df.pathogenicity_score.values[0]
-            if reference_score is None:
-                reference_score = pathogenicity_score
-            assert isclose(reference_score, pathogenicity_score, atol=1E-6)
-            del model
-            gc.collect()
-    vcf_reader.close()
