@@ -4,6 +4,8 @@ import pickle
 from typing import Dict
 import inspect
 
+from rdds.lib.determinism.determinism import _enable_numpy_legacy_determinism, SEED
+
 
 class ShapKernel(shap.KernelExplainer):
 
@@ -32,6 +34,21 @@ class ShapKernel(shap.KernelExplainer):
         with Serializer(out_file, "ShapKernel", version=0) as s:
             # Save the data object in KernelExplainer
             s.save("data", self.data, self._data_saver)
+
+    def explain(self, *args, seed: int = SEED, **kwargs):
+        """
+        Wrap parent explain() method to introduce determinism.
+        By resetting numpy random number generator prior computing shap values
+        for every sample in an input batch in the shap_value() method,
+        identical backgrounds are sampled every time by the masking method.
+        If not, the background will be different every time explain() is called,
+        which will cause a shuffled input batch to behave differently compared
+        to the non-shuffled input batch.
+
+        :param seed: Random seed
+        """
+        _enable_numpy_legacy_determinism(seed=seed)
+        return super().explain(*args, **kwargs)
 
     @classmethod
     def _instantiated_load(cls, in_file, **kwargs):
