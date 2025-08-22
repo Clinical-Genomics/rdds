@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from numpy import isclose, sum
 import pytest as pt
+from datetime import datetime, timedelta
 
 from rdds.lib.vcf import VCFReader, ParsableVariant
 from rdds.variant_rank_score.model import VariantRankScoreModel
@@ -120,7 +121,13 @@ def test_inference(work_dir, n_cores):
     test_data_path = os.path.join(work_dir, test_data_path)
     shutil.copyfile(TEST_DATA_PATH, test_data_path)
     # WHEN running inference
+    t_start = datetime.now()
     sp.check_call(f'python3 -m rdds.variant_rank_score predict-on-vcf --cpu_cores {n_cores} {test_data_path}', shell=True, stderr=sp.STDOUT)
+    t_stop = datetime.now()
+    duration = t_stop - t_start
+    # THEN expect inference to complete within reasonable time (1core 20s, 10 cores 13s, ...) locally.
+    # On github workers, performance is bad so account for this.
+    assert duration <= timedelta(seconds=60), f"Inference took too long: {duration}"
     model_output_file = test_data_path.replace('.vcf', '-predictions.vcf')
     # THEN expect that for every variant, the inference behavior is unchanged
     vcf_reader = VCFReader(model_output_file)
