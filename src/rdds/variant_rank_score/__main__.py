@@ -183,6 +183,24 @@ def view_ranked_vcf(args):
                                case_names=case_names)
 subparser.set_defaults(func=view_ranked_vcf)
 
+subparser = subparsers.add_parser('analyze-mivmir-nextflow-dataset',
+                                  help='Visualize ranked variants in CSV provided by NEXTFLOW - MIVMIR pipeline')
+subparser.add_argument('mivmir_scores_csv',
+                       help='Path to CSV to analyze containing MIVMIR scores')
+subparser.add_argument('default_genmod_csv',
+                       help='Path to CSV to analyze containing genmod default scores')
+subparser.add_argument('case_id_to_name_map',
+                       help='Path to CSV containing caseID -> caseName mappings')
+subparser.add_argument('--output_file_path',
+                       default=os.path.join(WORKDIR, 'mivmir-nextflow.hd5'),
+                       help='Output file path')
+def analyze_nextflow_mivmir_dataset(args):
+    from .inference_exploration.mivmir_nextflow import build_analyze_mivmir_nextflow_dataset
+    build_analyze_mivmir_nextflow_dataset(mivmir_scores_csv=args.mivmir_scores_csv,
+                                          default_genmod_csv=args.default_genmod_csv,
+                                          case_id_to_name_map=args.case_id_to_name_map,
+                                          output_file_path=args.output_file_path)
+subparser.set_defaults(func=analyze_nextflow_mivmir_dataset)
 
 subparser = subparsers.add_parser('pipeline-performance-test', help='Profile data pipeline and view results in Tensorboard')
 subparser.add_argument('hd5', help='Path to .hd5 file to be used as training, validation data')
