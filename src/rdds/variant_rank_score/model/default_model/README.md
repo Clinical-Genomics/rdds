@@ -42,6 +42,9 @@ See currently in-use checkpoint in `training/checkpoint`.
 Update the `checkpoint` file to point to the
 epoch of the best model saved in the archive.
 
+### Add Validation Output
+Like performance metrics, images etc to support validity.
+
 ### Update the `default_model/__init__.py`
 Update the version and paths in the `__init__.py` to correspond to the
 new model added.
