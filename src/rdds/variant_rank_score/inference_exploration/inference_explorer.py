@@ -1,12 +1,9 @@
-import copy
 import os
-import numpy as np
 from h5py import File as Hdf5File, string_dtype
-from typing import Set, Dict, Any, List, Tuple
+from typing import Set, Dict, Any
 import seaborn as sb
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn import metrics as sklearn_metrics
 from enum import Enum
 import gc
 
@@ -14,6 +11,7 @@ from ..dataset.class_labels import LABEL_PATHOGENIC_VARIANT, LABEL_BENIGN_VARIAN
 from .. import WORKDIR
 from rdds.lib.logging import get_logger
 from rdds.lib.list_dir import list_dir
+import rdds.variant_rank_score.inference_exploration.statfns as statfns
 
 _LOGGER = get_logger(name='inference_explorer',
                      log_level='debug')
@@ -102,23 +100,6 @@ class InferenceExplorer:
         return dataframes
 
     @staticmethod
-    def _discretize_predictions(predictions: np.ndarray,
-                                threshold: float) -> np.ndarray:
-        """
-        Convert floating point predictions into binary labels by applying a threshold.
-        :param predictions: Array containing floating point predictions
-        :param threshold: The threshold used for converting floating point threshold to
-        :return: Converted predictions array
-        """
-        predictions = copy.deepcopy(predictions)
-        for i in range(0, len(predictions)):
-            if predictions[i] >= threshold:
-                predictions[i] = 1.0
-            else:
-                predictions[i] = 0.0
-        return predictions
-
-    @staticmethod
     def _compute_inference_label_class(prediction: int,
                                        label: int) -> str:
         """
@@ -144,107 +125,14 @@ class InferenceExplorer:
         else:
             raise ValueError(f'Unknown label {label}')
 
-    @staticmethod
-    def _fnr_score(predictions: np.ndarray,
-                   labels: np.ndarray) -> float:
-        """
-        Compute False Negative Rate (FNR)
-        :param predictions: Model inferences (discretized)
-        :param labels: Ground truth
-        :return: FNR score
-        """
-        tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_true=labels,
-                                                          y_pred=predictions).ravel()
-        n_positives = 0
-        for label in labels:
-            if label == LABEL_PATHOGENIC_VARIANT:
-                n_positives += 1
-        if n_positives == 0:
-            raise ValueError(f'Cannot compute FNR since no PATHOGENIC samples in data')
-        return float(fn) / float(n_positives)
-
     def _plot_scores_vs_threshold(self):
         for group_name in self._data.keys():
-            f1_scores = []
-            precision_scores = []
-            recall_scores = []
-            fnr_scores = []
-            balanced_accuracy_scores = []
-            mcc_scores = []
-            thresholds = []
-            for threshold in np.linspace(start=0, stop=1.0, num=50):
-                thresholds.append(threshold)
-                predictions = self._discretize_predictions(self._data[group_name][self._inferences_column_name].values,
-                                                           threshold=threshold)
-                labels = self._data[group_name][self._ground_truth_column_name].values
-                f_score = sklearn_metrics.f1_score(y_true=labels,
-                                                   y_pred=predictions,
-                                                   pos_label=LABEL_PATHOGENIC_VARIANT)
-                precision_score = sklearn_metrics.precision_score(y_true=labels,
-                                                                  y_pred=predictions,
-                                                                  pos_label=LABEL_PATHOGENIC_VARIANT)
-                recall_score = sklearn_metrics.recall_score(y_true=labels,
-                                                            y_pred=predictions,
-                                                            pos_label=LABEL_PATHOGENIC_VARIANT)
-                fnr_score = self._fnr_score(labels=labels,
-                                            predictions=predictions)
-                bacc = sklearn_metrics.balanced_accuracy_score(y_true=labels,
-                                                               y_pred=predictions,
-                                                               adjusted=False)  # No need to scale to 1/n classes
-                mcc_score = sklearn_metrics.matthews_corrcoef(y_true=labels,
-                                                              y_pred=predictions)
-                f1_scores.append(f_score)
-                precision_scores.append(precision_score)
-                recall_scores.append(recall_score)
-                fnr_scores.append(fnr_score)
-                balanced_accuracy_scores.append(bacc)
-                mcc_scores.append(mcc_score)
-                gc.collect()
-
-            def max_at_threshold(scores: list,
-                                 thresholds: list) -> str:
-                idx = np.argmax(scores)
-                return f'(max={scores[idx]:.4f}@{thresholds[idx]:.4f})'
-
-            def min_at_threshold(scores: list,
-                                 thresholds: list) -> str:
-                idx = np.argmin(scores)
-                return f'(min={scores[idx]:.4f}@{thresholds[idx]:.4f})'
-
-            fig: plt.Figure = plt.figure(figsize=FIGSIZE)
-            ax: plt.Axes = fig.add_subplot()
-            ax.grid(True)
-            ax.plot(thresholds, f1_scores, marker='.')
-            ax.plot(thresholds, recall_scores, marker='.')
-            ax.plot(thresholds, precision_scores, marker='.')
-            ax.plot(thresholds, fnr_scores, marker='.')
-            ax.plot(thresholds, balanced_accuracy_scores, marker='.')
-            ax.legend([f'F1 {max_at_threshold(f1_scores, thresholds)}',
-                       f'Recall (sensitivity) {max_at_threshold(recall_scores, thresholds)}',
-                       f'Precision {max_at_threshold(precision_scores, thresholds)}',
-                       f'False Negative Rate (FNR) {min_at_threshold(fnr_scores, thresholds)}',
-                       f'Balanced Accuracy (BA) {max_at_threshold(balanced_accuracy_scores, thresholds)}'])
-            ax.set_xlabel('Threshold')
-            ax.set_ylabel('Score [F1, Recall, Precision, FNR, BA]')
-            ax = ax.twinx()
-            ax.set_ylabel('MCC')
-            ax.plot(thresholds, mcc_scores, marker='o')
-            ax.legend([f'MCC {max_at_threshold(mcc_scores, thresholds)}'])
-            fig.suptitle('Performance scores vs discretization thresholds')
-            fig.tight_layout()
-            fig.savefig(os.path.join(self._output_dir, f'performance-vs-thresholds-{group_name}.png'))
-            df = pd.DataFrame(data={
-                'thresholds': thresholds,
-                'f1': f1_scores,
-                'recall': recall_scores,
-                'precision': precision_scores,
-                'fnr': fnr_scores,
-                'balanced_accuracy': balanced_accuracy_scores,
-                'mcc': mcc_scores
-            })
-            df.to_csv(os.path.join(self._output_dir, f'performance-vs-thresholds-{group_name}.csv'))
-            del fig, df
-            gc.collect()
+            predictions = self._data[group_name][self._inferences_column_name].values
+            labels = self._data[group_name][self._ground_truth_column_name].values
+            output_path = os.path.join(self._output_dir, f'performance-vs-thresholds-{group_name}.png')
+            statfns.plot_performance_vs_threshold(predictions=predictions,
+                                                  labels=labels,
+                                                  output_path=output_path)
 
     def _plot_roc_auc(self):
         """
@@ -253,16 +141,9 @@ class InferenceExplorer:
         for group_name in self._data.keys():
             predictions_raw = self._data[group_name][self._inferences_column_name].values
             labels = self._data[group_name][self._ground_truth_column_name].values
-            fig = plt.figure(figsize=FIGSIZE)
-            ax = fig.add_subplot()
-            sklearn_metrics.RocCurveDisplay.from_predictions(y_true=labels,
-                                                             y_pred=predictions_raw,
-                                                             pos_label=LABEL_PATHOGENIC_VARIANT,
-                                                             ax=ax)
-            fig.tight_layout()
-            fig.savefig(os.path.join(self._output_dir, f'roc-auc-{group_name}.png'))
-            del fig, predictions_raw, labels
-            gc.collect()
+            statfns.plot_roc_auc(predictions=predictions_raw,
+                                 truths=labels,
+                                 output_path=os.path.join(self._output_dir, f'roc-auc-{group_name}.png'))
 
     def _plot_residuals(self):
         """
@@ -297,22 +178,13 @@ class InferenceExplorer:
         Plot a confusion matrix for predictions thresholded at threshold
         """
         for group_name in self._data.keys():
-            predictions = self._discretize_predictions(self._data[group_name][self._inferences_column_name].values,
-                                                       threshold=self._threshold)
-            classes = [LABEL_BENIGN_VARIANT, LABEL_PATHOGENIC_VARIANT]
-            cm = sklearn_metrics.confusion_matrix(y_true=self._data[group_name][self._ground_truth_column_name].values,
-                                                  y_pred=predictions,
-                                                  labels=classes)
-            fig = plt.figure(figsize=FIGSIZE)
-            ax = fig.add_subplot()
-            cm_plot = sklearn_metrics.ConfusionMatrixDisplay(confusion_matrix=cm,
-                                                             display_labels=classes)
-            cm_plot.plot(ax=ax)
-            fig.tight_layout()
-            fig.suptitle(f'Threshold={self._threshold}')
-            fig.savefig(os.path.join(self._output_dir, f'confusion-{group_name}.png'))
-            del fig
-            gc.collect()
+            predictions = statfns.discretize_predictions(self._data[group_name][self._inferences_column_name].values,
+                                                         threshold=self._threshold)
+            y_true = self._data[group_name][self._ground_truth_column_name].values
+            statfns.confusion_matrix(predictions=predictions,
+                                     truths=y_true,
+                                     discretisation_threshold=self._threshold,
+                                     output_path=os.path.join(self._output_dir, f'confusion-{group_name}.png'))
 
     def _dump_prediction_class_to_hd5(self) -> str:
         """
@@ -341,8 +213,8 @@ class InferenceExplorer:
                                  fillvalue=b'\0')
             prediction_class = group['prediction-class'][:]  # Alloc in RAM
 
-            predictions = self._discretize_predictions(self._data[group_name][self._inferences_column_name].values,
-                                                       threshold=self._threshold)
+            predictions = statfns.discretize_predictions(self._data[group_name][self._inferences_column_name].values,
+                                                         threshold=self._threshold)
             labels = self._data[group_name][self._ground_truth_column_name].values
             for i in range(0, len(predictions)):
                 prediction_class[i]: str = self._compute_inference_label_class(prediction=predictions[i],
