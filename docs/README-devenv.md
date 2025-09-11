@@ -90,6 +90,11 @@ be owned by root on host machine.
 It's better to work from Singularity in this case, since this issue is solved by
 uid-guid mapping there.
 
+### Singularity vs Apptainer
+In order to get Singularity images running in Apptainer in sandbox mode,
+it's necessary to add `--unsquash` flag. This enables sandbox mode.  
+See `REPO_ROOT/apptainer-args.sh` script.
+
 ### Remote Host Identification
 When rebuilding the image, or pulling a new version the dropbear sshd key
 will change. This will disable graphics forwarding on SSH client with the following

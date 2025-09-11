@@ -28,6 +28,7 @@ mkdir -p $SINGULARITY_CACHEDIR
 
 # Use --fakeroot to start as uid 0 and -w (required for sshd)
 singularity exec \
+`./apptainer-args.sh` \
 --nv \
 -w \
 --fakeroot \
