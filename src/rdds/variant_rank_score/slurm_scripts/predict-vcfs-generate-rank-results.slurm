@@ -24,6 +24,7 @@ mkdir -p $SINGULARITY_CACHEDIR
 # Generate predictions
 # Use --fakeroot to start as uid 0 and -w (required for sshd)
 singularity exec \
+`./apptainer-args.sh` \
 --nv \
 -w \
 --fakeroot \
@@ -48,6 +49,7 @@ python3 -m rdds.variant_rank_score predict-on-vcf \
 # Analyze predictions
 # Use --fakeroot to start as uid 0 and -w (required for sshd)
 singularity exec \
+`./apptainer-args.sh` \
 --nv \
 -w \
 --fakeroot \
