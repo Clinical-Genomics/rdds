@@ -4,7 +4,7 @@ import keras_tuner
 from keras_tuner.src import backend as keras_tuner_backend
 from tensorboard.plugins.hparams import api as hparams_api
 from keras_tuner.src.engine import tuner_utils
-from typing import Callable
+from typing import Callable, Union
 import gc
 # Used as module API
 from keras_tuner import HyperParameters
@@ -43,7 +43,8 @@ class CustomTuner(keras_tuner.Tuner):
                  *args,
                  build_fn: Callable = None,
                  fit_fn: Callable = None,
-                 objective_metric: str = 'val_loss',
+                 objective_metric: Union[str, None] = 'val_loss',
+                 objective_metric_fn: Union[Callable, None] = None,
                  seed: int = 1,
                  **kwargs):
         """
@@ -59,6 +60,8 @@ class CustomTuner(keras_tuner.Tuner):
         :param args: Args to keras_tuner.Tuner subclass
         :param kwargs: Kwargs to keras_tuner.Tuner subclass
         :param objective_metric: The metric in history object to use as objective metric
+        :param objective_metric_fn: Function to compute an objective metric from History object.
+            Callable(history.History: dict) -> float
         :param project_name: Subdirectory that contains the hpt file output,
           created as [LOG_DIR]/[PROJECT_NAME]. Defaults to __class__.__name__.
         :param seed: The seed for hyperparameter optimisation
@@ -77,7 +80,16 @@ class CustomTuner(keras_tuner.Tuner):
         self._build_fn = build_fn
         self._fit_fn = fit_fn
         self._log_dir = log_dir
-        self._objective_metric = objective_metric
+        if objective_metric and objective_metric_fn:
+            raise ValueError(f"Invalid to specify both objective_metric and objective_metric_fn simultaneously")
+        elif objective_metric:
+            self._objective_metric = objective_metric
+            self._objective_metric_fn = None
+        elif objective_metric_fn:
+            self._objective_metric_fn = objective_metric_fn
+            self._objective_metric = None
+        else:
+            raise RuntimeError()
 
     def _save_search_space_summary(self):
         """
@@ -137,10 +149,15 @@ class CustomTuner(keras_tuner.Tuner):
             )
         )
         history: tf.keras.callbacks.History = self._fit_fn(model, tuning_callbacks=callbacks)
-        metric: list = history.history[self._objective_metric]
         del model
         self._cleanup_ram()
-        return metric[-1]
+        if self._objective_metric:
+            metric: list = history.history[self._objective_metric]
+            return metric[-1]
+        elif self._objective_metric_fn:
+            return self._objective_metric_fn(history.history)
+        else:
+            ValueError("Objective metric or objective metric fn not set.")
 
     def search(self, *args, **kwargs):
         """
