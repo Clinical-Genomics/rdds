@@ -63,6 +63,13 @@ mivmir-image-build:
 	--target mivmir-production \
 	-f build/devenv/devenv.Dockerfile .
 
+mivmir-image-convert-to-singularity:
+	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
+	mkdir -p tmp/devenv
+	docker save $(DOCKERHUB)/rdds${DEVENV_IMAGE_SUFFIX}_mivmir:$(VERSION) -o tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}_mivmir-$(VERSION).tar
+	singularity build -F tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}_mivmir-$(VERSION).sif docker-archive://tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}_mivmir-$(VERSION).tar
+	rm -f tmp/devenv/rdds${DEVENV_IMAGE_SUFFIX}_mivmir-$(VERSION).tar
+
 cosmograph-build:
 	$(DOCKER) build \
 	--build-arg="VERSION=$(VERSION)" \
