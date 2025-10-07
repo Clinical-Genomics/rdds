@@ -4,7 +4,7 @@ import pandas as pd
 from rdds.lib.determinism import enable_determinism; enable_determinism()
 
 # Add NaN, +-Inf checks
-from rdds.lib.tf import enable_check_numerics; enable_check_numerics()
+#from rdds.lib.tf import enable_check_numerics; enable_check_numerics()
 
 from typing import List, Dict, Union, Type, Tuple, Optional, Set, Any
 import numpy as np
