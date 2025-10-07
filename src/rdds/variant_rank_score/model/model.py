@@ -641,6 +641,9 @@ class VariantRankScoreModel:
                                                                          label='label',
                                                                          expand_1d_categorical_to_2d=False,
                                                                          max_n_samples=load_max_n_samples)
+            n_pathogenic_test, n_benign_test = hd5_data_generator_test.count_positive_negative_categorical_labels()
+            _LOGGER.info(f'test: nTP:{n_pathogenic_test} ({100 * n_pathogenic_test / hd5_data_generator_test.data_length:.4f}%) \
+                , nTN:{n_benign_test}, n_samples:{hd5_data_generator_test.data_length}')
             dataset_test: tf.data.Dataset = get_tf_dataset_from_hd5_data_generator(hd5_data_generator=hd5_data_generator_test,
                                                                                    output_signature=self._generate_dataset_tensor_signature())
             dataset_test = dataset_test.cache()
