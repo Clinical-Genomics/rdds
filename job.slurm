@@ -24,7 +24,9 @@ fi
 
 TIMESTAMP=$(date +%s)
 export SINGULARITY_CACHEDIR=`realpath tmp`/devenv/singularity-cache/$TIMESTAMP
+export APPTAINER_TMPDIR=`realpath tmp`/devenv/apptainer-cache/$TIMESTAMP
 mkdir -p $SINGULARITY_CACHEDIR
+mkdir -p $APPTAINER_TMPDIR
 
 # Use --fakeroot to start as uid 0 and -w (required for sshd)
 singularity exec \
@@ -45,3 +47,4 @@ export PYTHONUNBUFFERED=1 &&
 $@ "
 
 rmdir $SINGULARITY_CACHEDIR
+rmdir $APPTAINER_TMPDIR
