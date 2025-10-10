@@ -501,6 +501,47 @@ class VariantRankScoreModel:
                                                                                  frq_tensor_idx=frq_tensor_idx),
                                               num_parallel_calls=tf.data.AUTOTUNE)
 
+        # Weights for local population benign variants
+        @tf.function
+        def weight_common_local_variants(data, labels, weights, **kwargs):
+            """
+            Helper function to generate weights for common benign variants.
+
+            This improves model performance on local population variants (to reduce FPR).
+            """
+            common_benign_variant_weight: float = kwargs.get('common_benign_variant_weight')
+            frq_tensor_idx: List[int] = kwargs.get('frq_tensor_idx')
+
+            is_benign = tf.equal(labels, tf.constant(LABEL_BENIGN_VARIANT))
+
+            frq: List[tf.Tensor] = []
+            for idx in frq_tensor_idx:
+                frq.append(data[idx])
+            frq = tf.math.reduce_mean(frq, axis=-1, name='sum_frq_tensors_rare_weight')
+            tf.assert_rank(frq, 0)
+            is_common = tf.math.greater_equal(frq, 1/2000.0)
+            cond = tf.math.logical_and(is_benign, is_common)
+            common_variant_weights = tf.where(condition=cond,
+                               x=tf.ones_like(labels) * tf.constant(common_benign_variant_weight),  # cond == True
+                               y=tf.ones_like(labels))  # cond == False
+            adjusted_weights = weights * common_variant_weights
+            return data, labels, adjusted_weights
+
+        common_benign_variant_weight: float = hparams.Float('common_benign_variant_weight',
+                                                            min_value=1.0,
+                                                            max_value=float(1E6),
+                                                            default=1600.0)
+        if rare_variant_weight > 0:
+            _LOGGER.info(f'Weighting local common benign variants with weight {common_benign_variant_weight}')
+            target_frq_tensors = ['Frq']  # Target local population frequencies from locusdb
+            frq_tensor_idx = [input_feature_idx for input_feature_idx, annotation_name in enumerate(self._features)\
+                           if annotation_name in target_frq_tensors]
+            _LOGGER.info(f'Common local benign input frq tensors: {frq_tensor_idx}={target_frq_tensors}')
+            dataset_train = dataset_train.map(map_func=lambda *args: weight_common_local_variants(*args,
+                                                                                 common_benign_variant_weight=common_benign_variant_weight,
+                                                                                 frq_tensor_idx=frq_tensor_idx),
+                                              num_parallel_calls=tf.data.AUTOTUNE)
+
         @tf.function
         def balance_dataset_using_weights(data, labels, **kwargs):
             """
