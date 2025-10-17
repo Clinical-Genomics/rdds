@@ -109,23 +109,25 @@ def plot_performance_vs_threshold(predictions: np.ndarray,
 
     fig: plt.Figure = plt.figure(figsize=figsize)
     ax: plt.Axes = fig.add_subplot()
-    ax.grid(True)
+    ax.grid(True, which='both')
+    ax.minorticks_on()
     ax.plot(thresholds, f1_scores, marker='.')
+    ax.plot(thresholds, mcc_scores, marker='.')
     ax.plot(thresholds, recall_scores, marker='.')
     ax.plot(thresholds, precision_scores, marker='.')
     ax.plot(thresholds, fnr_scores, marker='.')
     ax.plot(thresholds, balanced_accuracy_scores, marker='.')
     ax.legend([f'F1 {max_at_threshold(f1_scores, thresholds)}',
+               f'MCC {max_at_threshold(mcc_scores, thresholds)}',
                f'Recall (sensitivity) {max_at_threshold(recall_scores, thresholds)}',
                f'Precision {max_at_threshold(precision_scores, thresholds)}',
                f'False Negative Rate (FNR) {min_at_threshold(fnr_scores, thresholds)}',
-               f'Balanced Accuracy (BA) {max_at_threshold(balanced_accuracy_scores, thresholds)}'])
+               f'Balanced Accuracy (BA) {max_at_threshold(balanced_accuracy_scores, thresholds)}'],
+              loc='lower left')
     ax.set_xlabel('Threshold')
-    ax.set_ylabel('Score [F1, Recall, Precision, FNR, BA]')
-    ax = ax.twinx()
-    ax.set_ylabel('MCC')
-    ax.plot(thresholds, mcc_scores, marker='o')
-    ax.legend([f'MCC {max_at_threshold(mcc_scores, thresholds)}'])
+    ax.set_ylabel('Score [F1, MCC, Recall, Precision, FNR, BA]')
+    ax.set_xlim(-0.05, 1.05)
+    ax.set_ylim(-0.1, 1.1)
     fig.suptitle('Performance scores vs discretization thresholds')
     fig.tight_layout()
     fig.savefig(output_path)
