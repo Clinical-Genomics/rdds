@@ -25,6 +25,21 @@ def f_dynamic_data_size(size: int, q: SimpleQueue):
 def f_erroneous(*args, **kwargs):
     raise RuntimeError('I\'m expected to break, so here I am!')
 
+def f_args(*args, **kwargs):
+    a0, a1 = args
+    assert a0 == 0
+    assert a1 == 'foo'
+
+def f_kwargs(*args, **kwargs):
+    assert kwargs['k0'] == 0
+    assert kwargs['k1'] == 'bar'
+
+def f_args_n_kwargs(*args, **kwargs):
+    a0, a1 = args
+    assert a0 == 0
+    assert a1 == 'foo'
+    assert kwargs['k0'] == 0
+    assert kwargs['k1'] == 'bar'
 
 def test_processpool():
     """
@@ -68,6 +83,30 @@ def test_processpool_async():
     assert result_sum == 100
     pool.close()
 
+def test_processpool_args():
+    args = [(0, 'foo')] * 100
+    pool = ProcessPool(function=f_args, args=args)
+    completed_tasks = pool.run()
+    for task in completed_tasks:
+        assert task.process.exitcode == 0
+    pool.close()
+
+def test_processpool_kwargs():
+    kwargs =  [{'k0': 0, 'k1': 'bar'}] * 100
+    pool = ProcessPool(function=f_kwargs, kwargs=kwargs)
+    completed_tasks = pool.run()
+    for task in completed_tasks:
+        assert task.process.exitcode == 0
+    pool.close()
+
+def test_processpool_args_kwargs():
+    args = [(0, 'foo')] * 100
+    kwargs =  [{'k0': 0, 'k1': 'bar'}] * 100
+    pool = ProcessPool(function=f_args_n_kwargs, args=args, kwargs=kwargs)
+    completed_tasks = pool.run()
+    for task in completed_tasks:
+        assert task.process.exitcode == 0
+    pool.close()
 
 def test_workerpool_restart():
     """

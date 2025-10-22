@@ -1,10 +1,11 @@
 import logging
 import threading
+from itertools import zip_longest
 from queue import Queue as Queue
 from threading import Thread, Lock, Event
 from multiprocessing import Process, ProcessError, cpu_count, log_to_stderr, get_context
 from multiprocessing.context import SpawnContext
-from typing import Iterable, Union, Callable, List, Any
+from typing import Iterable, Union, Callable, List, Any, Dict
 from dataclasses import dataclass
 
 LOGGER = log_to_stderr()
@@ -20,6 +21,7 @@ class DummyProcess:
 @dataclass
 class Task:
     args: Iterable
+    kwargs: Dict
     process: Union[Process, DummyProcess]
 
 
@@ -37,19 +39,22 @@ class ProcessPool:
 
     def __init__(self,
                  function: Callable,
-                 args: Iterable,
+                 args: Iterable = tuple(),
+                 kwargs: List[dict] = [],
                  process_names: List[str] = None,
                  workers: int = cpu_count() - 1  # Reserve a core for main process
                  ):
         """
         :param function: The function to execute concurrently
-        :param args: Function arguments
+        :param args: Function arguments, list of tuples
+        :param kwargs: Function kwargs, list of dictionaries
         :param process_names: List of names to assign to processes for traceability
         :param workers: Maximum concurrent workers running 'fn' simultaneously
         """
         self._function = function
         self._args = args
-        self._nr_expected_tasks: int = len(self._args)
+        self._kwargs = kwargs
+        self._nr_expected_tasks: int = max(len(self._args), len(self._kwargs))
         self._process_names = process_names if process_names else [None] * self._nr_expected_tasks
         self._workers: int = workers
         self._running_tasks: List[Task] = []
@@ -98,15 +103,21 @@ class ProcessPool:
             self._running_tasks_lock.acquire()
             process = self._ctx.Process(target=self._function,
                                         args=process_args,
+                                        kwargs=process_kwargs,
                                         name=process_name)
             process.start()
-            task = Task(args=process_args, process=process)
+            task = Task(args=process_args, kwargs=process_kwargs, process=process)
             LOGGER.info(f'Dispatched task {task}')
             self._running_tasks.append(task)
             self._running_tasks_lock.release()
 
         # Start processing
-        for process_args, process_name in zip(self._args, self._process_names):
+        for process_args, process_kwargs, process_name in zip_longest(self._args,
+                                                                      self._kwargs,
+                                                                      self._process_names):
+            # zip_longest returns None if iterator is out of iterables, convert None to expected type
+            process_args = process_args if process_args else ()
+            process_kwargs = process_kwargs if process_kwargs else {}
             wait_until_available_worker()
             dispatch_new_process()
 
@@ -203,13 +214,15 @@ class DummyPool:
     """
     def __init__(self,
                  function: Callable,
-                 args: Iterable,
+                 args: Iterable = tuple(),
+                 kwargs: List[dict] = list(),
                  process_names: List[str] = None,
                  workers: int = None
                  ):
         self._function = function
         self._args = args
-        self._nr_expected_tasks = len(self._args)
+        self._kwargs = kwargs
+        self._nr_expected_tasks = max(len(self._args), len(kwargs))
         self._process_names = process_names
         if not self._process_names:
             self._process_names: List[Any] = [f'DummyProcess-{i}' for i in range(0, self._nr_expected_tasks)]
@@ -227,11 +240,14 @@ class DummyPool:
 
     def run(self) -> List[Task]:
         completed_tasks: List[Task] = []
-        for arg, process_name in zip(self._args, self._process_names):
+        for arg, kwargs, process_name in zip_longest(self._args, self._kwargs, self._process_names):
+            # zip_longest returns None if iterator is out of iterables, convert None to expected type
+            arg = arg if arg else ()
+            kwargs = kwargs if kwargs else {}
             LOGGER.info(f'[DummyPool] Dispatching task {process_name}')
             self._function(*arg)
             # If function returned to callee, then it's successfully completed.
-            task = Task(args=arg, process=DummyProcess(name=process_name, exitcode=0))
+            task = Task(args=arg, kwargs=kwargs, process=DummyProcess(name=process_name, exitcode=0))
             LOGGER.info(f'Task completed {task}')
             completed_tasks.append(task)
         return completed_tasks
