@@ -83,7 +83,7 @@ def _infer_vcf(args):
     pbar = ProgressBar(max_value=len(vcf_file_paths))
     pbar.start()
     for vcf_file_path in vcf_file_paths:
-        infer_vcf(vcf_file_path=vcf_file_path, cpu_cores=int(args.cpu_cores))
+        infer_vcf(vcf_file_path=vcf_file_path, cpu_cores=int(args.cpu_cores), replace_overwrite_vrs_annotation=bool(args.replace_overwrite_vrs))
         pbar.increment(1)
     pbar.finish()
 subparser.set_defaults(func=_infer_vcf)
