@@ -45,6 +45,8 @@ def map_vcf(vcf_file_path: str,
     if annotated_vcf_file_path == vcf_file_path:
         raise ValueError(f'Won\'t overwrite existing VCF file')
 
+    if not os.path.exists(workdir):
+        os.makedirs(workdir, exist_ok=True)
     subprocess_work_dir = mkdtemp(prefix='map-vcf-', dir=workdir)
 
     # Count number of variants in input VCF
