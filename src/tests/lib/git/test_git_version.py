@@ -1,6 +1,6 @@
 from subprocess import check_call
 
-from rdds.lib.git import git_version, WORKTREE_VERSION_TOKEN
+from rdds.lib.git import git_version
 
 
 def test_version():
@@ -10,7 +10,7 @@ def test_version():
     # GIVEN a version
     # WHEN calling get version
     version = git_version()
-    if version == WORKTREE_VERSION_TOKEN:
+    if not version:
         # if test is running in a git worktree, git version is inaccesible
         return
     # THEN make sure it's a valid tag in the repo

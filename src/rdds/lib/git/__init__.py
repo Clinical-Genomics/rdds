@@ -1,1 +1,1 @@
-from .version import git_version, WORKTREE_VERSION_TOKEN
+from .version import git_version

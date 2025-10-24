@@ -1,8 +1,8 @@
 import os.path
+from typing import Union
 from subprocess import run, CompletedProcess, CalledProcessError
 
 from rdds.lib.logging import get_logger
-WORKTREE_VERSION_TOKEN: str = 'unknown-worktree-version'
 
 _LOGGER = get_logger('git', 'info')
 
@@ -36,14 +36,19 @@ def _git_version() -> str:
     return version
 
 
-def git_version() -> str:
+def git_version() -> Union[str, None]:
     """
     Get the GIT version as string.
-    In case repository is a worktree instance and git fails, return WORKTREE_VERSION_TOKEN as version since
+    In case repository is a worktree instance and git fails, return None as version since
     the parent .git directory is inaccessible (not mounted in container).
-    :return: version string OR WORKTREE_VERSION_TOKEN
+    It can also be the case that the filesystem is read-only.
+    :return: version string or None
     """
-    _fix_git_unsafe_error()
+    try:
+        _fix_git_unsafe_error()
+    except CalledProcessError as e:
+        _LOGGER.error(f"Failed to get git version: {e}")
+        return None
     try:
         version = _git_version()
         return version
@@ -52,5 +57,5 @@ def git_version() -> str:
             msg = e.stderr.decode('utf-8')
             if 'fatal: not a git repository' in msg and \
                 '.git/worktrees' in msg:
-                return WORKTREE_VERSION_TOKEN
+                return None
         raise e
