@@ -41,6 +41,7 @@ _MIVMIR_SCORES_CSV_TO_HD5_SPEC = [
     Hd5Spec('Causative', 'causative', float, np.float32, np.nan),
     Hd5Spec('genmod', 'genmod', float, np.float32, np.nan),
     Hd5Spec('mivmir', 'mivmir', float, np.float32, np.nan),
+    Hd5Spec('gicam', 'gicam', float, np.float32, np.nan),
     Hd5Spec('INFO', 'info', str, string_dtype(), b'\0'),
     Hd5Spec('GNOMADAF', 'gnomadaf', float, np.float32, np.nan),
     Hd5Spec('GNOMADAF_popmax', 'gnomadaf_popmax', float, np.float32, np.nan),
@@ -255,6 +256,7 @@ def compute_causative_rank(hd5_file_path: str,
         'id': hd5_file['gicamdata/id'][()],
         'case': hd5_file['gicamdata/case'][()],
         'score_mivmir': hd5_file['gicamdata/mivmir'][()],
+        'score_gicam': hd5_file['gicamdata/gicam'][()],
         'causative': hd5_file['gicamdata/causative'][()]
     }
     if filter_variants_on_frequency_threshold:
@@ -276,6 +278,7 @@ def compute_causative_rank(hd5_file_path: str,
     ranked_cases: List[int] = []
     mivmir_ranks: List[int] = []
     genmod_ranks: List[int] = []
+    gicam_ranks: List[int] = []
     causative_variant_ids: List[bytes] = []
     case_ids = df.case.unique()
     pbar = ProgressBar(max_value=len(case_ids))
@@ -295,22 +298,24 @@ def compute_causative_rank(hd5_file_path: str,
         # len(case_variants_by_genmod) >> len(case_variants)
         case_variants_by_genmod = df_genmod.loc[case_variants.index].copy()
         # Deduce ranks of causative variant
-        causative_variant_ids_mivmir = case_variants[case_variants.causative == 1].index
+        causative_variant_ids_mivmir_gicam = case_variants[case_variants.causative == 1].index
         # FIXME: There might be more causative  genmod variants than variants in MIVMIR set.
         # i.e. multiple marked pathogenic variants occur in the genmod set, if we lookup with mivmir variant IDs.
         causative_variant_ids_genmod = case_variants_by_genmod[case_variants_by_genmod.causative == 1].index
         # Assume only 1 causative variant per case for now
-        common_causative_variant_ids = list(set(causative_variant_ids_mivmir.values).intersection(set(causative_variant_ids_genmod.values)))
+        common_causative_variant_ids = list(set(causative_variant_ids_mivmir_gicam.values).intersection(set(causative_variant_ids_genmod.values)))
         assert len(common_causative_variant_ids) <= 1, f"Expected only one (or none) causative variant: {common_causative_variant_ids}"
         if len(common_causative_variant_ids) == 0:
             mivmir_ranks.append(None)
             genmod_ranks.append(None)
+            gicam_ranks.append(None)
             causative_variant_ids.append(None)
             ranked_cases.append(case)
             continue
         # Now causative variant is found across both datasets, compute the rank
         causative_variant_id = common_causative_variant_ids[0]
         rank_mivmir: int = case_variants.sort_values('score_mivmir', ascending=False).index.get_loc(causative_variant_id)
+        rank_gicam: int = case_variants.sort_values('score_gicam', ascending=False).index.get_loc(causative_variant_id)
         rank_genmod: Union[int, List[bool]] = case_variants_by_genmod.sort_values('score_legacy_genmod', ascending=False).index.get_loc(causative_variant_id)
         if not isinstance(rank_genmod, (int, float)):  # ... it's a list of boolean indexes, [True, False, ... ]
             # In case genmod data contains multiple, causative variants (in this case), select the highest score
@@ -321,6 +326,8 @@ def compute_causative_rank(hd5_file_path: str,
                     break
         assert isinstance(rank_mivmir, (int, float)), rank_mivmir
         mivmir_ranks.append(rank_mivmir)
+        assert isinstance(rank_gicam, (int, float)), rank_gicam
+        gicam_ranks.append(rank_gicam)
         assert isinstance(rank_genmod, (int, float)), rank_genmod
         genmod_ranks.append(rank_genmod)
         causative_variant_ids.append(causative_variant_id)
@@ -332,6 +339,7 @@ def compute_causative_rank(hd5_file_path: str,
                 'case_id': ranked_cases,
                 'id': causative_variant_ids,
                 'rank_mivmir': mivmir_ranks,
+                'rank_gicam': gicam_ranks,
                 'rank_legacy_genmod': genmod_ranks,
                 # NOTE: variant_filter_frq is assumed to be identical, see downstream visualisation step
                 'variant_filter_frq': np.full_like(ranked_cases,
@@ -358,6 +366,7 @@ def _plot_casewide_performance_metrics(hd5_file_path: str,
     hd5_file = Hd5File(hd5_file_path, 'r')
     data = {
         'score_mivmir': hd5_file['gicamdata/mivmir'][()],
+        'score_gicam': hd5_file['gicamdata/gicam'][()],
         'causative': hd5_file['gicamdata/causative'][()]
     }
     df = pd.DataFrame(data=data)
@@ -375,14 +384,18 @@ def _plot_casewide_performance_metrics(hd5_file_path: str,
     ax = fig.add_subplot(1, 2, 1)
     box_data = [
         df[df.causative != LABEL_PATHOGENIC_VARIANT].score_mivmir.values,
+        df[df.causative != LABEL_PATHOGENIC_VARIANT].score_gicam.values,
         df_genmod[df_genmod.causative != LABEL_PATHOGENIC_VARIANT].score_legacy_genmod.values,
         df[df.causative == LABEL_PATHOGENIC_VARIANT].score_mivmir.values,
+        df[df.causative == LABEL_PATHOGENIC_VARIANT].score_gicam.values,
         df_genmod[df_genmod.causative == LABEL_PATHOGENIC_VARIANT].score_legacy_genmod.values
     ]
     ax.boxplot(box_data)
-    ax.set_xticks([1, 2, 3, 4], labels=['MIVMIR [benign]',
+    ax.set_xticks([1, 2, 3, 4, 5, 6], labels=['MIVMIR [benign]',
+                                        'GICAM [benign]',
                                         'GENMOD [benign]',
                                         'MIVMIR [causative]',
+                                        'GICAM [causative]',
                                         'GENMOD [causative]'])
     ax.yaxis.grid(True)
 
@@ -391,9 +404,11 @@ def _plot_casewide_performance_metrics(hd5_file_path: str,
                   showmeans=False,
                   showmedians=True)
     ax.yaxis.grid(True)
-    ax.set_xticks([1, 2, 3, 4], labels=['MIVMIR [benign]',
+    ax.set_xticks([1, 2, 3, 4, 5, 6], labels=['MIVMIR [benign]',
+                                        'GICAM [benign]',
                                         'GENMOD [benign]',
                                         'MIVMIR [causative]',
+                                        'GICAM [causative]',
                                         'GENMOD [causative]'])
     fig.suptitle('Inference values')
     fig.savefig(os.path.join(storage_dir, 'inference-values.png'))
@@ -412,6 +427,21 @@ def _plot_casewide_performance_metrics(hd5_file_path: str,
                                           labels=df.causative.values,
                                           n_steps=75,
                                           output_path=os.path.join(storage_dir, 'mivmir-performance.png'))
+
+    # GICAM performance
+    _LOGGER.info("Generating GICAM classifier plots")
+    statfns.plot_roc_auc(predictions=df.score_gicam.values,
+                         truths=df.causative.values,
+                         pos_label=LABEL_PATHOGENIC_VARIANT,
+                         output_path=os.path.join(storage_dir, 'gicam-roc-auc.png'))
+    statfns.confusion_matrix(predictions=df.score_gicam.values,
+                             truths=df.causative.values,
+                             discretisation_threshold=0.5,
+                             output_path=os.path.join(storage_dir, 'gicam-confusion-matrix.png'))
+    statfns.plot_performance_vs_threshold(predictions=df.score_gicam.values,
+                                          labels=df.causative.values,
+                                          n_steps=75,
+                                          output_path=os.path.join(storage_dir, 'gicam-performance.png'))
 
     # Genmod performance
     _LOGGER.info("Generating Genmod classifier plots")
@@ -454,7 +484,7 @@ def visualize_performance(rank_results_file_path: str,
         df.rank_legacy_genmod = rank_legacy_genmod
 
     # Select data to plot
-    plot_data = df[['rank_mivmir', 'rank_legacy_genmod', 'case_name']].copy()
+    plot_data = df[['rank_mivmir', 'rank_gicam', 'rank_legacy_genmod', 'case_name']].copy()
     plot_data.set_index('case_name', inplace=True)
     plot_data = plot_data.dropna()  # Plots cannot handle NaNs
     if len(plot_data) < len(df):
@@ -464,8 +494,10 @@ def visualize_performance(rank_results_file_path: str,
     variant_frq_filter = (df.variant_filter_frq.unique())[0]  # Assumed all identical
 
     points_mivmir = len(plot_data[plot_data.rank_mivmir < plot_data.rank_legacy_genmod])
+    points_gicam = len(plot_data[plot_data.rank_gicam < plot_data.rank_legacy_genmod])
     points_genmod = len(plot_data[plot_data.rank_mivmir > plot_data.rank_legacy_genmod])
     points_tie = len(plot_data[plot_data.rank_mivmir == plot_data.rank_legacy_genmod])
+    points_tie_gicam = len(plot_data[plot_data.rank_gicam == plot_data.rank_legacy_genmod])
 
     # Plot rank case by case
     def _plot_cases(case_names: List[str], chunk_idx):
@@ -479,9 +511,13 @@ def visualize_performance(rank_results_file_path: str,
                    y=plot_data.loc[case_names].rank_mivmir,
                    marker='D',
                    alpha=0.75)
+        ax.scatter(x=plot_data.loc[case_names].index,
+                   y=plot_data.loc[case_names].rank_gicam,
+                   marker='+',
+                   alpha=0.75)
         ax.grid(True)
         plt.xticks(rotation=45)
-        ax.legend(['Rank Legacy Genmod', 'Rank MIVMIR'])
+        ax.legend(['Rank Legacy Genmod', 'Rank MIVMIR', 'Rank GICAM'])
         fig.tight_layout()
         fig.savefig(os.path.join(tmp_storage_dir, f"case_ranks-{chunk_idx}.png"))
 
@@ -510,7 +546,7 @@ def visualize_performance(rank_results_file_path: str,
     sb.swarmplot(plot_data, size=3, ax=ax)
     ax.yaxis.grid(True)
     fig.tight_layout()
-    fig.suptitle(f"filt_frq:{variant_frq_filter}\nPoints Mivmir:{points_mivmir}\nPoints Genmod:{points_genmod}\nTie:{points_tie}\nn={len(plot_data)}/{len(df)}")
+    fig.suptitle(f"filt_frq:{variant_frq_filter}\nPoints Mivmir:{points_mivmir}\nPoints GICAM: {points_gicam}\nPoints Genmod:{points_genmod}\nTie MIVMIR:{points_tie}, Tie GICAM {points_tie_gicam}\nn={len(plot_data)}/{len(df)}")
     fig.savefig(os.path.join(tmp_storage_dir, 'rank-stats.png'))
 
     # Scatter plot
@@ -522,7 +558,17 @@ def visualize_performance(rank_results_file_path: str,
     fig.tight_layout()
     fig.suptitle('Scatter plot of ranks')
     ax.grid(True)
-    fig.savefig(os.path.join(tmp_storage_dir, 'rank-scatter.png'))
+    fig.savefig(os.path.join(tmp_storage_dir, 'rank-scatter-mivmir-genmod.png'))
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.scatter(x=plot_data.rank_gicam, y=plot_data.rank_legacy_genmod)
+    ax.set_xlabel('Rank GICAM')
+    ax.set_ylabel('Rank Genmod')
+    fig.tight_layout()
+    fig.suptitle('Scatter plot of ranks')
+    ax.grid(True)
+    fig.savefig(os.path.join(tmp_storage_dir, 'rank-scatter-gicam-genmod.png'))
 
 
 def build_analyze_mivmir_nextflow_dataset(mivmir_scores_csv: str,
