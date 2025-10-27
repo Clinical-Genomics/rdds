@@ -23,6 +23,7 @@ from rdds.lib.hdf5 import Hd5DataGenerator
 from rdds.lib.tf import get_tf_dataset_from_hd5_data_generator
 from rdds.lib.tf import TextPreprocessingLayer
 from rdds.lib.tf import EmbeddingsReductionLayer
+from rdds.lib.tf.self_attention_layer import SelfAttentionLayer
 from rdds.lib.tf import DnaSequenceTrimmer
 from rdds.lib.tf import InstanceNormalisationLayer
 from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset, NumericalAugmentDropoutDataset
@@ -271,6 +272,10 @@ class VariantRankScoreModel:
             else:
                 regularizer = None
         _LOGGER.info(f'length feature vector {len(self._features)}')
+
+        self_attention_layer = SelfAttentionLayer()
+        attended_feature_vector, unused_attention_scores = self_attention_layer(complete_feature_vector)
+
         max_stacked_layers = 6
         layers: int = hparams.Int('dense-layers',
                                   min_value=1,
@@ -292,7 +297,7 @@ class VariantRankScoreModel:
                                      max_value=0.9,
                                      step=0.1,
                                      default=0.4)
-        x = complete_feature_vector
+        x = attended_feature_vector
         for layer_idx in range(0, layers):
             x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
                                       activation=activation,
