@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from sklearn import metrics as sklearn_metrics
 import copy
@@ -6,7 +8,9 @@ import matplotlib.pyplot as plt
 import gc
 import pandas as pd
 from progressbar import ProgressBar
+from multiprocessing import Queue
 
+from rdds.lib.process_pool import ProcessPool
 from ..dataset.class_labels import LABEL_PATHOGENIC_VARIANT, LABEL_BENIGN_VARIANT
 
 _FIGSIZE = (30, 20)
@@ -47,9 +51,44 @@ def fnr_score(predictions: np.ndarray,
     return float(fn) / float(n_positives)
 
 
+def _performance_vs_threshold_metrics_fn(*args, **kwargs):
+    labels = kwargs['labels']
+    predictions = kwargs['predictions']
+    threshold = kwargs['threshold']
+    result_queue = kwargs['result_queue']
+    disc_predictions = discretize_predictions(predictions=predictions,
+                                              threshold=threshold)
+    f1_score = sklearn_metrics.f1_score(y_true=labels,
+                                       y_pred=disc_predictions,
+                                       pos_label=LABEL_PATHOGENIC_VARIANT)
+    precision_score = sklearn_metrics.precision_score(y_true=labels,
+                                                      y_pred=disc_predictions,
+                                                      pos_label=LABEL_PATHOGENIC_VARIANT)
+    recall_score = sklearn_metrics.recall_score(y_true=labels,
+                                                y_pred=disc_predictions,
+                                                pos_label=LABEL_PATHOGENIC_VARIANT)
+    score_fnr = fnr_score(labels=labels,
+                          predictions=disc_predictions)
+    bacc = sklearn_metrics.balanced_accuracy_score(y_true=labels,
+                                                   y_pred=disc_predictions,
+                                                   adjusted=False)  # No need to scale to 1/n classes
+    mcc_score = sklearn_metrics.matthews_corrcoef(y_true=labels,
+                                                  y_pred=disc_predictions)
+
+    result_queue.put({
+        'f1_score': f1_score,
+        'precision_score': precision_score,
+        'recall_score': recall_score,
+        'score_fnr': score_fnr,
+        'bacc': bacc,
+        'mcc_score': mcc_score,
+        'threshold': threshold
+    })
+
 def plot_performance_vs_threshold(predictions: np.ndarray,
                                   labels: np.ndarray,
                                   output_path: str,
+                                  n_parallel_processes = int(os.cpu_count() / 2.0),
                                   figsize=_FIGSIZE,
                                   n_steps: int = 50):
     """
@@ -57,7 +96,11 @@ def plot_performance_vs_threshold(predictions: np.ndarray,
     :param predictions: Predictions (raw), not discretizised
     :param labels: Ground truth
     :param output_path: Image storage path, MUST contain .png suffix
+    :param n_parallel_processes: Amount of workers in process pool to concurrently execute processing (impacts RAM usage)
     """
+
+    result_queue: Queue = ProcessPool.get_context().Queue()
+
     f1_scores = []
     precision_scores = []
     recall_scores = []
@@ -67,35 +110,43 @@ def plot_performance_vs_threshold(predictions: np.ndarray,
     thresholds = []
     pbar = ProgressBar(max_value=n_steps)
     pbar.start()
-    for threshold in np.linspace(start=0, stop=1.0, num=n_steps):
-        thresholds.append(threshold)
-        disc_predictions = discretize_predictions(predictions=predictions,
-                                                  threshold=threshold)
-        f_score = sklearn_metrics.f1_score(y_true=labels,
-                                           y_pred=disc_predictions,
-                                           pos_label=LABEL_PATHOGENIC_VARIANT)
-        precision_score = sklearn_metrics.precision_score(y_true=labels,
-                                                          y_pred=disc_predictions,
-                                                          pos_label=LABEL_PATHOGENIC_VARIANT)
-        recall_score = sklearn_metrics.recall_score(y_true=labels,
-                                                    y_pred=disc_predictions,
-                                                    pos_label=LABEL_PATHOGENIC_VARIANT)
-        score_fnr = fnr_score(labels=labels,
-                              predictions=disc_predictions)
-        bacc = sklearn_metrics.balanced_accuracy_score(y_true=labels,
-                                                       y_pred=disc_predictions,
-                                                       adjusted=False)  # No need to scale to 1/n classes
-        mcc_score = sklearn_metrics.matthews_corrcoef(y_true=labels,
-                                                      y_pred=disc_predictions)
-        f1_scores.append(f_score)
-        precision_scores.append(precision_score)
-        recall_scores.append(recall_score)
-        fnr_scores.append(score_fnr)
-        balanced_accuracy_scores.append(bacc)
-        mcc_scores.append(mcc_score)
-        gc.collect()
+
+    kwargs = [{'predictions': predictions,
+               'threshold': threshold,
+               'labels': labels,
+               'result_queue': result_queue} for threshold in np.linspace(start=0, stop=1.0, num=n_steps)]
+
+    pool = ProcessPool(function=_performance_vs_threshold_metrics_fn,
+                       kwargs=kwargs,
+                       workers=n_parallel_processes)
+
+    for task in pool.run():
+        if task.process.exitcode != 0:
+            raise ValueError(task)
         pbar.increment(1)
     pbar.finish()
+
+    for _ in kwargs:
+        result_dict = result_queue.get(timeout=60*60)
+        thresholds.append(result_dict['threshold'])
+        f1_scores.append(result_dict['f1_score'])
+        precision_scores.append(result_dict['precision_score'])
+        recall_scores.append(result_dict['recall_score'])
+        fnr_scores.append(result_dict['score_fnr'])
+        balanced_accuracy_scores.append(result_dict['bacc'])
+        mcc_scores.append(result_dict['mcc_score'])
+
+    result_df = pd.DataFrame({
+        'thresholds': thresholds,
+        'f1_scores': f1_scores,
+        'precision_scores': precision_scores,
+        'recall_scores': recall_scores,
+        'fnr_scores': fnr_scores,
+        'balanced_accuracy_scores': balanced_accuracy_scores,
+        'mcc_scores': mcc_scores
+    })
+    result_df.sort_values(by='thresholds', inplace=True)
+
 
     def max_at_threshold(scores: list,
                          thresholds: list) -> str:
@@ -111,18 +162,18 @@ def plot_performance_vs_threshold(predictions: np.ndarray,
     ax: plt.Axes = fig.add_subplot()
     ax.grid(True, which='both')
     ax.minorticks_on()
-    ax.plot(thresholds, f1_scores, marker='.')
-    ax.plot(thresholds, mcc_scores, marker='.')
-    ax.plot(thresholds, recall_scores, marker='.')
-    ax.plot(thresholds, precision_scores, marker='.')
-    ax.plot(thresholds, fnr_scores, marker='.')
-    ax.plot(thresholds, balanced_accuracy_scores, marker='.')
-    ax.legend([f'F1 {max_at_threshold(f1_scores, thresholds)}',
-               f'MCC {max_at_threshold(mcc_scores, thresholds)}',
-               f'Recall (sensitivity) {max_at_threshold(recall_scores, thresholds)}',
-               f'Precision {max_at_threshold(precision_scores, thresholds)}',
-               f'False Negative Rate (FNR) {min_at_threshold(fnr_scores, thresholds)}',
-               f'Balanced Accuracy (BA) {max_at_threshold(balanced_accuracy_scores, thresholds)}'],
+    ax.plot(result_df.thresholds, result_df.f1_scores, marker='.')
+    ax.plot(result_df.thresholds, result_df.mcc_scores, marker='.')
+    ax.plot(result_df.thresholds, result_df.recall_scores, marker='.')
+    ax.plot(result_df.thresholds, result_df.precision_scores, marker='.')
+    ax.plot(result_df.thresholds, result_df.fnr_scores, marker='.')
+    ax.plot(result_df.thresholds, result_df.balanced_accuracy_scores, marker='.')
+    ax.legend([f'F1 {max_at_threshold(result_df.f1_scores, result_df.thresholds)}',
+               f'MCC {max_at_threshold(result_df.mcc_scores, result_df.thresholds)}',
+               f'Recall (sensitivity) {max_at_threshold(result_df.recall_scores, result_df.thresholds)}',
+               f'Precision {max_at_threshold(result_df.precision_scores, result_df.thresholds)}',
+               f'False Negative Rate (FNR) {min_at_threshold(result_df.fnr_scores, result_df.thresholds)}',
+               f'Balanced Accuracy (BA) {max_at_threshold(result_df.balanced_accuracy_scores, result_df.thresholds)}'],
               loc='lower left')
     ax.set_xlabel('Threshold')
     ax.set_ylabel('Score [F1, MCC, Recall, Precision, FNR, BA]')
@@ -131,17 +182,8 @@ def plot_performance_vs_threshold(predictions: np.ndarray,
     fig.suptitle('Performance scores vs discretization thresholds')
     fig.tight_layout()
     fig.savefig(output_path)
-    df = pd.DataFrame(data={
-        'thresholds': thresholds,
-        'f1': f1_scores,
-        'recall': recall_scores,
-        'precision': precision_scores,
-        'fnr': fnr_scores,
-        'balanced_accuracy': balanced_accuracy_scores,
-        'mcc': mcc_scores
-    })
-    df.to_csv(output_path.replace('.png', '.csv'))
-    del fig, df
+    result_df.to_csv(output_path.replace('.png', '.csv'))
+    del fig, result_df
     gc.collect()
 
 
