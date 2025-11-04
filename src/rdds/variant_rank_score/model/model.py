@@ -224,8 +224,36 @@ class VariantRankScoreModel:
         # Flatten word vector to -> [bdim, n_features * n_embeddings]
         embeddings_flat = tf.reshape(embeddings, (-1, len(self._features_text) * embedding_dimensions))
 
-        complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_flat,
-                                                                                              input_numerical_normalized])
+        # Normalization of numerical features (per feature channel)
+        # No need to normalize the embeddings since they're nicely distributed
+        # Concatenate word vector and numerical features -> [bdim, n_text * n_embeddings + n_numerical]
+        branch_dense_0 = hparams.Int('branch_dense_0',
+                                     min_value=32,
+                                     max_value=256,
+                                     step=32,
+                                     default=256)
+        branch_dense_1 = hparams.Int('branch_dense_1',
+                                     min_value=32,
+                                     max_value=256,
+                                     step=32,
+                                     default=192)
+        activation = hparams.Choice('dense-activation',
+                                    values=['relu', 'sigmoid'],
+                                    default='relu')
+        embeddings_branch = tf.keras.layers.Dense(units=branch_dense_0,
+                                                  activation=activation,
+                                                  kernel_regularizer=None)(embeddings_flat)
+        embeddings_branch = tf.keras.layers.Dense(units=branch_dense_1,
+                                                  activation=activation,
+                                                  kernel_regularizer=None)(embeddings_branch)
+        numerical_branch = tf.keras.layers.Dense(units=branch_dense_0,
+                                                 activation=activation,
+                                                 kernel_regularizer=feature_selection_regularizer)(input_numerical_normalized)
+        numerical_branch = tf.keras.layers.Dense(units=branch_dense_1,
+                                                 activation=activation,
+                                                 kernel_regularizer=None)(numerical_branch)
+        complete_feature_vector = tf.keras.layers.Concatenate(axis=1, name='ConcatFeatures')([embeddings_branch,
+                                                                                              numerical_branch])
         _LOGGER.info(f'Feature vector shape {complete_feature_vector.get_shape()}')
 
         # Autoencoder dense layer
@@ -272,7 +300,7 @@ class VariantRankScoreModel:
         x = attended_feature_vector
         for layer_idx in range(0, layers):
             x = tf.keras.layers.Dense(units=units - (layer_idx * int(np.floor(delta_factor * units))),
-                                      activation='relu',
+                                      activation=activation,
                                       kernel_regularizer=regularizer)(x)    # -> [bdim, n_units]
             if dropout_rate >= 0:
                 x = tf.keras.layers.Dropout(rate=dropout_rate,
