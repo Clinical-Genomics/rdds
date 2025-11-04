@@ -10,3 +10,4 @@ from rdds.lib.tf.check_numerics import enable_check_numerics
 from rdds.lib.tf.augmented_dropout_dataset import TextAugmentDropoutDataset, NumericalAugmentDropoutDataset
 from rdds.lib.tf.adaptive_learning_rate import adaptive_learning_rate
 from rdds.lib.tf.epoch_logger import EpochLogger
+from rdds.lib.tf.self_attention_layer import SelfAttentionLayer
