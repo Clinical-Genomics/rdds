@@ -514,9 +514,10 @@ def visualize_performance(rank_results_file_path: str,
                    alpha=0.75)
         ax.scatter(x=plot_data.loc[case_names].index,
                    y=plot_data.loc[case_names].rank_gicam,
-                   marker='+',
-                   alpha=0.75)
-        ax.grid(True)
+                   marker='s',
+                   alpha=0.5)
+        ax.grid(True, which='both')
+        ax.minorticks_on()
         plt.xticks(rotation=45)
         ax.legend(['Rank Legacy Genmod', 'Rank MIVMIR', 'Rank GICAM'])
         fig.tight_layout()
