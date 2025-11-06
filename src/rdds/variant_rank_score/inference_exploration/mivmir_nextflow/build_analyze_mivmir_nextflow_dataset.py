@@ -486,6 +486,7 @@ def visualize_performance(rank_results_file_path: str,
     # Select data to plot
     plot_data = df[['rank_mivmir', 'rank_gicam', 'rank_legacy_genmod', 'case_name']].copy()
     plot_data.set_index('case_name', inplace=True)
+    plot_data.sort_index(inplace=True)
     plot_data = plot_data.dropna()  # Plots cannot handle NaNs
     if len(plot_data) < len(df):
         _LOGGER.warning(f"Dropped {len(df) - len(plot_data)} samples from plotted data due to NaNs")
