@@ -15,6 +15,7 @@ import tempfile
 import shutil
 
 from rdds.variant_rank_score.dataset.class_labels import LABEL_PATHOGENIC_VARIANT
+from rdds.lib.process_pool import ProcessPool
 import rdds.variant_rank_score.inference_exploration.statfns as statfns
 from rdds.lib.logging import get_logger
 _LOGGER = get_logger(log_level='info')
@@ -572,6 +573,22 @@ def visualize_performance(rank_results_file_path: str,
     ax.grid(True)
     fig.savefig(os.path.join(tmp_storage_dir, 'rank-scatter-gicam-genmod.png'))
 
+def _compute_and_visualize_rank(hd5_file_path,
+                                tmp_storage_dir,
+                                filter_variants_on_frequency_threshold,
+                                case_id_to_name_map):
+    suffix = '-nofilt' if filter_variants_on_frequency_threshold is None else f"-{filter_variants_on_frequency_threshold}"
+    ranked_output_file_path = os.path.join(tmp_storage_dir, f"rank{suffix}.csv")
+    file_containing_case_causative_ranks = compute_causative_rank(hd5_file_path=hd5_file_path,
+                                                                  output_file_path=ranked_output_file_path,
+                                                                  filter_variants_on_frequency_threshold=filter_variants_on_frequency_threshold)
+    # Writes images based on frq filt
+    sub_dir_path = os.path.join(tmp_storage_dir, os.path.basename(file_containing_case_causative_ranks).replace('.csv', ''))
+    os.mkdir(sub_dir_path)
+    visualize_performance(rank_results_file_path=file_containing_case_causative_ranks,
+                          case_id_to_name_map_path=case_id_to_name_map,
+                          tmp_storage_dir=sub_dir_path)
+
 
 def build_analyze_mivmir_nextflow_dataset(mivmir_scores_csv: str,
                                           default_genmod_csv: str,
@@ -589,22 +606,20 @@ def build_analyze_mivmir_nextflow_dataset(mivmir_scores_csv: str,
     _plot_casewide_performance_metrics(hd5_file_path=output_file_path,
                                        storage_dir=tmp_storage_dir)
 
-    rank_files = []
     rare_frq = 1.0/2000.0
+    kwargs = []
     for filter_frq in [None, rare_frq, 10*rare_frq, 100*rare_frq]:
-        suffix = '-nofilt' if filter_frq is None else f"-{filter_frq}"
-        ranked_output_file_path = os.path.join(tmp_storage_dir, f"rank{suffix}.csv")
-        file_containing_case_causative_ranks = compute_causative_rank(hd5_file_path=hd5_file_path,
-                                                                      output_file_path=ranked_output_file_path,
-                                                                      filter_variants_on_frequency_threshold=filter_frq)
-        rank_files.append(file_containing_case_causative_ranks)
-    for rank_file in rank_files:
-        # Writes images based on frq filt
-        sub_dir_path = os.path.join(tmp_storage_dir, os.path.basename(rank_file).replace('.csv', ''))
-        os.mkdir(sub_dir_path)
-        visualize_performance(rank_results_file_path=rank_file,
-                              case_id_to_name_map_path=case_id_to_name_map,
-                              tmp_storage_dir=sub_dir_path)
+        kwargs.append({
+            'hd5_file_path': hd5_file_path,
+            'tmp_storage_dir': tmp_storage_dir,
+            'filter_variants_on_frequency_threshold': filter_frq,
+            'case_id_to_name_map': case_id_to_name_map
+        })
+    pool = ProcessPool(function=_compute_and_visualize_rank,
+                       kwargs=kwargs)
+    completed_tasks = pool.run()
+    for task in completed_tasks:
+        assert task.process.exitcode == 0, task
 
     # Create archive of all plots
     archive_path = output_file_path.replace('.hd5', '-plots')
