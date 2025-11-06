@@ -593,7 +593,7 @@ def build_analyze_mivmir_nextflow_dataset(mivmir_scores_csv: str,
     rare_frq = 1.0/2000.0
     for filter_frq in [None, rare_frq, 10*rare_frq, 100*rare_frq]:
         suffix = '-nofilt' if filter_frq is None else f"-{filter_frq}"
-        ranked_output_file_path = output_file_path.replace('.hd5', f"-rank{suffix}.csv")
+        ranked_output_file_path = os.path.join(tmp_storage_dir, f"rank{suffix}.csv")
         file_containing_case_causative_ranks = compute_causative_rank(hd5_file_path=hd5_file_path,
                                                                       output_file_path=ranked_output_file_path,
                                                                       filter_variants_on_frequency_threshold=filter_frq)
