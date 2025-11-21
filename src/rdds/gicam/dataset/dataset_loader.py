@@ -3,6 +3,8 @@ import numpy as np
 from typing import Tuple
 from h5py import File as Hd5File, string_dtype, Dataset as Hd5DataSet, Group as Hd5Group
 
+import matplotlib.pyplot as plt
+from seaborn import violinplot
 from rdds.lib.logging import get_logger
 from ..dataset import SET_TEST, SET_TRAIN, LABEL_PATHOGENIC
 
@@ -14,7 +16,8 @@ class DatasetLoader:
                  path_to_hd5_dataset: str,
                  ratio_test_samples: float = 0.33,
                  seed: int = 1,
-                 amount_data: float = 1.0):
+                 amount_data: float = 1.0,
+                 view_data_distributions: bool = False):
         """
         :param path_to_hd5_dataset: Path to .hd5 dataset containing:
             - MIVMIR scores
@@ -23,6 +26,7 @@ class DatasetLoader:
         :param ratio_test_samples: Ratio of samples used for model test during training
         : param seed: Seed for generating train/test split
         :param amount_data: Reduce dataset to ratio amount (for debugging)
+        :param view_data_distributions: Visualize train, test data
         """
         self._path_to_hd5_dataset = path_to_hd5_dataset
         self._ratio_test_samples = ratio_test_samples
@@ -52,6 +56,66 @@ class DatasetLoader:
         self._df['set'][test_idx] = SET_TEST
         self._dlen_train = len(self._df[self._df.set == SET_TRAIN])
         self._dlen_test = len(self._df[self._df.set == SET_TEST])
+
+        if view_data_distributions:
+            fig = plt.figure(figsize=(30, 30))
+            ax = fig.add_subplot(2, 2, 1)
+            train_set_benign = self._df.query(f'set == {SET_TRAIN} and pathogenic!={LABEL_PATHOGENIC}')
+            train_set_pathogenic = self._df.query(f'set == {SET_TRAIN} and pathogenic=={LABEL_PATHOGENIC}')
+            test_set_benign = self._df.query(f'set == {SET_TEST} and pathogenic!={LABEL_PATHOGENIC}')
+            test_set_pathogenic = self._df.query(f'set == {SET_TEST} and pathogenic=={LABEL_PATHOGENIC}')
+            plot_benign_train_idx = rng.permutation(train_set_benign.index.values)[0:int(np.floor(0.1 * len(train_set_benign)))]
+            plot_benign_test_idx = rng.permutation(test_set_benign.index.values)[0:int(np.floor(0.1 * len(test_set_benign)))]
+            # Plotting
+            ax.scatter(train_set_pathogenic.score_mivmir, train_set_pathogenic.score_genmod, color='red')
+            ax.scatter(test_set_pathogenic.score_mivmir, test_set_pathogenic.score_genmod, color='blue')
+            ax.legend(['train', 'test'])
+            ax.set_ylabel('GENMOD')
+            ax.set_xlabel('MIVMIR')
+            ax.title.set_text('Pathogenic samples')
+            ax.set_ylim((-0.1, 1.1))
+            ax.set_xlim((-0.1, 1.1))
+            ax.grid(which='both', axis='both')
+            ax = fig.add_subplot(2, 2, 2)
+            samples_per_set_and_category = np.asarray([train_set_pathogenic.score_genmod.values,
+                                                       test_set_pathogenic.score_genmod.values,
+                                                       train_set_pathogenic.score_mivmir.values,
+                                                       test_set_pathogenic.score_mivmir.values,
+                                                       train_set_benign.score_genmod.values,
+                                                       test_set_benign.score_genmod.values,
+                                                       train_set_benign.score_mivmir.values,
+                                                       test_set_benign.score_mivmir.values]).T
+            axis_names = ['train pathogenic genmod',
+                           'test patogenic genmod',
+                           'train pathogenic mivmir',
+                           'test pathogenic mivmir',
+                           'train benign genmod',
+                           'test benign genmod',
+                           'train benign mivmir',
+                           'test benign mivmir']
+            ax.boxplot(x=samples_per_set_and_category)
+            ax.set_xticks([1, 2, 3, 4, 5, 6, 7, 8],
+                          axis_names)
+            ax.title.set_text('Boxplot of samples per class, feature')
+            ax = fig.add_subplot(2, 2, 3)
+            ax.scatter(train_set_benign.loc[plot_benign_train_idx].score_mivmir, train_set_benign.loc[plot_benign_train_idx].score_genmod, color='red')
+            ax.scatter(test_set_benign.loc[plot_benign_test_idx].score_mivmir, test_set_benign.loc[plot_benign_test_idx].score_genmod, color='blue')
+            ax.legend(['train', 'test'])
+            ax.set_ylabel('GENMOD')
+            ax.set_xlabel('MIVMIR')
+            ax.title.set_text('Benign samples')
+            ax.set_ylim((-0.1, 1.1))
+            ax.set_xlim((-0.1, 1.1))
+            ax.grid(which='both', axis='both')
+            ax = fig.add_subplot(2, 2, 4)
+            violinplot(data=samples_per_set_and_category,
+                       ax=ax)
+            ax.set_xticks([0, 1, 2, 3, 4, 5, 6, 7],
+                          axis_names)
+            ax.title.set_text('Violinplot of samples per class, feature')
+
+            fig.set_layout_engine('compressed')
+            plt.show()
 
     def __str__(self):
         s = ''
