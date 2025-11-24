@@ -12,6 +12,7 @@ def _adaptive_learning_rate(network_param: int,
     decreasing proportionally to the inverse of the square root
     of the step number.
     :param network_param: A scaling value (often depends on network param)
+      Increasing this value produces smaller learning rate.
     :param epoch_number: Epoch step number
     :param warmup_epochs: Amount of warmup epochs
     """
