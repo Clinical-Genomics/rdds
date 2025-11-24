@@ -9,6 +9,7 @@ from .. import WORKDIR
 from rdds.lib.logging import get_logger
 from rdds.lib.vcf import Variant
 from rdds.lib.hpt import HyperParameters
+from rdds.lib.tf import AdaptiveLearningRate
 from .compute_performance_baseline import compute_performance_baseline, \
     StaticRecall, StaticPrecision, StaticTruePositives, StaticTrueNegatives, \
     StaticFalsePositives, StaticFalseNegatives, StaticAUC, StaticF1Metric, StaticMccMetric
@@ -176,15 +177,9 @@ class Gicam:
         ]
         metrics.extend(self._baseline_metrics)
 
-        learning_rate = hparams.Float('learning-rate',
-                                      min_value=1E-7,
-                                      max_value=1E-3,
-                                      default=1E-2,
-                                      step=10,
-                                      sampling='log')
 
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=-1),  # LR set by adaptive callback
             loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
             metrics=metrics,
         )
@@ -397,6 +392,8 @@ class Gicam:
         if hparam_tuning_callbacks:
             callbacks.extend(hparam_tuning_callbacks)
 
+        writer = tf.summary.create_file_writer(os.path.join(self._train_log_dir, 'metrics'))
+        callbacks.append(AdaptiveLearningRate(network_param=2056, warmup_epochs=10, writer=writer))
         validation_freq = 1
         if validation_only_beginning_end:
             validation_freq = [1, self._train_max_epochs]
