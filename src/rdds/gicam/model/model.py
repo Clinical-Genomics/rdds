@@ -9,6 +9,7 @@ from .. import WORKDIR
 from rdds.lib.logging import get_logger
 from rdds.lib.vcf import Variant
 from rdds.lib.hpt import HyperParameters
+from rdds.lib.tf import AdaptiveLearningRate
 from .compute_performance_baseline import compute_performance_baseline, \
     StaticRecall, StaticPrecision, StaticTruePositives, StaticTrueNegatives, \
     StaticFalsePositives, StaticFalseNegatives, StaticAUC, StaticF1Metric, StaticMccMetric
@@ -176,15 +177,24 @@ class Gicam:
         ]
         metrics.extend(self._baseline_metrics)
 
-        learning_rate = hparams.Float('learning-rate',
-                                      min_value=1E-7,
-                                      max_value=1E-3,
-                                      default=1E-2,
-                                      step=10,
-                                      sampling='log')
+        adaptive_network_param = hparams.Fixed('adaptive-LR-network-param',
+                                               value=0)
+        if adaptive_network_param > 0:
+            writer = tf.summary.create_file_writer(os.path.join(self._train_log_dir, 'metrics'))
+            self._adaptive_learning_rate_cb = AdaptiveLearningRate(network_param=adaptive_network_param,
+                                                                   warmup_epochs=1,
+                                                                   writer=writer)
+        else:
+            self._adaptive_learning_rate_cb = None
 
+        learning_rate = hparams.Float('learning-rate',
+                                       min_value = 1E-7,
+                                       max_value = 1E-3,
+                                       default = 1E-2,
+                                       step = 10,
+                                       sampling = 'log')
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),  # Possibly also set by AdaptiveLearningRate
             loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
             metrics=metrics,
         )
@@ -396,6 +406,9 @@ class Gicam:
             #callbacks.append(tf.keras.callbacks.EarlyStopping(start_from_epoch=2))
         if hparam_tuning_callbacks:
             callbacks.extend(hparam_tuning_callbacks)
+
+        if self._adaptive_learning_rate_cb:
+            callbacks.append(self._adaptive_learning_rate_cb)
 
         validation_freq = 1
         if validation_only_beginning_end:
