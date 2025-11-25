@@ -39,6 +39,13 @@ def train(args):
         gicam.visualize_decision_boundary(storage_path='train-log-dir')
 subparser.set_defaults(func=train)
 
+subparser = subparsers.add_parser('view-decision-boundary')
+def view_boundary(args):
+    from .model import Gicam
+    gicam = Gicam.from_saved_model()
+    gicam.visualize_decision_boundary(storage_path=None, show=True)
+subparser.set_defaults(func=view_boundary)
+
 subparser = subparsers.add_parser('build_export_train_data', help='Export training data')
 subparser.add_argument('hd5_file',
                        help='Path to HD5 file containing MIVMIR, GENMOD and ground truth labels')
