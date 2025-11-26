@@ -15,7 +15,7 @@ class DatasetLoader:
     def __init__(self,
                  path_to_hd5_dataset: str,
                  ratio_test_samples: float = 0.33,
-                 seed: int = 1,
+                 seed: int = 1424,
                  amount_data: float = 1.0,
                  view_data_distributions: bool = False):
         """
