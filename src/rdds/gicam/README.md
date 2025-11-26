@@ -27,6 +27,11 @@ where the causative variant is marked.
 
 `rdds.gicam train [path-to-hd5]`
 
+## Training
+> When retraining model on a new dataset, make sure train/test distributions are comparable.
+Do this in the `DatasetLoader.view_data_distributions=True` and modifying `seed` if necessary
+for proper data split.
+
 ## Design Considerations
 GENMOD is not a probabilistic module. Linear response and discrete steps in output score.
 Different step magnitude compared to MIVMIR (variant rank score model).
