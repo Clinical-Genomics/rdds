@@ -64,6 +64,17 @@ class NonNegNormConstraint(tf.keras.constraints.Constraint):
         w = norm(w)
         return w
 
+class NonNegativeConstraint(tf.keras.constraints.Constraint):
+
+    def __call__(self, w):
+        return w * tf.cast(tf.math.greater_equal(w, 0.), w.dtype)
+
+
+class NonPositiveConstraint(tf.keras.constraints.Constraint):
+
+    def __call__(self, w):
+        return w * tf.cast(tf.math.less(w, 0.), w.dtype)
+
 
 class HarmonicMeanLayer(tf.keras.layers.Layer):
     """
@@ -102,6 +113,7 @@ class ThresholdedScore(tf.keras.layers.Layer):
             name='b',
             shape=(1, ),
             initializer=tf.keras.initializers.Constant(-0.95),
+            constraint=NonPositiveConstraint(),
             dtype=tf.float32,
             trainable=True
         )
@@ -109,6 +121,7 @@ class ThresholdedScore(tf.keras.layers.Layer):
             name='w',
             shape=(1, ),
             initializer=tf.keras.initializers.Constant(2.0),
+            constraint=NonNegativeConstraint(),
             dtype=tf.float32,
             trainable=True
         )
