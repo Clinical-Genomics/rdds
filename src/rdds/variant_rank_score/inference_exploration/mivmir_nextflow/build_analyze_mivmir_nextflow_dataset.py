@@ -315,9 +315,9 @@ def compute_causative_rank(hd5_file_path: str,
             continue
         # Now causative variant is found across both datasets, compute the rank
         causative_variant_id = common_causative_variant_ids[0]
-        rank_mivmir: int = case_variants.sort_values('score_mivmir', ascending=False).index.get_loc(causative_variant_id)
-        rank_gicam: int = case_variants.sort_values('score_gicam', ascending=False).index.get_loc(causative_variant_id)
-        rank_genmod: Union[int, List[bool]] = case_variants_by_genmod.sort_values('score_legacy_genmod', ascending=False).index.get_loc(causative_variant_id)
+        rank_mivmir: int = case_variants.sort_values('score_mivmir', ascending=False, kind='stable').index.get_loc(causative_variant_id)
+        rank_gicam: int = case_variants.sort_values('score_gicam', ascending=False, kind='stable').index.get_loc(causative_variant_id)
+        rank_genmod: Union[int, List[bool]] = case_variants_by_genmod.sort_values('score_legacy_genmod', ascending=False, kind='stable').index.get_loc(causative_variant_id)
         if not isinstance(rank_genmod, (int, float)):  # ... it's a list of boolean indexes, [True, False, ... ]
             # In case genmod data contains multiple, causative variants (in this case), select the highest score
             # This is the first position in the index, starting a 0 and counting, which matches TRUE
