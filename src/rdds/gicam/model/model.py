@@ -176,12 +176,12 @@ class Gicam:
         score_genmod = tf.keras.Input(shape=(1,), dtype=tf.float32, name="score_genmod")
 
         initial_b = hparams.Float('initial_b',
-                                  min_value=-10,
+                                  min_value=-30,
                                   max_value=0,
                                   default=-0.95)
         initial_w = hparams.Float('initial_w',
                                   min_value=0,
-                                  max_value=10,
+                                  max_value=30,
                                   default=2)
         threshold_layer = ThresholdedScore(initial_b=initial_b,
                                            initial_w=initial_w)
