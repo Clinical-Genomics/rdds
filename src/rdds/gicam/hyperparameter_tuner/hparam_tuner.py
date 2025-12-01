@@ -8,7 +8,7 @@ class GicamTuner(CustomTuner):
                  hd5_file_path: str,
                  max_epochs: int,
                  *args,
-                 amount_data=0.1,
+                 amount_data=1.0,
                  **kwargs):
         self._hd5_file_path = hd5_file_path
         self._max_epochs = max_epochs
