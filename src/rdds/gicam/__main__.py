@@ -21,6 +21,10 @@ subparser.add_argument('--hparam-max-epochs',
                        help='Maximum epochs per hparam run',
                        type=int,
                        default=10)
+subparser.add_argument('--hparam-max-trials',
+                       help='Maximum trials of hyperparameter evaluations',
+                       type=int,
+                       default=int(1E3))
 def train(args):
     from .model import Gicam
     from .hyperparameter_tuner import GicamBayesianTuner, HyperParameters
@@ -29,7 +33,8 @@ def train(args):
     if args.tune_hyperparams:
         tuner = GicamBayesianTuner(hd5_file_path=args.hd5_file,
                                    log_dir=workdir,
-                                   max_epochs=args.hparam_max_epochs)
+                                   max_epochs=args.hparam_max_epochs,
+                                   max_trials=args.hparam_max_trials)
         tuner.search_space_summary()
         tuner.search()
     else:
