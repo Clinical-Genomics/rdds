@@ -37,8 +37,9 @@ class DatasetLoader:
         genmod_scores = hd5_file['gicamdata/genmod'][()]
         labels = hd5_file['gicamdata/causative'][()]
         hd5_file.close()
+        rng = np.random.default_rng(seed=self._seed)
         if amount_data < 1:
-            random_idx = np.random.permutation(np.arange(len(mivmir_scores)))[0:int(len(mivmir_scores) * amount_data)]
+            random_idx = rng.permutation(np.arange(len(mivmir_scores)))[0:int(len(mivmir_scores) * amount_data)]
             mivmir_scores = mivmir_scores[random_idx]
             genmod_scores = genmod_scores[random_idx]
             labels = labels[random_idx]
@@ -48,7 +49,6 @@ class DatasetLoader:
                                  'pathogenic': labels})
         LOGGER.info(f"Loaded {len(self._df)} samples from {self._path_to_hd5_dataset}")
         # Divide into train and test set
-        rng = np.random.default_rng(seed=self._seed)
         n_test_samples = int(np.floor(self._ratio_test_samples * len(self._df)))
         idx = np.arange(len(self._df))
         test_idx = rng.permutation(idx)[0:n_test_samples]
