@@ -107,12 +107,17 @@ class ThresholdedScore(tf.keras.layers.Layer):
     There's a threshold that's optimal for removing FPs.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,
+                 initial_b,
+                 initial_w,
+                 *args,
+                 **kwargs):
+        super().__init__(*args,
+                         **kwargs)
         self.b = self.add_weight(
             name='b',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(-0.95),
+            initializer=tf.keras.initializers.Constant(initial_b),
             constraint=NonPositiveConstraint(),
             dtype=tf.float32,
             trainable=True
@@ -120,7 +125,7 @@ class ThresholdedScore(tf.keras.layers.Layer):
         self.w = self.add_weight(
             name='w',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(2.0),
+            initializer=tf.keras.initializers.Constant(initial_w),
             constraint=NonNegativeConstraint(),
             dtype=tf.float32,
             trainable=True
@@ -170,7 +175,16 @@ class Gicam:
         score_mivmir = tf.keras.Input(shape=(1,), dtype=tf.float32, name="score_mivmir")
         score_genmod = tf.keras.Input(shape=(1,), dtype=tf.float32, name="score_genmod")
 
-        threshold_layer = ThresholdedScore()
+        initial_b = hparams.Float('initial_b',
+                                  min_value=-30,
+                                  max_value=0,
+                                  default=-0.95)
+        initial_w = hparams.Float('initial_w',
+                                  min_value=0,
+                                  max_value=30,
+                                  default=2)
+        threshold_layer = ThresholdedScore(initial_b=initial_b,
+                                           initial_w=initial_w)
         y = threshold_layer(mivmir=score_mivmir, genmod=score_genmod)
 
         model = tf.keras.Model(
