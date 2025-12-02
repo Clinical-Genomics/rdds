@@ -195,19 +195,19 @@ class Gicam:
         initial_b = hparams.Float('initial_b',
                                   min_value=-30,
                                   max_value=0,
-                                  default=-0.95)
+                                  default=-0.65)
         initial_w = hparams.Float('initial_w',
                                   min_value=0,
                                   max_value=30,
-                                  default=2)
+                                  default=2.35)
         initial_b2 = hparams.Float('initial_b2',
                                   min_value=-30,
                                   max_value=0,
-                                  default=-0.95)
+                                  default=-0.3)
         initial_w2 = hparams.Float('initial_w2',
                                   min_value=0,
                                   max_value=30,
-                                  default=2)
+                                  default=2.7)
         threshold_layer = ThresholdedScore(initial_b=initial_b,
                                            initial_w=initial_w,
                                            initial_b2=initial_b2,
