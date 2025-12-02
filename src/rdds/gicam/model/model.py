@@ -110,6 +110,8 @@ class ThresholdedScore(tf.keras.layers.Layer):
     def __init__(self,
                  initial_b,
                  initial_w,
+                 initial_b2,
+                 initial_w2,
                  *args,
                  **kwargs):
         super().__init__(*args,
@@ -131,10 +133,26 @@ class ThresholdedScore(tf.keras.layers.Layer):
             trainable=True
         )
 
-    def call(self, mivmir, genmod, training=False):
+        self.b2 = self.add_weight(
+            name='b2',
+            shape=(1, ),
+            initializer=tf.keras.initializers.Constant(initial_b2),
+            constraint=NonPositiveConstraint(),
+            dtype=tf.float32,
+            trainable=True
+        )
+        self.w2 = self.add_weight(
+            name='w2',
+            shape=(1, ),
+            initializer=tf.keras.initializers.Constant(initial_w2),
+            constraint=NonNegativeConstraint(),
+            dtype=tf.float32,
+            trainable=True
+        )
 
+    def call(self, mivmir, genmod, training=False):
         # Do not account for mivmir input when learning gicam threshold
-        mivmir = tf.stop_gradient(mivmir)
+        mivmir_filtered = self.w2 * mivmir + self.b2
 
         # Add decision boundary for Genmod
         genmod_filtered = self.w * genmod + self.b
@@ -143,13 +161,12 @@ class ThresholdedScore(tf.keras.layers.Layer):
         genmod_discreet = tf.keras.activations.relu(genmod_filtered,
                                                     max_value=1.0,
                                                     threshold=0.0)
+        mivmir_discreet = tf.keras.activations.relu(mivmir_filtered,
+                                                    max_value=1.0,
+                                                    threshold=0.0)
 
-        if training:
-            # During training y = f(genmod) only (optimize genmod threshold based on genmod only)
-            return genmod_discreet
-        else:
-            # During inference, y = f(genmod, mivmir)
-            return mivmir * genmod_discreet
+
+        return mivmir_discreet * genmod_discreet
 
 
 class Gicam:
@@ -183,8 +200,18 @@ class Gicam:
                                   min_value=0,
                                   max_value=30,
                                   default=2)
+        initial_b2 = hparams.Float('initial_b2',
+                                  min_value=-30,
+                                  max_value=0,
+                                  default=-0.95)
+        initial_w2 = hparams.Float('initial_w2',
+                                  min_value=0,
+                                  max_value=30,
+                                  default=2)
         threshold_layer = ThresholdedScore(initial_b=initial_b,
-                                           initial_w=initial_w)
+                                           initial_w=initial_w,
+                                           initial_b2=initial_b2,
+                                           initial_w2=initial_w2)
         y = threshold_layer(mivmir=score_mivmir, genmod=score_genmod)
 
         model = tf.keras.Model(
