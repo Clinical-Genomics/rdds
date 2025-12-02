@@ -401,7 +401,7 @@ class Gicam:
     def build(self,
               path_to_hd5_dataset: str,
               hparams: HyperParameters,
-              amount_data=1.0):
+              amount_data=0.1):
         self._build_dataset(path_to_hd5_dataset=path_to_hd5_dataset,
                             hparams=hparams,
                             amount_data=amount_data)
