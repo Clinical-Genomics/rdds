@@ -150,13 +150,13 @@ class ThresholdedScore(tf.keras.layers.Layer):
         )
 
     def call(self, mivmir, genmod, training=False):
-        # Do not account for mivmir input when learning gicam threshold
-        mivmir_filtered = self.w2 * mivmir + self.b2
+        # Add decision boundary for MIVMIR
+        mivmir_filtered = self.w_mivmir * mivmir + self.b_mivmir
 
         # Add decision boundary for Genmod
-        genmod_filtered = self.w * genmod + self.b
+        genmod_filtered = self.w_genmod * genmod + self.b_genmod
 
-        # Cap genmod into (0, 1)
+        # Cap into [0, 1]
         genmod_discreet = tf.keras.activations.relu(genmod_filtered,
                                                     max_value=1.0,
                                                     threshold=0.0)
@@ -164,8 +164,14 @@ class ThresholdedScore(tf.keras.layers.Layer):
                                                     max_value=1.0,
                                                     threshold=0.0)
 
+        # Is now a "capped" [0, 1] map of good regions in [mivmir, genmod] coordinates for reducing FPR
+        transfer_fn = mivmir_discreet * genmod_discreet
 
-        return mivmir_discreet * genmod_discreet
+        if training:
+            return transfer_fn
+        else:
+            # During inference convolve mivmir score with transfer function
+            return mivmir * transfer_fn
 
 
 class Gicam:
