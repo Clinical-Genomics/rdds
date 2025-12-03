@@ -108,43 +108,42 @@ class ThresholdedScore(tf.keras.layers.Layer):
     """
 
     def __init__(self,
-                 initial_b,
-                 initial_w,
-                 initial_b2,
-                 initial_w2,
+                 initial_b_genmod,
+                 initial_w_genmod,
+                 initial_b_mivmir,
+                 initial_w_mivmir,
                  *args,
                  **kwargs):
         super().__init__(*args,
                          **kwargs)
-        self.b = self.add_weight(
-            name='b',
+        self.b_genmod = self.add_weight(
+            name='b_genmod',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_b),
+            initializer=tf.keras.initializers.Constant(initial_b_genmod),
             constraint=NonPositiveConstraint(),
             dtype=tf.float32,
             trainable=True
         )
-        self.w = self.add_weight(
-            name='w',
+        self.w_genmod = self.add_weight(
+            name='w_genmod',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_w),
+            initializer=tf.keras.initializers.Constant(initial_w_genmod),
             constraint=NonNegativeConstraint(),
             dtype=tf.float32,
             trainable=True
         )
-
-        self.b2 = self.add_weight(
-            name='b2',
+        self.b_mivmir = self.add_weight(
+            name='b_mivmir',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_b2),
+            initializer=tf.keras.initializers.Constant(initial_b_mivmir),
             constraint=NonPositiveConstraint(),
             dtype=tf.float32,
             trainable=True
         )
-        self.w2 = self.add_weight(
-            name='w2',
+        self.w_mivmir = self.add_weight(
+            name='w_mivmir',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_w2),
+            initializer=tf.keras.initializers.Constant(initial_w_mivmir),
             constraint=NonNegativeConstraint(),
             dtype=tf.float32,
             trainable=True
@@ -192,26 +191,26 @@ class Gicam:
         score_mivmir = tf.keras.Input(shape=(1,), dtype=tf.float32, name="score_mivmir")
         score_genmod = tf.keras.Input(shape=(1,), dtype=tf.float32, name="score_genmod")
 
-        initial_b = hparams.Float('initial_b',
+        initial_b_genmod = hparams.Float('initial_b_genmod',
                                   min_value=-30,
                                   max_value=0,
                                   default=-0.65)
-        initial_w = hparams.Float('initial_w',
+        initial_w_genmod = hparams.Float('initial_w_genmod',
                                   min_value=0,
                                   max_value=30,
                                   default=2.35)
-        initial_b2 = hparams.Float('initial_b2',
+        initial_b_mivmir = hparams.Float('initial_b_mivmir',
                                   min_value=-30,
                                   max_value=0,
-                                  default=-0.3)
-        initial_w2 = hparams.Float('initial_w2',
+                                  default=0)
+        initial_w_mivmir = hparams.Float('initial_w_mivmir',
                                   min_value=0,
                                   max_value=30,
                                   default=2.7)
-        threshold_layer = ThresholdedScore(initial_b=initial_b,
-                                           initial_w=initial_w,
-                                           initial_b2=initial_b2,
-                                           initial_w2=initial_w2)
+        threshold_layer = ThresholdedScore(initial_b_genmod=initial_b_genmod,
+                                           initial_w_genmod=initial_w_genmod,
+                                           initial_b_mivmir=initial_b_mivmir,
+                                           initial_w_mivmir=initial_w_mivmir)
         y = threshold_layer(mivmir=score_mivmir, genmod=score_genmod)
 
         model = tf.keras.Model(
