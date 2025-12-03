@@ -313,22 +313,8 @@ class GridEmbeddings(tf.keras.layers.Layer):
                                                threshold=0.0,
                                                alpha=alpha)
 
-        #breakpoint()
-
-        if training:
-            return cap_embedding * mivmir
-        else:
-            return cap_embedding * mivmir
-
-        embedding_genmod = self._embeddings_layer_genmod(genmod_disc)
-        embedding_mivmir = self._embeddings_layer_mivmir(mivmir_disc)
-        embedding_genmod_mivmir = tf.reduce_sum(embedding_mivmir * embedding_genmod, axis=-1)  # xy coordinate embedding
-        return embedding_genmod_mivmir * mivmir
-
-        if training:
-            return embedding_genmod_mivmir
-        else:
-            return embedding_genmod_mivmir * mivmir
+        # Learnable function should optimize mivmir behavior, so convolve grid with mivmir score
+        return cap_embedding * mivmir
 
 
 class Gicam:
