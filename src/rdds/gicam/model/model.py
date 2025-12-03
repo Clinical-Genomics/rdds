@@ -316,9 +316,7 @@ class Gicam:
 
         batch_size = hparams.Choice('batch-size',
                                     values=[2**7, 2**8, 2**9, 2**10, 2**11, 2**12, 2**13, 2**14],
-                                    default=2**14)
-        # FIXME: reason for bad convergence is too big batch size?
-        batch_size = 4096
+                                    default=2**12)
 
         dataset_train = tf.data.Dataset.from_tensor_slices((x, y))
 
