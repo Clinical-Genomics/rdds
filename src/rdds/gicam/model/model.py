@@ -377,6 +377,9 @@ class Gicam:
         train_pathogenic_variants = train_pathogenic_variants.cache()
         train_benign_variants = train_benign_variants.cache()
         train_pathogenic_variants=train_pathogenic_variants.shuffle(dataset_loader.amount_train_pathogenic_samples, seed=1)
+        n_iterations_pathogenic_dataset = int((dataset_loader.dlen_train - dataset_loader.amount_train_pathogenic_samples) / dataset_loader.amount_train_pathogenic_samples)
+        _LOGGER.info(f"Repeating pathogenic subset {n_iterations_pathogenic_dataset} times")
+        train_pathogenic_variants = train_pathogenic_variants.repeat(n_iterations_pathogenic_dataset)  # repeat until train_benign_variants is EOF
         train_benign_variants=train_benign_variants.shuffle(dataset_loader.dlen_train - dataset_loader.amount_train_pathogenic_samples, seed=1)
         dataset_train = tf.data.Dataset.sample_from_datasets(
             datasets=(train_benign_variants, train_pathogenic_variants),
