@@ -99,19 +99,9 @@ class HarmonicMeanLayer(tf.keras.layers.Layer):
         harmonic_mean = assert_nonneg_norm(harmonic_mean)
         return harmonic_mean
 
-class ThresholdedScore(tf.keras.layers.Layer):
-
-    """
-    A layer to optimize Genmod input decision boundary.
-
-    There's a threshold that's optimal for removing FPs.
-    """
+class Boundary(tf.keras.layers.Layer):
 
     def __init__(self,
-                 initial_b_genmod,
-                 initial_w_genmod,
-                 initial_b_mivmir,
-                 initial_w_mivmir,
                  *args,
                  **kwargs):
         super().__init__(*args,
@@ -119,32 +109,32 @@ class ThresholdedScore(tf.keras.layers.Layer):
         self.b_genmod = self.add_weight(
             name='b_genmod',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_b_genmod),
-            constraint=NonPositiveConstraint(),
+            initializer=tf.keras.initializers.random_normal(),
+            #constraint=NonPositiveConstraint(),
             dtype=tf.float32,
             trainable=True
         )
         self.w_genmod = self.add_weight(
             name='w_genmod',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_w_genmod),
-            constraint=NonNegativeConstraint(),
+            initializer=tf.keras.initializers.random_normal(),
+            #constraint=NonNegativeConstraint(),
             dtype=tf.float32,
             trainable=True
         )
         self.b_mivmir = self.add_weight(
             name='b_mivmir',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_b_mivmir),
-            constraint=NonPositiveConstraint(),
+            initializer=tf.keras.initializers.random_normal(),
+            #constraint=NonPositiveConstraint(),
             dtype=tf.float32,
             trainable=True
         )
         self.w_mivmir = self.add_weight(
             name='w_mivmir',
             shape=(1, ),
-            initializer=tf.keras.initializers.Constant(initial_w_mivmir),
-            constraint=NonNegativeConstraint(),
+            initializer=tf.keras.initializers.random_normal(),
+            #constraint=NonNegativeConstraint(),
             dtype=tf.float32,
             trainable=True
         )
@@ -166,6 +156,87 @@ class ThresholdedScore(tf.keras.layers.Layer):
 
         # Is now a "capped" [0, 1] map of good regions in [mivmir, genmod] coordinates for reducing FPR
         transfer_fn = mivmir_discreet * genmod_discreet
+        return transfer_fn
+
+
+class ThresholdedScore(tf.keras.layers.Layer):
+
+    """
+    A layer to optimize Genmod input decision boundary.
+
+    There's a threshold that's optimal for removing FPs.
+    """
+
+    def __init__(self,
+                 initial_b_genmod,
+                 initial_w_genmod,
+                 initial_b_mivmir,
+                 initial_w_mivmir,
+                 *args,
+                 **kwargs):
+        super().__init__(*args,
+                         **kwargs)
+        self.n = 1
+        self.b_genmod = self.add_weight(
+            name='b_genmod',
+            shape=(self.n, ),
+            #initializer=tf.keras.initializers.random_normal(mean=-3.4),
+            initializer=tf.keras.initializers.Constant(initial_b_genmod),
+            dtype=tf.float32,
+            trainable=True
+        )
+        self.w_genmod = self.add_weight(
+            name='w_genmod',
+            shape=(self.n, ),
+            #initializer=tf.keras.initializers.random_normal(mean=-3.2),
+            initializer=tf.keras.initializers.Constant(initial_w_genmod),
+            dtype=tf.float32,
+            trainable=True
+        )
+        self.b_mivmir = self.add_weight(
+            name='b_mivmir',
+            shape=(self.n, ),
+            #initializer=tf.keras.initializers.random_normal(mean=-3.8),
+            initializer=tf.keras.initializers.Constant(initial_b_mivmir),
+            dtype=tf.float32,
+            trainable=True
+        )
+        self.w_mivmir = self.add_weight(
+            name='w_mivmir',
+            shape=(self.n, ),
+            #initializer=tf.keras.initializers.random_normal(mean=-3.4),
+            initializer=tf.keras.initializers.Constant(initial_w_mivmir),
+            dtype=tf.float32,
+            trainable=True
+        )
+
+    def call(self, mivmir, genmod, training=False):
+        #breakpoint()
+        mivmir_boundaries = self.w_mivmir * mivmir + self.b_mivmir
+        genmod_boundaries = self.w_genmod * genmod + self.b_genmod
+        # Cap into [0, 1]
+        if training:
+            alpha=0.01  # Required for converging
+        else:
+            alpha=0  # Don't allow negative values in output value
+        cap_genmod = tf.keras.activations.relu(genmod_boundaries,
+                                               max_value=1.0,
+                                               threshold=0.0,
+                                               alpha=alpha)
+        cap_mivmir = tf.keras.activations.relu(mivmir_boundaries,
+                                               max_value=1.0,
+                                               threshold=0.0,
+                                               alpha=alpha)
+
+        reduced_genmod = tf.reduce_sum(cap_genmod, axis=-1, keepdims=True)
+        reduced_mivmir = tf.reduce_sum(cap_mivmir, axis=-1, keepdims=True)
+
+        transfer_fn = reduced_genmod * cap_mivmir
+        transfer_fn = reduced_mivmir * reduced_genmod
+        # Transpose one of vactors to produce 1D value as means of reduction
+        #breakpoint()
+        #if self.n > 1:
+        #    transfer_fn = tf.reduce_sum(transfer_fn, axis=-1, keepdims=True)
 
         if training:
             return transfer_fn
