@@ -76,6 +76,12 @@ class NonPositiveConstraint(tf.keras.constraints.Constraint):
         return w * tf.cast(tf.math.less(w, 0.), w.dtype)
 
 
+class PositiveMaxOneConstraint(tf.keras.constraints.Constraint):
+
+    def __call__(self, w):
+        return w * tf.cast(tf.math.greater_equal(w, 0), w.dtype) * tf.cast(tf.math.less_equal(w, 1), w.dtype)
+
+
 class HarmonicMeanLayer(tf.keras.layers.Layer):
     """
     Layer to compute a joint, potentially biased combination score from two input scores [0, 1].
@@ -244,6 +250,86 @@ class ThresholdedScore(tf.keras.layers.Layer):
             # During inference convolve mivmir score with transfer function
             return mivmir * transfer_fn
 
+class GridEmbeddings(tf.keras.layers.Layer):
+
+    def __init__(self, n_embeddings_mivmir: int, n_embeddings_genmod: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._n_embeddings_mivmir = n_embeddings_mivmir
+        self._n_embeddings_gicam = n_embeddings_genmod
+        self._n_embeddings = self._scaler = 10
+        self._embeddings_layer_genmod = tf.keras.layers.Embedding(
+            name='embeddings_genmod',
+            input_dim=self._n_embeddings,
+            output_dim=1,  # 1 learnable embedding per input sample
+            embeddings_initializer=tf.keras.initializers.ones(),  # No initial score reduction at start of training
+            embeddings_constraint=PositiveMaxOneConstraint()
+        )
+        self._embeddings_layer_mivmir = tf.keras.layers.Embedding(
+            name='embeddings_mivmir',
+            input_dim=self._n_embeddings,
+            output_dim=1,  # 1 learnable embedding per input sample
+            embeddings_initializer=tf.keras.initializers.ones(),  # No initial score reduction at start of training
+            embeddings_constraint=PositiveMaxOneConstraint()
+        )
+        self._embeddings = self.add_weight(
+            name='embeddings',
+            shape=(self._n_embeddings, self._n_embeddings),
+            initializer=tf.keras.initializers.Constant(1.0),
+            constraint=PositiveMaxOneConstraint(),
+            dtype=tf.float32,
+            trainable=True
+        )
+
+        bin_boundaries = list(np.linspace(start=0, stop=1, num=self._n_embeddings))
+        self._binning_layer = tf.keras.layers.Discretization(
+            bin_boundaries = bin_boundaries,
+            output_mode='int'
+        )
+
+    def call(self, mivmir, genmod, training=False):
+        # TODO: Smoothening kernel for embeddings
+        mivmir_disc = self._binning_layer(mivmir) - 1
+        genmod_disc = self._binning_layer(genmod) - 1
+
+        #from rdds.lib.tf import print_tensor_op
+        #mivmir_disc = print_tensor_op(mivmir_disc, 'MD')
+        #genmod_disc = print_tensor_op(genmod_disc, 'GD')
+
+        #embedding = tf.gather(self._embeddings, [mivmir_disc, genmod_disc], axis=0)
+        #embedding = self._embeddings[mivmir_disc, genmod_disc]  does not work because of batch_dim in indexes
+        #breakpoint()
+        #embedding_col = tf.gather(self._embeddings, [mivmir_disc], axis=0)
+        #embedding = tf.gather(embedding_col, [genmod_disc], axis=-1)
+        idx = tf.concat((mivmir_disc, genmod_disc), axis=-1)
+        embedding = tf.gather_nd(self._embeddings, idx, batch_dims=0)  #-> [None, ]
+        embedding = tf.expand_dims(embedding, -1)  # -> [None, 1]
+
+        if training:
+            alpha=0.01  # Required for converging
+        else:
+            alpha=0  # Don't allow negative values in output value
+        cap_embedding = tf.keras.activations.relu(embedding,
+                                               max_value=1.0,
+                                               threshold=0.0,
+                                               alpha=alpha)
+
+        #breakpoint()
+
+        if training:
+            return cap_embedding * mivmir
+        else:
+            return cap_embedding * mivmir
+
+        embedding_genmod = self._embeddings_layer_genmod(genmod_disc)
+        embedding_mivmir = self._embeddings_layer_mivmir(mivmir_disc)
+        embedding_genmod_mivmir = tf.reduce_sum(embedding_mivmir * embedding_genmod, axis=-1)  # xy coordinate embedding
+        return embedding_genmod_mivmir * mivmir
+
+        if training:
+            return embedding_genmod_mivmir
+        else:
+            return embedding_genmod_mivmir * mivmir
+
 
 class Gicam:
     """
@@ -289,6 +375,9 @@ class Gicam:
                                            initial_b_mivmir=initial_b_mivmir,
                                            initial_w_mivmir=initial_w_mivmir)
         y = threshold_layer(mivmir=score_mivmir, genmod=score_genmod)
+
+        grid_embeddings = GridEmbeddings(n_embeddings_genmod=10, n_embeddings_mivmir=10)
+        y = grid_embeddings(mivmir=score_mivmir, genmod=score_genmod)
 
         model = tf.keras.Model(
             inputs=[score_mivmir, score_genmod], outputs=[y]
@@ -371,7 +460,8 @@ class Gicam:
                 "StaticTruePositives": StaticTruePositives,
                 "StaticTrueNegatives": StaticTrueNegatives,
                 "StaticFalseNegatives": StaticFalseNegatives,
-                "StaticFalsePositives": StaticFalsePositives
+                "StaticFalsePositives": StaticFalsePositives,
+                "GridEmbeddings": GridEmbeddings
             }
         ):
             keras_model = tf.keras.saving.load_model(model_path)
