@@ -255,41 +255,31 @@ class GridEmbeddings(tf.keras.layers.Layer):
     def __init__(self, n_embeddings_mivmir: int, n_embeddings_genmod: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._n_embeddings_mivmir = n_embeddings_mivmir
-        self._n_embeddings_gicam = n_embeddings_genmod
-        self._n_embeddings = self._scaler = 10
-        self._embeddings_layer_genmod = tf.keras.layers.Embedding(
-            name='embeddings_genmod',
-            input_dim=self._n_embeddings,
-            output_dim=1,  # 1 learnable embedding per input sample
-            embeddings_initializer=tf.keras.initializers.ones(),  # No initial score reduction at start of training
-            embeddings_constraint=PositiveMaxOneConstraint()
-        )
-        self._embeddings_layer_mivmir = tf.keras.layers.Embedding(
-            name='embeddings_mivmir',
-            input_dim=self._n_embeddings,
-            output_dim=1,  # 1 learnable embedding per input sample
-            embeddings_initializer=tf.keras.initializers.ones(),  # No initial score reduction at start of training
-            embeddings_constraint=PositiveMaxOneConstraint()
-        )
+        self._n_embeddings_genmod = n_embeddings_genmod
         self._embeddings = self.add_weight(
             name='embeddings',
-            shape=(self._n_embeddings, self._n_embeddings),
+            shape=(self._n_embeddings_mivmir, self._n_embeddings_genmod),
             initializer=tf.keras.initializers.Constant(1.0),
             constraint=PositiveMaxOneConstraint(),
             dtype=tf.float32,
             trainable=True
         )
-
-        bin_boundaries = list(np.linspace(start=0, stop=1, num=self._n_embeddings))
-        self._binning_layer = tf.keras.layers.Discretization(
-            bin_boundaries = bin_boundaries,
+        # Create bin boundaries, -edge,+edge values are mapped to outermost bins
+        bin_boundaries_genmod = list(np.linspace(start=0, stop=1, num=self._n_embeddings_genmod))[1:-1]
+        bin_boundaries_mivmir = list(np.linspace(start=0, stop=1, num=self._n_embeddings_mivmir))[1:-1]
+        self._binning_layer_genmod = tf.keras.layers.Discretization(
+            bin_boundaries = bin_boundaries_genmod,
+            output_mode='int'
+        )
+        self._binning_layer_mivmir = tf.keras.layers.Discretization(
+            bin_boundaries = bin_boundaries_mivmir,
             output_mode='int'
         )
 
     def call(self, mivmir, genmod, training=False):
         # TODO: Smoothening kernel for embeddings
-        mivmir_disc = self._binning_layer(mivmir) - 1
-        genmod_disc = self._binning_layer(genmod) - 1
+        mivmir_disc = self._binning_layer_mivmir(mivmir)
+        genmod_disc = self._binning_layer_genmod(genmod)
 
         #from rdds.lib.tf import print_tensor_op
         #mivmir_disc = print_tensor_op(mivmir_disc, 'MD')
