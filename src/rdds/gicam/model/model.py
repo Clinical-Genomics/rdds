@@ -320,7 +320,7 @@ class Gicam:
         learning_rate = hparams.Float('learning-rate',
                                        min_value = 1E-7,
                                        max_value = 1E-3,
-                                       default = 1E-2,
+                                       default = 1E-3,
                                        step = 10,
                                        sampling = 'log')
         model.compile(
@@ -437,7 +437,7 @@ class Gicam:
         Given max(recall), find best precision. Increasing tp_weight improves recall.
         """
         tp_weight = 100 * (0.5 / sample_pathogenic_with_likelihood)
-        tn_weight = 1 * (sample_pathogenic_with_likelihood / 0.5)
+        tn_weight = 0.01 * (sample_pathogenic_with_likelihood / 0.5)
         _LOGGER.info(f"TN weight is {tn_weight}")
         _LOGGER.info(f"TP weight is {tp_weight}")
         _LOGGER.info(f"nTPs: {dataset_loader.amount_train_pathogenic_samples}")
