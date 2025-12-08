@@ -26,8 +26,8 @@ def _infer_gicam_fn(vcf_file_path: str,
 
     vcf_reader = VCFReader(vcf_file_path)
     if not replace_overwrite_vrs_annotation:
-        vcf_reader.add_info_to_header({'ID': 'GICAM',
-                                       'Description': 'Rank score from GICAM model (joint MIVMIR and Genmod) (5 points precision)',
+        vcf_reader.add_info_to_header({'ID': 'GicamScore',
+                                       'Description': 'Rank score from GICAM model (joint MIVMIR and Genmod genetic models) (5 points precision)',
                                        'Type': 'Float',
                                        'Number': '1'})
     # TODO: Add GICAM version to header
@@ -49,7 +49,7 @@ def _infer_gicam_fn(vcf_file_path: str,
         if replace_overwrite_vrs_annotation:
             variant.INFO['MivmirScore'] = f'{score:.5f}'
         else:
-            variant.INFO['GICAM'] = f'{score:.5f}'
+            variant.INFO['GicamScore'] = f'{score:.5f}'
         vcf_writer.write_record(variant)
     vcf_writer.close()
     vcf_reader.close()
