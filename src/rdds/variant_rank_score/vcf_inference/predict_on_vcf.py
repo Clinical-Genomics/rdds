@@ -20,19 +20,19 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
                                     variant_index_stop: int):
     from ..model import VariantRankScoreModel
     vcf_reader = VCFReader(vcf_file_path)
-    vcf_reader.add_info_to_header({'ID': 'VrsModelPrediction',
-                                   'Description': 'Rank score from VRS model (5 points precision)',
+    vcf_reader.add_info_to_header({'ID': 'MivmirScore',
+                                   'Description': 'Rank score from MIVMIR model (5 points precision)',
                                    'Type': 'Float',
                                    'Number': '1'})
-    vcf_reader.add_info_to_header({'ID': 'VrsModelExplanation',
-                                   'Description': 'List of annotation impact scores on VrsModelPrediction (2 points precision)',
+    vcf_reader.add_info_to_header({'ID': 'MivmirExplanation',
+                                   'Description': 'List of annotation impact scores on MivmirScore (2 points precision)',
                                    'Type': 'String',
                                    'Number': '.'})
 
     # Make a copy of the input VCF which is also the output file
     subprocess_output_file_name = os.path.join(subprocess_work_dir, f'{variant_index_start}.vcf')
     vcf_writer = VcfWriter(subprocess_output_file_name,
-                           vcf_reader,  # Reuse original file header, with VrsModelPrediction appended
+                           vcf_reader,  # Reuse original file header, with MivmirScore appended
                            mode='w')
 
     # Load and preprocess variants
@@ -55,7 +55,7 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
     df: pd.DataFrame = vrs_model.score_variant(parsed_variants)
     for i, variant in enumerate(variants):
         df_i = df.iloc[i]
-        variant.INFO['VrsModelPrediction'] = f'{df_i.pathogenicity_score:.5F}'
+        variant.INFO['MivmirScore'] = f'{df_i.pathogenicity_score:.5F}'
         # Sort the explanations in decreasing importance (positive = more contributing to higher scoring result)
         explanations_sorted_in_decreasing_importance = df_i.sort_values(ascending=False)
         vrs_model_explanations = '['
@@ -66,7 +66,7 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
                 continue
             vrs_model_explanations += f'{key}={contribution_score:.2F},'
         vrs_model_explanations += ']'
-        variant.INFO['VrsModelExplanation'] = vrs_model_explanations
+        variant.INFO['MivmirExplanation'] = vrs_model_explanations
         vcf_writer.write_record(variant)
     vcf_writer.close()
     vcf_reader.close()

@@ -16,8 +16,8 @@ TEST_REFERENCE_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__
 
 def parse_vrs_explanations(explanation: str) -> dict:
     """
-    Parse VrsModelExplanation field
-    :param explanation: INFO key field contents for VrsModelExplanation
+    Parse MivmirExplanation field
+    :param explanation: INFO key field contents for MivmirExplanation
     :return: Parsed dict, parts in explanation split into dict content
     """
     #
@@ -144,14 +144,14 @@ def test_inference(work_dir, n_cores):
             variant.POS == variant_ref.POS:
                 # Test model inference
                 # Model prediction comes with a precision of 5 decimal points (rest is just noise in comparison)
-                assert isclose(variant.INFO['VrsModelPrediction'],
-                               variant_ref.INFO['VrsModelPrediction'],
-                               atol=1E-5), (variant.INFO['VrsModelPrediction'],
-                                            variant_ref.INFO['VrsModelPrediction'],
+                assert isclose(variant.INFO['MivmirScore'],
+                               variant_ref.INFO['MivmirScore'],
+                               atol=1E-5), (variant.INFO['MivmirScore'],
+                                            variant_ref.INFO['MivmirScore'],
                                             variant.ID, variant_ref.ID)
                 # Test model explanations
-                explanation = parse_vrs_explanations(variant.INFO['VrsModelExplanation'])
-                explanation_ref = parse_vrs_explanations(variant_ref.INFO['VrsModelExplanation'])
+                explanation = parse_vrs_explanations(variant.INFO['MivmirExplanation'])
+                explanation_ref = parse_vrs_explanations(variant_ref.INFO['MivmirExplanation'])
                 if len(explanation_ref) > 0:
                     # Model explanations comes with a precision of 2 decimal points
                     for key in explanation_ref.keys():
@@ -214,4 +214,3 @@ def test_inference_batch_composition(ignore_clinvar_uncertain_conflicting_annota
             d = d.dropna()
             err = np.sum(np.abs(d.values))
             assert np.isclose(err, 0.0, atol=1E-3), (column, d)
-

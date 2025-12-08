@@ -34,7 +34,7 @@ def _infer_gicam_fn(vcf_file_path: str,
     # Make a copy of the input VCF which is also the output file
     subprocess_output_file_name = os.path.join(subprocess_work_dir, f'{variant_index_start}.vcf')
     vcf_writer = VcfWriter(subprocess_output_file_name,
-                           vcf_reader,  # Reuse original file header, with VrsModelPrediction appended
+                           vcf_reader,  # Reuse original file header, with MivmirScore appended
                            mode='w')
     # Load and preprocess variants
     # Force load complete VCF into RAM as list of variants, drop out of scope variants
@@ -47,7 +47,7 @@ def _infer_gicam_fn(vcf_file_path: str,
     scores = gicam.score_variants(variants=variants)
     for i, (variant, score) in enumerate(zip(variants, scores)):
         if replace_overwrite_vrs_annotation:
-            variant.INFO['VrsModelPrediction'] = f'{score:.5f}'
+            variant.INFO['MivmirScore'] = f'{score:.5f}'
         else:
             variant.INFO['GICAM'] = f'{score:.5f}'
         vcf_writer.write_record(variant)
