@@ -19,7 +19,7 @@ def test_vcf_inference(work_dir, overwrite_vrs_annotation):
 
     infer_vcf(vcf_file_path=test_data_path, cpu_cores=1, replace_overwrite_vrs_annotation=overwrite_vrs_annotation)
     reader = VCFReader(output_file, 'r')
-    target_annotation = 'GICAM'
+    target_annotation = 'GicamScore'
     if overwrite_vrs_annotation:
         target_annotation = 'MivmirScore'
     assert target_annotation in reader.info_fields
@@ -42,10 +42,10 @@ def test_vcf_inference_cli(work_dir, cpu_cores):
                   shell=True, stderr=sp.STDOUT)
 
     reader = VCFReader(output_file, 'r')
-    assert 'GICAM' in reader.info_fields
+    assert 'GicamScore' in reader.info_fields
     for variant in list(reader):
-        assert isinstance(variant.INFO['GICAM'], float)
-        assert 0 <= variant.INFO['GICAM'] <= 1
+        assert isinstance(variant.INFO['GicamScore'], float)
+        assert 0 <= variant.INFO['GicamScore'] <= 1
     reader.close()
 
 def test_score_variant():
