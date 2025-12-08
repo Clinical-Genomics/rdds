@@ -73,7 +73,7 @@ def view_vcf_rank_results(vcf_file_path: str,
     vrs_rank_score = np.empty(n_variants)
     frq = np.empty(n_variants)
     vrs_model_explanation = np.empty(n_variants, dtype=object)
-    parse_only_fields = ['POS', 'CHROM', 'RankScore', 'RankScoreNormalized', 'VrsModelPrediction', 'Frq']
+    parse_only_fields = ['POS', 'CHROM', 'RankScore', 'RankScoreNormalized', 'MivmirScore', 'Frq']
     pbar = ProgressBar(max_value=n_variants)
     _LOGGER.info(f'{vcf_file_path}, n={n_variants} variants')
     for i, variant in enumerate(variants):
@@ -97,12 +97,12 @@ def view_vcf_rank_results(vcf_file_path: str,
             genmod_rank_score_normalized[i] = parsed_variant.RankScoreNormalized_value
         else:
             genmod_rank_score_normalized[i] = np.nan
-        if 'VrsModelPrediction' in parsed_variant.parsed_fields:
-            vrs_rank_score[i] = parsed_variant.VrsModelPrediction
+        if 'MivmirScore' in parsed_variant.parsed_fields:
+            vrs_rank_score[i] = parsed_variant.MivmirScore
         else:
             vrs_rank_score[i] = np.nan
         try:
-            vrs_model_explanation[i] = variant.INFO['VrsModelExplanation']
+            vrs_model_explanation[i] = variant.INFO['MivmirExplanation']
         except KeyError:
             pass
         pbar.update(i)

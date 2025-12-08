@@ -79,7 +79,7 @@ subparser.add_argument('--cpu_cores',
                        help='Number of CPU cores to allocate for processing',
                        default=cpu_count() - 1)
 subparser.add_argument('--replace_overwrite_vrs',
-                       help='Write GICAM inference value to VrsModelPrediction field instead of separate GICAM' +
+                       help='Write GICAM inference value to MivmirScore field instead of separate GICAM' +
                             '(not to be used in production)',
                        default=False)
 def _infer_vcf(args):

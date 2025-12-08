@@ -21,7 +21,7 @@ def test_vcf_inference(work_dir, overwrite_vrs_annotation):
     reader = VCFReader(output_file, 'r')
     target_annotation = 'GICAM'
     if overwrite_vrs_annotation:
-        target_annotation = 'VrsModelPrediction'
+        target_annotation = 'MivmirScore'
     assert target_annotation in reader.info_fields
     for variant in list(reader):
         assert isinstance(variant.INFO[target_annotation], float)

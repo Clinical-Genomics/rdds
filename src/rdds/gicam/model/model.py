@@ -468,7 +468,7 @@ class Gicam:
         score_mivmir: np.ndarray = np.zeros((n_samples, 1))  # [batch_dim, feature_dim]
         score_genmod: np.ndarray = np.zeros((n_samples, 1))
         for i, variant in enumerate(variants):
-            score_mivmir[i, 0] = variant.INFO['VrsModelPrediction']
+            score_mivmir[i, 0] = variant.INFO['MivmirScore']
             rank_score_normalized_str: str = variant.INFO['RankScoreNormalized']  # format: str: case_name:rank_score
             rank_score = float(rank_score_normalized_str.split(':')[1])
             score_genmod[i, 0] = rank_score

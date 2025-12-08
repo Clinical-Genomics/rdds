@@ -84,8 +84,8 @@
 ##INFO=<ID=SomaticMutationsHeteroplasmy,Number=A,Type=String,Description="The variant was found as heteroplasmic in Mitomap Somatic Mutations datasets (Y=yes,N=no)">
 ##INFO=<ID=SomaticMutationsHomoplasmy,Number=A,Type=String,Description="The variant was found as homoplasmic in Mitomap Somatic Mutations datasets (Y=yes,N=no)">
 ##INFO=<ID=dbSNP,Number=A,Type=String,Description="dbSNP ID of the variant">
-##INFO=<ID=VrsModelPrediction,Number=1,Type=Float,Description="Rank score from VRS model (5 points precision)">
-##INFO=<ID=VrsModelExplanation,Number=.,Type=String,Description="List of annotation impact scores on VrsModelPrediction (2 points precision)">
+##INFO=<ID=MivmirScore,Number=1,Type=Float,Description="Rank score from Mivmir model (5 points precision)">
+##INFO=<ID=MivmirExplanation,Number=.,Type=String,Description="List of annotation impact scores on MivmirScore (2 points precision)">
 ##INFO=<ID=Annotation,Number=.,Type=String,Description="Annotates what feature(s) this variant belongs to.">
 ##INFO=<ID=GeneticModels,Number=.,Type=String,Description="':'-separated list of genetic models for this variant.">
 ##INFO=<ID=ModelScore,Number=.,Type=String,Description="PHRED score for genotype models.">
@@ -214,6 +214,6 @@
 ##rs_dbSNP150=rs_dbSNP150 from dbNSFP file
 ##LoFtool=LoFtool score for gene
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLENAME
-1	2	1_C_A	C	A	68	.	VrsModelPrediction=0.98754;RankScore=casename:8.0;RankScoreNormalized=casename:1.0;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|3	GT:DP:AD:GQ:PL:RNC	0/1:32:13,18:67:68,0,76:..
-1	3	1_3_AG_A	AG	A	40	.	VrsModelPrediction=0.00123;RankScore=casename:6.0;RankScoreNormalized=casename:0.9459459459459459;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|1	GT:DP:AD:GQ:PL:RNC	1/1:16:3,13:18:40,17,0:..
-1	4	1_4_C_G	C	G	49	.	VrsModelPrediction=1.00000;RankScore=casename:8.0;RankScoreNormalized=casename:1.0;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|3	GT:DP:AD:GQ:PL:RNC	0/1:12:5,7:49:49,0,60:..
+1	2	1_C_A	C	A	68	.	MivmirScore=0.98754;RankScore=casename:8.0;RankScoreNormalized=casename:1.0;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|3	GT:DP:AD:GQ:PL:RNC	0/1:32:13,18:67:68,0,76:..
+1	3	1_3_AG_A	AG	A	40	.	MivmirScore=0.00123;RankScore=casename:6.0;RankScoreNormalized=casename:0.9459459459459459;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|1	GT:DP:AD:GQ:PL:RNC	1/1:16:3,13:18:40,17,0:..
+1	4	1_4_C_G	C	G	49	.	MivmirScore=1.00000;RankScore=casename:8.0;RankScoreNormalized=casename:1.0;RankScoreMinMax=casename:-29.0:8.0;RankResult=4|1|3	GT:DP:AD:GQ:PL:RNC	0/1:12:5,7:49:49,0,60:..
