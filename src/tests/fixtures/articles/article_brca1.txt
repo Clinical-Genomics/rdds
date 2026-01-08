@@ -1,0 +1,13 @@
+# The BRCA1 and BRCA2 Genes in Early-Onset Breast Cancer Patients
+
+## Authors
+Mohamed Saleem  1   2 , Mohd Bazli Ghazali  1   3 , Md Azlan Mohamed Abdul Wahab  1 , Narazah Mohd Yusoff  1 , Hakimah Mahsin  4 , Ch'ng Ewe Seng  5 , Imran Abdul Khalid  3 , Mohd Nor Gohar Rahman  6 , Badrul Hisham Yahaya  7
+
+## PMID
+29687286 DOI: 10.1007/5584_2018_147
+
+## Abstract
+Approximately 5-10% of breast cancers are attributable to genetic susceptibility. Mutations in the BRCA1 and BRCA2 genes are the best known genetic factors to date. The goal of this study was to determine the structure and distribution of haplotypes of the BRCA1 and BRCA2 genes in early-onset breast cancer patients. We enrolled 70 patients diagnosed with early-onset breast cancer. A total of 21 SNPs (11 on BRCA1 and 10 on BRCA2) and 1 dinucleotide deletion on BRCA1 were genotyped using nested allele-specific PCR methods. Linkage disequilibrium (LD) analysis was conducted, and haplotypes were deduced from the genotype data. Two tightly linked LD blocks were observed on each of the BRCA1 and BRCA2 genes. Variant-free haplotypes (TAT-AG for BRCA1 and ATA-AAT for BRCA2) were observed at a frequency of more than 50% on each gene along with variable frequencies of derived haplotypes. The variant 3'-subhaplotype CGC displayed strong LD with 5'-subhaplotypes GA, AA, and GG on BRCA1 gene. Haplotypes ATA-AGT, ATC-AAT, and ATA-AAC were the variant haplotypes frequent on BRCA2 gene. Although the clinical significance of these derived haplotypes has not yet been established, it is expected that some of these haplotypes, especially the less frequent subhaplotypes, eventually will be shown to be indicative of a predisposition to early-onset breast cancer.
+
+## Keywords
+BRCA1; BRCA2; Breast cancer; Early onset.

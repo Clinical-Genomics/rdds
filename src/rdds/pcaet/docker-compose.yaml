@@ -1,0 +1,42 @@
+name: rd-agent
+# TODO: new name
+# https://github.com/mythrantic/ollama-docker
+services:
+  ollama-server:
+    image: clinicalgenomics/rdds_pcaet
+    entrypoint: []
+    command: "bash -c \"/opt/ollama/bin/ollama serve\""
+    restart: always
+    container_name: ollama-server
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      # https://docs.ollama.com/context-length
+      # - OLLAMA_CONTEXT_LENGTH=32000
+    ports:
+      - name: api
+        target: 11434
+        host_ip: 127.0.0.1
+        published: 11434
+    volumes:
+      - type: bind
+        source: .
+        target: /repo
+        read_only: true
+  devimage:
+    image: clinicalgenomics/rdds_pcaet
+    container_name: devimage
+    depends_on:
+      - ollama-server
+    environment:
+      - PYTHONPATH=/rdds/src
+      - PYTHON_UNBUFFERED=1
+    volumes:
+      - type: bind
+        source: /mnt/docker_rdds
+        target: /rdds
+        read_only: false
+    ports:
+      - name: ssh
+        target: 2150
+        host_ip: 127.0.0.1
+        published: 2151
