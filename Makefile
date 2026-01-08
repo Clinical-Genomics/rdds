@@ -63,6 +63,17 @@ mivmir-image-build:
 	--target mivmir-production \
 	-f build/devenv/devenv.Dockerfile .
 
+pcaet-image-build:
+	$(DOCKER) build \
+	--build-arg="OS_FLAVOUR=ubuntu_22_04" \
+	--build-arg="VERSION=$(VERSION)" \
+	-t $(DOCKERHUB)/rdds_pcaet:$(VERSION) \
+	--force-rm=true \
+	--rm=true \
+	--target devenv_pcaet \
+	-f build/devenv/devenv.Dockerfile .
+	docker tag $(DOCKERHUB)/rdds_pcaet:$(VERSION) $(DOCKERHUB)/rdds_pcaet:latest
+
 mivmir-image-convert-to-singularity:
 	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
 	mkdir -p tmp/devenv

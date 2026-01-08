@@ -7,6 +7,9 @@ FROM clinicalgenomics/rdds-ubuntu-20.04-nvidia:${VERSION} AS ubuntu_20_04_nvidia
 # Ubuntu 20.04/AMD64
 FROM ubuntu@sha256:b795f8e0caaaacad9859a9a38fe1c78154f8301fdaf0872eaf1520d66d9c0b98 AS ubuntu_20_04
 
+# Ubuntu 22.04/AMD64
+FROM ubuntu@sha256:1c4cc37c10c4678fd5369d172a4e079af8a28a6e6f724647ccaa311b4801c3c9 AS ubuntu_22_04
+
 FROM ${OS_FLAVOUR} as base
 ENV DEBIAN_FRONTEND=noninteractive
 # Install OS deps
@@ -125,3 +128,15 @@ COPY build/devenv/guitest.py /
 RUN printf "#!/bin/bash\n\ndropbear -p 2150 -b /usr/share/base-files/motd -s -F -R" > /entrypoint.sh && \
   chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
+
+FROM devenv AS devenv_pcaet
+# https://docs.ollama.com/linux#installing-specific-versions
+ENV OLLAMA_VERSION=0.13.4
+WORKDIR /opt/ollama
+RUN apt-get install -y curl && \
+    curl -LO https://ollama.com/download/ollama-linux-amd64.tgz && \
+    tar -xzf ollama-linux-amd64.tgz && \
+    rm ollama-linux-amd64.tgz
+COPY build/ollama/bootstrap_models.py .
+RUN . /opt/pyenv/bin/activate && \
+    python3 bootstrap_models.py
