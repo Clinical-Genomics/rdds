@@ -225,3 +225,19 @@ generate-dataset-statistics-%:
 start-jupyter-notebook-image:
 	# Start notebook docker image accessible on ssh port 2152
 	SIF_IMAGE_PATH=tmp/devenv/rdds_cosmograph-v1.12.0-rc2.sif ./job.slurm "dropbear -p 2152 -b /usr/share/base-files/motd -s -F -R"
+
+pcaet-up:
+	# Make sure uid:guid is correctly mapped from docker <-> host fs
+	sudo mkdir -p /mnt/docker_rdds
+	sudo bindfs --map=$(USER)/root:@$(USER)/@root . /mnt/docker_rdds
+	docker compose --file src/rdds/pcaet/docker-compose.yaml up -d --force-recreate
+
+pcaet-down:
+	docker compose --file src/rdds/pcaet/docker-compose.yaml down --timeout 5
+	docker compose --file src/rdds/pcaet/docker-compose.yaml rm -f
+	sudo umount -f /mnt/docker_rdds | true
+	sudo rmdir /mnt/docker_rdds
+
+pcaet-devenv-ssh:
+	chmod go-rw build/devenv/devenv-docker.rsakey
+	ssh -F build/devenv/devenv.sshconfig -oUserKnownHostsFile=/dev/null -p 2151 devenv
