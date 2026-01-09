@@ -1,7 +1,6 @@
 from cyvcf2 import Variant
 import numpy as np
 from typing import *
-from collections import Iterator
 
 from .vep import rank_vep_predictions
 
@@ -91,7 +90,7 @@ class ParsableVariant:
                 pass
             parsing_fn(key=field_name, data=field_value)
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self):
         """
         Return parsed fields as Iterator
         :return:
