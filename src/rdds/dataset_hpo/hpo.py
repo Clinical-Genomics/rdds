@@ -13,6 +13,7 @@ _LOGGER = get_logger('datset-hpo', 'info')
 class HPO:
 
     def __init__(self):
+        # https://github.com/obophenotype/human-phenotype-ontology/blob/v2026-01-08/docs/annotations/phenotype_to_genes.md
         self._phenotype_to_genes = _HPO_SRC + _HPO_VERSION + '/phenotype_to_genes.txt'
         self._phenotype_to_genes_sha256 = '3ce4be69b16e2257b52e377e6248ced09b876d458adfe60b162aeaad99522711'
 
