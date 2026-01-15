@@ -134,6 +134,7 @@ devenv-%-convert-dockerimage-to-singularity:
 
 devenv-local-%-singularity-sshd:
 	# Start singularity development image locally
+	# Example: devenv-local-ubuntu_20_04_nvidia-singularity-sshd
 	# Use --fakeroot to start as uid 0 and -w (required for sshd)
 	$(eval DEVENV_IMAGE_SUFFIX=$(subst $(DEFAULT_DEVENV_OS_FLAVOUR),,$*))
 	mkdir -p $(SINGULARITY_CACHEDIR_DEVENV)
