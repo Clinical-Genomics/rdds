@@ -16,9 +16,17 @@ class HPO:
         # https://github.com/obophenotype/human-phenotype-ontology/blob/v2026-01-08/docs/annotations/phenotype_to_genes.md
         self._phenotype_to_genes = _HPO_SRC + _HPO_VERSION + '/phenotype_to_genes.txt'
         self._phenotype_to_genes_sha256 = '3ce4be69b16e2257b52e377e6248ced09b876d458adfe60b162aeaad99522711'
+        # https://obophenotype.github.io/human-phenotype-ontology/annotations/genes_to_disease/
+        self._genes_to_disease = _HPO_SRC + _HPO_VERSION + '/genes_to_disease.txt'
+        self._genes_to_disease_sha256 = '2552f81ac4bacf718291dac39bc03387ebfe671bad6480cdfcb963cbd9f40843'
+        # https://obophenotype.github.io/human-phenotype-ontology/annotations/frequency/
+        self._hpo_disease_frequency = _HPO_SRC + _HPO_VERSION + '/phenotype.hpoa'
+        self._hpo_disease_frequency_sha256 = '506d358590b0f0367cd09332bba73a95cd753cd281a9ecaee00a655ced82e422'
 
         self._files_checksums = [
-            (self._phenotype_to_genes, self._phenotype_to_genes_sha256)
+            (self._phenotype_to_genes, self._phenotype_to_genes_sha256),
+            (self._genes_to_disease, self._genes_to_disease_sha256),
+            (self._hpo_disease_frequency, self._hpo_disease_frequency_sha256)
         ]
 
     def download(self):
