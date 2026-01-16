@@ -10,6 +10,7 @@ SINGULARITY_CACHEDIR_DEVENV=$(PWD)/tmp/devenv/singularity-cache-dir
 # Any changes to versioning method, please update rdds.lib.git as well
 VERSION=$(shell git describe --tags --dirty --always)
 VERSION_LATEST_MASTER=$(shell git describe --tags --abbrev=0 origin/master)
+VERSION=dev-phen2gen
 
 all:
 	# Default is no action
