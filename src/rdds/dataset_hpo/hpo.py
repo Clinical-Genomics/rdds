@@ -9,7 +9,7 @@ from rdds.lib.checksum import checksum
 _HPO_SRC='https://github.com/obophenotype/human-phenotype-ontology/releases/download/'
 _HPO_VERSION = 'v2026-01-08'
 
-_LOGGER = get_logger('datset-hpo', 'info')
+_LOGGER = get_logger('dataset-hpo', 'info')
 class HPO:
 
     def __init__(self):
