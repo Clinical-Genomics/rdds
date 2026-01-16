@@ -23,6 +23,7 @@ using `G` embedding and `D` embeddings based on HPO frequencies.
 Question: Do we want to create embeddings of the nodes H, G and D OR NOT?
 Do we want to apply a Convolutional-GNN (based on embeddings) or do some kind of message-passing schema?
 Seems like creating node embeddings is the way to go, based on 1. and 3.
+See [chapter 12.3.2 (Inductive Knowledge Graph Embeddings) and 12.4 (Recommender Systems)](file:///tmp/978-3-031-01587-8.pdf)
 
 I think one can see the `node state` in tf-gnn as the node embedding vector.
 The goal is then to reduce distance between linked nodes, using the `node states` as embeddings.
