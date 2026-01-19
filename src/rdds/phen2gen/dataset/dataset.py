@@ -18,41 +18,23 @@ class Phen2GenDatasetCompiler:
         on_bad_lines = "error"
         # Prepare HPO Phenotype to Genotype TSV
         df_phenotype_to_genes = pd.read_csv(self._hpo_phen_to_gene_tsv,
-                         low_memory=False,
+                                            low_memory=False,
                                             on_bad_lines=on_bad_lines,
-                         delimiter='\t')
-        # TODO: Create mapping of HPO phenotype ID to NCBI gene ID
-        # Prepare OMIM disease to gene mappings
+                                            delimiter='\t')
+
+        # Prepare HPO phenotype ID to NCBI gene ID
         df_genes_to_disease = pd.read_csv(self._hpo_genes_to_disease_tsv,
                                           low_memory=False,
                                           on_bad_lines=on_bad_lines,
                                           delimiter='\t')
 
-        nodes_diseases = df_genes_to_disease
-
         # Prepare OMIM HPO Frequency to Disease mappings
-        column_names = [
-            'database_id',
-            'disease_name',
-            'qualifier',
-            'hpo_id',
-            'reference',
-            'evidence',
-            'onset',
-            'frequency',
-            'sex',
-            'modifier',
-            'aspect',
-            'biocuration'
-        ]
-        #converters = {
-        #    colname: fn
-        #}
         df_frequency_to_disease = pd.read_csv(self._hpo_frequency_to_disease,
                                               header=4,
                                               on_bad_lines=on_bad_lines,
                                               delimiter='\t')
-        # TODO: Drop all not in 'aspect:phenotypic abnormality'
+        ## Drop all not of datatype 'aspect:phenotypic abnormality', https://hpo.jax.org/browse/term/HP:0000118
+        df_frequency_to_disease = df_frequency_to_disease[df_frequency_to_disease.aspect == 'P']
         # TODO: Decode frequency term according to https://obophenotype.github.io/human-phenotype-ontology/annotations/frequency/
         # TODO: Make use of 'qualifier' and NOT annotation for negative associations
         return
