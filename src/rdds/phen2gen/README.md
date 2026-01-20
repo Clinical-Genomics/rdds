@@ -29,6 +29,8 @@ See [chapter 12.3.2 (Inductive Knowledge Graph Embeddings) and 12.4 (Recommender
 I think one can see the `node state` in tf-gnn as the node embedding vector.
 The goal is then to reduce distance between linked nodes, using the `node states` as embeddings.
 
+> Possibly usecase for contrastive learning (SimCLR, SimSiam, and MOCO) to infer links (node states; embeddings) ?
+
 ### Data
 
 For training data, use HPO and metadata. Use all of the HPO terms for training.
@@ -62,9 +64,21 @@ However, using Orphanet annotations is better from a clinical perspective <sup>3
 > Can I train the embeddings using a two-goal method: to correctly identify pheno-pheno and pheno-gene links?
 Can this be extended to other properties, like to infer pheno-mouse-gene to improve embeddings?
 
+### Integrations
+- [ ] Decide on whether to generate a gene panel, or to use as per-variant scoring method
+
 ## APIs
 - [Tensorflow-GNN](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/overview.md)
-
+    - [Graph Schema docs](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/schema.md) and associated schema validation tools
+    - [... and how to instantiate a Schema using GraphTensor](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/graph_tensor.md)
+    - [Helpful example on how to read data from disk using Schema and GraphTensor proto files](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/input_pipeline.md#file-input-and-parsing)
+- [TF-GNN: Graph Neural Networks in TensorFlow, Arxiv](https://arxiv.org/pdf/2207.03522)
+- [Graph Neural Networks in TensorFlow: A Practical Guide](https://drive.google.com/file/d/1zn6qIPnwFktYUsTbjRQVkO5n0TmlewMR/view)
+    Also contains interesting links to examples where the GNN learns the graph relations itself in unsupervised fashion (UGSL).
+    Great slides for different applications and domains, visualised.
+- Check out [Grale: Designing Networks for Graph Learning, Jonathan Halcrow, Alexandru Mosoi, Sam Ruth, Bryan Perozzi]()
+- [Visualizing GNNs with NetworkX](https://github.com/tensorflow/gnn/blob/main/examples/tutorials/kdd_2023/code_tutorial_visualization.ipynb)
+- [Important notes on pattern for Model Saving and Inference](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/input_pipeline.md#the-big-picture-training-export-and-inference)
 ## References
 1. [PhenoLinker: Phenotype-Gene Link Prediction and Explanation using Heterogeneous Graph Neural Networks](https://arxiv.org/html/2402.01809v1)
 2. [CADA: phenotype-driven gene prioritization based on a case-enriched knowledge graph](https://pmc.ncbi.nlm.nih.gov/articles/PMC8415429/#B16)
@@ -75,3 +89,4 @@ Can this be extended to other properties, like to infer pheno-mouse-gene to impr
 Good methods for testing robustness.
 7. [PhenoDigm: analyzing curated annotations to associate animal models with human diseases](https://academic.oup.com/database/article/doi/10.1093/database/bat025/333089)
 Good list of ortholog (gene) data sources
+8. [SCOUT Phenotype support](https://github.com/Clinical-Genomics/scout/blob/ecb0ad3288f09fad11ffd8f76c85a4e6f0ae7fde/docs/features/hpo.md)
