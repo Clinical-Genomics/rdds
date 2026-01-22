@@ -8,3 +8,6 @@ try:
     makedirs(WORKDIR)
 except FileExistsError:
     pass
+
+from rdds.lib.logging import get_logger
+_LOGGER = get_logger(name='phen2gen', log_level='info')
