@@ -1,4 +1,5 @@
 # This file contains the data schema definition
+# https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/schema.md
 
 _SCHEMA = """
 node_sets {
@@ -89,11 +90,97 @@ node_sets {
 
         features {
             key: "rank_score"
-            value : {
+            value: {
                 description: "The combined inferred pathogenicity score from RD pipeline"
                 dtype: DT_FLOAT
             }
         }
     }
 }
+
+edge_sets {
+    key: "gene-variant"
+    value {
+        description: "A gene-to-variant link"
+        source: "gene"
+        target: "variant"
+
+        features {
+            key: "relatedness"
+            value: {
+                description: "A boolean relationship, [0, 1]"
+                dtype: DT_FLOAT
+            }
+        }
+    }
+}
+
+edge_sets {
+    key: "gene-disease"
+    value {
+        description: "A gene-to-disease link"
+        source: "gene"
+        target: "disease"
+
+        features {
+            key: "relatedness"
+            value: {
+                description: "A boolean relationship, [0, 1]"
+                dtype: DT_FLOAT
+            }
+        }
+    }
+}
+
+edge_sets {
+    key: "hpo-hpo"
+    value {
+        description: "HPO-HPO ontology link"
+        source: "hpo"
+        target: "hpo"
+
+        features {
+            key: "relatedness"
+            value: {
+                description: "A boolean relationship, [0, 1]"
+                dtype: DT_FLOAT
+            }
+        }
+    }
+}
+
+edge_sets {
+    key: "hpo-gene"
+    value {
+        description: "HPO-to-gene link"
+        source: "hpo"
+        target: "gene"
+
+        features {
+            key: "relatedness"
+            value: {
+                description: "A boolean relationship, [0, 1]"
+                dtype: DT_FLOAT
+            }
+        }
+    }
+}
+
+edge_sets {
+    key: "disease-to-hpo"
+    value {
+        description: "Disease-to-HPO link"
+        source: "disease"
+        target: "hpo"
+
+        features {
+            key: "frequency"
+            value: {
+                description: "Frequency of HPO occurrence in Disease"
+                dtype: DT_FLOAT
+            }
+        }
+    }
+}
+
 """
