@@ -18,7 +18,7 @@ node_sets {
         features {
             key: "hpo_name"
             value: {
-                description: "HPO human readable name as bag of words, like Abnormal pancratic duct morphology"
+                description: "HPO human readable name as bag of words, like Abnormal pancreatic duct morphology"
                 dtype: DT_STRING
                 shape { dim { size: -1 } }
             }
@@ -81,10 +81,11 @@ node_sets {
         description: "A gene variant"
 
         features {
-            key: "label"
-            value : {
-                description: "Ground truth label, is the causative variant for the case"
-                dtype: DT_FLOAT
+            key: "id"
+            value: {
+                description: "Variant ID"
+                dtype: DT_STRING
+                shape { dim { size: -1 } }
             }
         }
 
@@ -95,11 +96,19 @@ node_sets {
                 dtype: DT_FLOAT
             }
         }
+
+        features {
+            key: "label"
+            value : {
+                description: "Ground truth label, is the causative variant for the case"
+                dtype: DT_FLOAT
+            }
+        }
     }
 }
 
 edge_sets {
-    key: "gene-variant"
+    key: "gene>variant"
     value {
         description: "A gene-to-variant link"
         source: "gene"
@@ -116,7 +125,7 @@ edge_sets {
 }
 
 edge_sets {
-    key: "gene-disease"
+    key: "gene>disease"
     value {
         description: "A gene-to-disease link"
         source: "gene"
@@ -133,7 +142,7 @@ edge_sets {
 }
 
 edge_sets {
-    key: "hpo-hpo"
+    key: "hpo>hpo"
     value {
         description: "HPO-HPO ontology link"
         source: "hpo"
@@ -150,7 +159,7 @@ edge_sets {
 }
 
 edge_sets {
-    key: "hpo-gene"
+    key: "hpo>gene"
     value {
         description: "HPO-to-gene link"
         source: "hpo"
@@ -167,7 +176,7 @@ edge_sets {
 }
 
 edge_sets {
-    key: "disease-to-hpo"
+    key: "disease>hpo"
     value {
         description: "Disease-to-HPO link"
         source: "disease"
@@ -183,4 +192,34 @@ edge_sets {
     }
 }
 
+node_sets {
+    key: "latent-variant-hpo"
+    value {
+        description: "A latent node representing a variant - HPO association"
+    }
+}
+
+edge_sets {
+    key: "variant>latent-variant-hpo"
+    value {
+        description: "Variant to latent"
+        source: "variant"
+        target: "latent-variant-hpo"
+    }
+}
+
+edge_sets {
+    key: "hpo>latent-variant-hpo"
+    value {
+        description: "HPO to latent"
+        source: "hpo"
+        target: "latent-variant-hpo"
+    }
+}
 """
+
+# TODO: Add "hypothesis" feature to possible seed nodes?
+
+
+# TODO: Decide whether to use latent node edges as the "strength" between variant-hpo or use the latent state itself
+# TODO: Add latent node features "hypothesis" as prediction y_hat?

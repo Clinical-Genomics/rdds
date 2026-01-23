@@ -40,6 +40,7 @@ class Phen2GenDatasetCompiler:
         return self._graph_spec
 
     def compile(self):
+        """ Preprocess input files and write examples of Graph to TFRecord file """
         on_bad_lines = "error"
         # Prepare HPO Phenotype to Genotype TSV
         df_phenotype_to_genes = pd.read_csv(self._hpo_phen_to_gene_tsv,
@@ -64,11 +65,23 @@ class Phen2GenDatasetCompiler:
         # TODO: Make use of 'qualifier' and NOT annotation for negative associations
         return
 
+
+    def _yield_graph_tensor(self) -> tfgnn.GraphTensor:
+        # TODO: Replace with iterator on top of compiled dataset file
+        for i in range(0, 10):
+            # TODO: Replace with tfgnn.GraphTensor.from_pieces()
+            graph_tensor = tfgnn.random_graph_tensor(self._graph_spec)
+            yield graph_tensor
+
     def _write_tfrecord(self):
         # TODO: Write based on real data
         _LOGGER.info(f"Writing tfrecord file to {self._output_tfrecord_file_path}")
         with tf.io.TFRecordWriter(self._output_tfrecord_file_path) as writer:
-            for _ in range(10):
-                graph = tfgnn.random_graph_tensor(self._graph_spec)
+            for graph in self._yield_graph_tensor():
                 example = tfgnn.write_example(graph)
                 writer.write(example.SerializeToString())
+
+    @property
+    def dataset(self):
+        # TODO: Create tf.Dataset instance from TFRecord file
+        return None
