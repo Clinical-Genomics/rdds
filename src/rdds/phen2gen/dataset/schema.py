@@ -203,8 +203,8 @@ edge_sets {
     key: "variant>latent-variant-hpo"
     value {
         description: "Variant to latent"
-        source: "variant"
-        target: "latent-variant-hpo"
+        source: "latent-variant-hpo"
+        target: "variant"
     }
 }
 
@@ -212,11 +212,12 @@ edge_sets {
     key: "hpo>latent-variant-hpo"
     value {
         description: "HPO to latent"
-        source: "hpo"
-        target: "latent-variant-hpo"
+        source: "latent-variant-hpo"
+        target: "hpo"
     }
 }
 """
+# TODO: BUG: Double check that variant|hpo to latent edge_sets work as expected (reversed src/trgt right now)
 
 # TODO: Add "hypothesis" feature to possible seed nodes?
 

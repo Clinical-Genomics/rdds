@@ -5,6 +5,15 @@ In short, this module takes various input data sources (files on disk) and creat
 
 https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/data_prep.md
 
+- [ ] TODO: Design decision: To represent the whole case in a GraphTensor or to do graph sampling
+  - Pros complete graph: All relevant features available immediately, long term data
+  - Cons complete graph: Risk of overfitting when all data available? Slower convergence. Poor scalability
+  - [Sampling methods for efficient training of graph convolutional networks: A survey](https://arxiv.org/pdf/2103.05872)
+
+[Good examples on sampling configs](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/sampler/sampling_spec_builder_test.py)
+
+This is my usecase: https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/sampler/sampling_spec_builder_test.py#L136
+
 ## Sampler
 
 ```

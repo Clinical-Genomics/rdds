@@ -63,6 +63,8 @@ class Phen2GenDatasetCompiler:
         df_frequency_to_disease = df_frequency_to_disease[df_frequency_to_disease.aspect == 'P']
         # TODO: Decode frequency term according to https://obophenotype.github.io/human-phenotype-ontology/annotations/frequency/
         # TODO: Make use of 'qualifier' and NOT annotation for negative associations
+
+        # TODO: Define pd.DataFrame for the different nodes, edges
         return
 
     def _yield_graph_tensor(self, dummy_data: bool = False) -> tfgnn.GraphTensor:
