@@ -259,4 +259,4 @@ Generating graph embeddings
     to the default graph embeddings (now representing subgraphs). Especially useful in `Link Prediction` problems.
 
 - Great link prediction example: https://github.com/tensorflow/gnn/blob/main/examples/tutorials/kdd_2023/code_tutorial_1.ipynb
-- Great intro to GNNs (dont commit): https://gnn.seas.upenn.edu/lectures/lecture-1/
+- Great intro to GNNs: https://gnn.seas.upenn.edu/lectures/lecture-1/
