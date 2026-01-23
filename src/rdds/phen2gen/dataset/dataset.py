@@ -65,21 +65,29 @@ class Phen2GenDatasetCompiler:
         # TODO: Make use of 'qualifier' and NOT annotation for negative associations
         return
 
-
-    def _yield_graph_tensor(self) -> tfgnn.GraphTensor:
+    def _yield_graph_tensor(self, dummy_data: bool = False) -> tfgnn.GraphTensor:
+        """
+        :param dummy_data: Yield dummy data (for testing)
+        """
         # TODO: Replace with iterator on top of compiled dataset file
-        for i in range(0, 10):
-            # TODO: Replace with tfgnn.GraphTensor.from_pieces()
-            graph_tensor = tfgnn.random_graph_tensor(self._graph_spec)
-            yield graph_tensor
+        if dummy_data:
+            for i in range(0, 10):
+                graph_tensor = tfgnn.random_graph_tensor(self._graph_spec)
+                yield graph_tensor
+            return
 
-    def _write_tfrecord(self):
-        # TODO: Write based on real data
+
+    def _write_tfrecord(self, dummy_data: bool = False):
         _LOGGER.info(f"Writing tfrecord file to {self._output_tfrecord_file_path}")
+        written_records = 0
         with tf.io.TFRecordWriter(self._output_tfrecord_file_path) as writer:
-            for graph in self._yield_graph_tensor():
+            for graph in self._yield_graph_tensor(dummy_data=dummy_data):
                 example = tfgnn.write_example(graph)
                 writer.write(example.SerializeToString())
+                written_records += 1
+        if written_records == 0:
+            raise ValueError("Wrote no records to file")
+        _LOGGER.info(f"Wrote {written_records} records")
 
     @property
     def dataset(self):
