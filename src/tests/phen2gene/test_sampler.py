@@ -1,5 +1,6 @@
 from tempfile import NamedTemporaryFile
 import tensorflow as tf
+from tensorflow_gnn.keras.layers.graph_ops import GraphTensor
 
 from rdds.phen2gen.dataset.sampler import InMemorySampler
 from rdds.phen2gen.dataset.dataset import Phen2GenDatasetCompiler
@@ -12,8 +13,10 @@ def test_sampler():
     schema = compiler.schema
     sampler = InMemorySampler(graph_schema=schema,
                               complete_graph=single_graph)
-    sampling_model = sampler.build_sampling_model()
+    sampler.build_sampling_model()
 
+    seeds = [0, 1]
+    n_seeds = len(seeds)
     seeds = tf.data.Dataset.from_tensor_slices([0, 1])
     # Create batches of up to two seeds
     seeds = seeds.batch(1)
@@ -22,5 +25,8 @@ def test_sampler():
         lambda s: tf.RaggedTensor.from_row_lengths(s, tf.ones_like(s))
     )
     graphs = seeds.map(sampler.samping_model)
+    count = 0
     for graph in graphs:
-        print(graph)
+        assert isinstance(graph, GraphTensor)
+        count += 1
+    assert count == n_seeds
