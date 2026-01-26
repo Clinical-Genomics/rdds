@@ -1,6 +1,8 @@
 # This file contains the data schema definition
 # https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/schema.md
 
+from tensorflow_gnn import NODES, EDGES
+
 _SCHEMA = """
 node_sets {
     key: "hpo"
@@ -198,8 +200,8 @@ edge_sets {
     key: "variant>latent-variant-hpo"
     value {
         description: "Variant to latent"
-        source: "latent-variant-hpo"
-        target: "variant"
+        source: "variant"
+        target: "latent-variant-hpo"
     }
 }
 
@@ -207,16 +209,13 @@ edge_sets {
     key: "hpo>latent-variant-hpo"
     value {
         description: "HPO to latent"
-        source: "latent-variant-hpo"
-        target: "hpo"
+        source: "hpo"
+        target: "latent-variant-hpo"
     }
 }
 """
 # TODO: BUG: Double check that variant|hpo to latent edge_sets work as expected (reversed src/trgt right now)
-
 # TODO: Add "hypothesis" feature to possible seed nodes?
-
-
 # TODO: Decide whether to use latent node edges as the "strength" between variant-hpo or use the latent state itself
 # TODO: Add latent node features "hypothesis" as prediction y_hat?
 

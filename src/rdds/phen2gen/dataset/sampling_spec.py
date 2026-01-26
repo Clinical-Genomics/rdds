@@ -1,3 +1,8 @@
+"""
+Sampling specification for graph sampler.
+Only nodes and edges listed in this specification will be sampled during training.
+"""
+
 _SAMPLING_SPEC = \
 """
 seed_op {

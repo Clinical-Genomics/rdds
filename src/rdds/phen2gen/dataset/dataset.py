@@ -73,7 +73,7 @@ class Phen2GenDatasetCompiler:
         """
         # TODO: Replace with iterator on top of compiled dataset file
         if dummy_data:
-            for i in range(0, 10):
+            while True:
                 graph_tensor = tfgnn.random_graph_tensor(self._graph_spec,
                                                          sample_dict=_DUMMY_DATA,
                                                          num_components_range=(1, 2)  # [1, 2)
@@ -81,6 +81,8 @@ class Phen2GenDatasetCompiler:
                 yield graph_tensor
             return
 
+        # TODO: Replace with tfgnn.GraphTensor.from_pieces()
+        raise NotImplementedError()
 
     def _write_tfrecord(self, dummy_data: bool = False):
         _LOGGER.info(f"Writing tfrecord file to {self._output_tfrecord_file_path}")
