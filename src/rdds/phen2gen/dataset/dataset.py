@@ -1,11 +1,9 @@
 import os.path
-
 import pandas as pd
 import tensorflow_gnn.proto.graph_schema_pb2 as schema_pb2
 from google.protobuf import text_format
 import tensorflow as tf
 import tensorflow_gnn as tfgnn
-from tempfile import NamedTemporaryFile
 
 from .. import WORKDIR, _LOGGER
 from .schema import _SCHEMA, _DUMMY_DATA
@@ -39,6 +37,51 @@ class Phen2GenDatasetCompiler:
     def graph_spec(self):
         return self._graph_spec
 
+    @staticmethod
+    def _construct_hpo_nodes(df: pd.DataFrame) -> tfgnn.NodeSet:
+        df = df.copy(deep=True)
+        # Assumes that all hpo_names are identical to hpo_id
+        df = df.drop_duplicates('hpo_id')
+        hpo_id = df.hpo_id.map(lambda hpo_str: int(hpo_str.replace('HP:', ''))).values
+        hpo_name = df.hpo_name.values
+        node_set = tfgnn.NodeSet.from_fields(
+            sizes=tf.constant([len(hpo_id)], dtype=tf.int64),
+            features={
+                "hpo_id": hpo_id,
+                "hpo_name": hpo_name
+            }
+        )
+        return node_set
+
+    @staticmethod
+    def _construct_gene_nodes(df: pd.DataFrame) -> tfgnn.NodeSet:
+        df = df.copy(deep=True)
+        df = df.drop_duplicates('ncbi_gene_id')
+        gene_id = df.ncbi_gene_id.map(lambda gene_str: int(gene_str.replace('NCBIGene:', ''))).values
+        gene_name = df.gene_symbol.values
+        node_set = tfgnn.NodeSet.from_fields(
+            sizes=tf.constant([len(gene_id)], dtype=tf.int64),
+            features={
+                "gene_id": gene_id,
+                "gene_name": gene_name
+            }
+        )
+        return node_set
+
+    @staticmethod
+    def _construct_disease_nodes(df: pd.DataFrame) -> tfgnn.NodeSet:
+        # TODO: Lookup disease name (only URLs are present in TSV data)
+        df = df.copy(deep=True)
+        disease_id = df.disease_id.drop_duplicates().values
+        node_set = tfgnn.NodeSet.from_fields(
+            sizes=tf.constant([len(disease_id)], dtype=tf.int64),
+            features={
+                "disease_id": disease_id,
+                "disease_name": [''] * len(disease_id)
+            }
+        )
+        return node_set
+
     def compile(self):
         """ Preprocess input files and write examples of Graph to TFRecord file """
         on_bad_lines = "error"
@@ -64,7 +107,16 @@ class Phen2GenDatasetCompiler:
         # TODO: Decode frequency term according to https://obophenotype.github.io/human-phenotype-ontology/annotations/frequency/
         # TODO: Make use of 'qualifier' and NOT annotation for negative associations
 
-        # TODO: Define pd.DataFrame for the different nodes, edges
+        # Define nodes
+        hpo_nodes = self._construct_hpo_nodes(df=df_phenotype_to_genes)
+        gene_nodes = self._construct_gene_nodes(df=df_genes_to_disease)
+        disease_nodes = self._construct_disease_nodes(df=df_genes_to_disease)
+        # TODO: Add variants
+        # TODO: Add all of NCBI genes (not just disease genes)
+
+        # Define context
+        context = None
+
         return
 
     def _yield_graph_tensor(self,
