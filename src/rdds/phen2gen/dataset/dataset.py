@@ -8,7 +8,7 @@ import tensorflow_gnn as tfgnn
 from tempfile import NamedTemporaryFile
 
 from .. import WORKDIR, _LOGGER
-from .schema import _SCHEMA
+from .schema import _SCHEMA, _DUMMY_DATA
 
 _HPO_PHEN_TO_GENE_TSV = '/rdds/tmp/dataset-hpo/phenotype_to_genes.txt'
 _HPO_GENES_TO_DISEASE = '/rdds/tmp/dataset-hpo/genes_to_disease.txt'
@@ -74,7 +74,10 @@ class Phen2GenDatasetCompiler:
         # TODO: Replace with iterator on top of compiled dataset file
         if dummy_data:
             for i in range(0, 10):
-                graph_tensor = tfgnn.random_graph_tensor(self._graph_spec)
+                graph_tensor = tfgnn.random_graph_tensor(self._graph_spec,
+                                                         sample_dict=_DUMMY_DATA,
+                                                         num_components_range=(1, 2)  # [1, 2)
+                                                         )
                 yield graph_tensor
             return
 

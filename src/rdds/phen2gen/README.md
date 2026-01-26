@@ -75,6 +75,7 @@ Can this be extended to other properties, like to infer pheno-mouse-gene to impr
     - [Example on defining schema in python kernel and verifying it](https://github.com/tensorflow/gnn/blob/main/examples/tutorials/log_2022/neurips_teacher_tfgnn_graph_classification_mutag.ipynb)
     - [Pseudocode on full process, including pipeline and model training](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/input_pipeline.md#the-big-picture-training-export-and-inference) 
     - [On seed nodes, graph readout structures for training](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/schema.md#about-labels-and-reading-out-the-final-gnn-states) 
+    - [On how to adapt Keras layers to deal with tfgnn outermost dimension](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/input_pipeline.md#the-shape-of-features)
 - [TF-GNN: Graph Neural Networks in TensorFlow, Arxiv](https://arxiv.org/pdf/2207.03522)
 - [Graph Neural Networks in TensorFlow: A Practical Guide](https://drive.google.com/file/d/1zn6qIPnwFktYUsTbjRQVkO5n0TmlewMR/view)
     Also contains interesting links to examples where the GNN learns the graph relations itself in unsupervised fashion (UGSL).
