@@ -1,5 +1,5 @@
 from tensorflow import int32
-from tensorflow.keras import Model
+from tensorflow.keras import Model as KerasModel
 import tensorflow_gnn as tfgnn
 from tensorflow_gnn.experimental import sampler as expsampler
 from tensorflow_gnn.sampler import sampling_spec_pb2
@@ -69,13 +69,17 @@ class InMemorySampler:
                 self._complete_graph, node_set_name
             )
 
-        self._sampling_model: Model = expsampler.create_sampling_model_from_spec(
+        self._sampling_model: KerasModel = expsampler.create_sampling_model_from_spec(
             self._graph_schema,
             self._sampling_spec,
             edge_sampler,
             get_features,
             seed_node_dtype=int32)
-        _LOGGER('Sampling model:\n', self._sampling_model.summary(line_length=120))
+        _LOGGER.info(f"Sampling model:\n{self._sampling_model.summary(line_length=120)}")
+
+    @property
+    def samping_model(self) -> KerasModel:
+        return self._sampling_model
 
     def build_sampling_model(self):
         self._build_sampling_spec()
