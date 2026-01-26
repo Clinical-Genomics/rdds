@@ -67,13 +67,15 @@ class Phen2GenDatasetCompiler:
         # TODO: Define pd.DataFrame for the different nodes, edges
         return
 
-    def _yield_graph_tensor(self, dummy_data: bool = False) -> tfgnn.GraphTensor:
+    def _yield_graph_tensor(self,
+                            dummy_data: bool = False,
+                            n_dummy_samples: int = 10) -> tfgnn.GraphTensor:
         """
         :param dummy_data: Yield dummy data (for testing)
         """
         # TODO: Replace with iterator on top of compiled dataset file
         if dummy_data:
-            while True:
+            for _ in range(0, n_dummy_samples):
                 graph_tensor = tfgnn.random_graph_tensor(self._graph_spec,
                                                          sample_dict=_DUMMY_DATA,
                                                          num_components_range=(1, 2)  # [1, 2)

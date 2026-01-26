@@ -214,7 +214,6 @@ edge_sets {
     }
 }
 """
-# TODO: BUG: Double check that variant|hpo to latent edge_sets work as expected (reversed src/trgt right now)
 # TODO: Add "hypothesis" feature to possible seed nodes?
 # TODO: Decide whether to use latent node edges as the "strength" between variant-hpo or use the latent state itself
 # TODO: Add latent node features "hypothesis" as prediction y_hat?
