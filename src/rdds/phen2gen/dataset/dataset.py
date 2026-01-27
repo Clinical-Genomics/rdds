@@ -6,7 +6,7 @@ import tensorflow as tf
 import tensorflow_gnn as tfgnn
 import numpy as np
 import hpotk
-from typing import List
+from typing import List, Union
 
 from .. import WORKDIR, _LOGGER
 from .schema import _SCHEMA, _DUMMY_DATA
@@ -155,6 +155,51 @@ class Phen2GenDatasetCompiler:
         _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-hpo terms")
         return edge_set
 
+    @staticmethod
+    def _construct_hpo_gene_edges(phenotype_to_genes: pd.DataFrame,
+                                  hpo_nodes: tfgnn.NodeSet,
+                                  gene_nodes: tfgnn.NodeSet,
+                                  ) -> tfgnn.EdgeSet:
+        """
+        Construct HPO to Disease-associated-gene edge.
+        Consists of both OMIM and ORPHANET associations in a hpo-to-gene 1-by-1 mapping.
+        There are multiple hpo->gene mappings per HPO term, so there are multiple edges per hpo term
+        to gene.
+
+
+        TODO: Select OMIM or ORPHANET as hpo-gene association source, see phenotype_to_genes.disease_id
+        """
+        phenotype_to_genes = phenotype_to_genes.copy(deep=True)
+
+        _LOGGER.info("Creating edges hpo-to-gene")
+        hpo_ids: np.ndarray = hpo_nodes.features["hpo_id_full"].numpy()  # str
+        disease_gene_ids: np.ndarray = gene_nodes.features["gene_id"].numpy()  # int
+
+        def _lookup_idx(value: Union[str, int], arr:np.ndarray) -> int:
+            if isinstance(value, str):
+                value: bytes = value.encode('utf-8')
+            idx, = np.nonzero(arr == value)
+            assert isinstance(idx, np.ndarray), idx
+            assert len(idx) == 1, (value, idx, 'not found')
+            return idx[0]
+
+        # The DF is a HPO -> gene by 1-1 relationship.
+        hpo_id_idx = phenotype_to_genes.hpo_id.map(lambda hpo_id: _lookup_idx(hpo_id, arr=hpo_ids))
+        gene_id_idx = phenotype_to_genes.ncbi_gene_id.map(lambda gene_id: _lookup_idx(gene_id, arr=disease_gene_ids))
+
+        phenotype_to_genes['nodeset_hpo_idx'] = hpo_id_idx
+        phenotype_to_genes['nodeset_gene_idx'] = gene_id_idx
+
+        edge_set = tfgnn.EdgeSet.from_fields(
+            sizes=tf.constant([len(phenotype_to_genes)]),
+            adjacency=tfgnn.Adjacency.from_indices(
+                source=("hpo", phenotype_to_genes.nodeset_hpo_idx.values),
+                target=("gene", phenotype_to_genes.nodeset_gene_idx.values)
+            )
+        )
+        _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-gene terms")
+        return edge_set
+
     def compile(self):
         """ Preprocess input files and write examples of Graph to TFRecord file """
         on_bad_lines = "error"
@@ -191,6 +236,9 @@ class Phen2GenDatasetCompiler:
 
         # Define edges
         hpo_hpo_edges = self._construct_hpo_hpo_edges(hpo_ontology=hpo_ontology, hpo_node_set=hpo_nodes)
+        hpo_gene_edges = self._construct_hpo_gene_edges(phenotype_to_genes=df_phenotype_to_genes,
+                                                        gene_nodes=gene_nodes,
+                                                        hpo_nodes=hpo_nodes)
 
         # Define context
         context = None
