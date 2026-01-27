@@ -22,11 +22,13 @@ class HPO:
         # https://obophenotype.github.io/human-phenotype-ontology/annotations/frequency/
         self._hpo_disease_frequency = _HPO_SRC + _HPO_VERSION + '/phenotype.hpoa'
         self._hpo_disease_frequency_sha256 = '506d358590b0f0367cd09332bba73a95cd753cd281a9ecaee00a655ced82e422'
-
+        self._hpo_ontology = _HPO_SRC + _HPO_VERSION + '/hp.json'
+        self._hpo_ontology_sha256 = 'd31fda29206e4509b19162903b2fd46188514279d5579eb7a2de0d0722342ecf'
         self._files_checksums = [
             (self._phenotype_to_genes, self._phenotype_to_genes_sha256),
             (self._genes_to_disease, self._genes_to_disease_sha256),
-            (self._hpo_disease_frequency, self._hpo_disease_frequency_sha256)
+            (self._hpo_disease_frequency, self._hpo_disease_frequency_sha256),
+            (self._hpo_ontology, self._hpo_ontology_sha256)
         ]
 
     def download(self):
