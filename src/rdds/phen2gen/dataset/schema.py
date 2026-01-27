@@ -18,6 +18,14 @@ node_sets {
         }
 
         features {
+            key: "hpo_id_full"
+            value: {
+                description: "ID of the HPO term, like HP:0030992"
+                dtype: DT_STRING
+            }
+        }
+
+        features {
             key: "hpo_name"
             value: {
                 description: "HPO human readable name as bag of words, like Abnormal pancreatic duct morphology"

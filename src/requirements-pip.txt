@@ -20,6 +20,9 @@ jupyterlab==4.3.4
 # Dataset
 h5py==3.7.0
 
+# HPO Ontology
+hpo-toolkit==0.6.0
+
 # For improved debugging speed
 cython==0.29.33
 
