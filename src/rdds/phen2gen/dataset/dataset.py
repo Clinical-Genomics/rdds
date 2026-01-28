@@ -7,9 +7,13 @@ import tensorflow_gnn as tfgnn
 import numpy as np
 import hpotk
 from typing import List, Union
+from dataclasses import dataclass
+import pickle
+import os
 
 from .. import WORKDIR, _LOGGER
 from .schema import _SCHEMA, _DUMMY_DATA
+from rdds.lib.checksum import checksum
 
 _HPO_PHEN_TO_GENE_TSV = '/rdds/tmp/dataset-hpo/phenotype_to_genes.txt'
 _HPO_GENES_TO_DISEASE = '/rdds/tmp/dataset-hpo/genes_to_disease.txt'
@@ -27,6 +31,16 @@ def _lookup_idx(value: Union[str, int], arr: np.ndarray) -> int:
     assert isinstance(idx, np.ndarray), idx
     assert len(idx) == 1, (value, idx, 'not found')
     return idx[0]
+
+
+@dataclass
+class IntermediateGraph:
+    hpo_nodes: tfgnn.NodeSet
+    gene_nodes: tfgnn.NodeSet
+    disease_nodes: tfgnn.NodeSet
+    hpo_hpo_edges: tfgnn.EdgeSet
+    hpo_gene_edges: tfgnn.EdgeSet
+    disease_hpo_edges: tfgnn.EdgeSet
 
 
 class Phen2GenDatasetCompiler:
@@ -47,6 +61,7 @@ class Phen2GenDatasetCompiler:
         self._schema = text_format.Merge(self._cleartext_schema, schema_pb2.GraphSchema())
         _LOGGER.info(f"Schema:\n{self._schema}")
         self._graph_spec = tfgnn.create_graph_spec_from_schema_pb(self._schema)
+        self._intermediate_graph_storage_location = os.path.join(WORKDIR, 'graph-data/intermediate-graph.blob')
 
     @property
     def schema(self):
@@ -223,6 +238,7 @@ class Phen2GenDatasetCompiler:
         TODO: Parse frequency to provide "support" feature, indicating number of patients per disease
         TODO: Parse frequency to provide a normalisation constant
         """
+        _LOGGER.info('Creating edges hpo-to-gene')
 
         hpo_frequency_to_disease = hpo_frequency_to_disease.copy(deep=True)
 
@@ -273,8 +289,8 @@ class Phen2GenDatasetCompiler:
         _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-disease terms")
         return edge_set
 
-    def compile(self):
-        """ Preprocess input files and write examples of Graph to TFRecord file """
+    def compile_graph_blob(self):
+        """ Preprocess input files of non-patient case specific origin and write to intermediate IntermediateGraph blob """
         on_bad_lines = "error"
         # Prepare HPO Phenotype to Genotype TSV
         df_phenotype_to_genes = pd.read_csv(self._hpo_phen_to_gene_tsv,
@@ -288,15 +304,13 @@ class Phen2GenDatasetCompiler:
                                           on_bad_lines=on_bad_lines,
                                           delimiter='\t')
 
-        # Prepare OMIM HPO Frequency to Disease mappings
+        # Prepare OMIM, ORPHANET HPO Frequency to Disease mappings
         df_frequency_to_disease = pd.read_csv(self._hpo_frequency_to_disease,
                                               header=4,
                                               on_bad_lines=on_bad_lines,
                                               delimiter='\t')
         ## Drop all not of datatype 'aspect:phenotypic abnormality', https://hpo.jax.org/browse/term/HP:0000118
         df_frequency_to_disease = df_frequency_to_disease[df_frequency_to_disease.aspect == 'P']
-        # TODO: Decode frequency term according to https://obophenotype.github.io/human-phenotype-ontology/annotations/frequency/
-        # TODO: Make use of 'qualifier' and NOT annotation for negative associations
 
         hpo_ontology: hpotk.Ontology = hpotk.load_ontology(self._hpo_ontology)
 
@@ -317,8 +331,44 @@ class Phen2GenDatasetCompiler:
                                                               hpo_nodes=hpo_nodes,
                                                               disease_nodes=disease_nodes)
 
-        # Define context
-        context = None
+        intermediate_graph = IntermediateGraph(hpo_nodes=hpo_nodes,
+                                               gene_nodes=gene_nodes,
+                                               disease_nodes=disease_nodes,
+                                               hpo_hpo_edges=hpo_hpo_edges,
+                                               hpo_gene_edges=hpo_gene_edges,
+                                               disease_hpo_edges=disease_hpo_edges)
+        self._store_intermediate_graph(intermediate_graph)
+
+    def _store_intermediate_graph(self, intermediate_graph: IntermediateGraph):
+        """
+        Save the non-case specific graph data to disk for reuse
+        """
+        try:
+            os.mkdir(os.path.dirname(self._intermediate_graph_storage_location))
+        except FileExistsError:
+            pass
+        with open(self._intermediate_graph_storage_location, mode='wb') as fp:
+            pickle.dump(intermediate_graph, fp)
+        graph_checksum = checksum(file_path=self._intermediate_graph_storage_location, algorithm='sha256')
+        _LOGGER.info(f"Wrote {self._intermediate_graph_storage_location}:{graph_checksum}")
+        with open(self._intermediate_graph_storage_location + '.sha256', 'w') as fp:
+            fp.write(f"{graph_checksum} {self._intermediate_graph_storage_location}")
+
+    def _load_intermediate_graph(self, intermediate_graph_storage_location: str = None) -> IntermediateGraph:
+        """
+        Load IntermediateGraph from disk
+        """
+        if intermediate_graph_storage_location is None:
+            intermediate_graph_storage_location = self._intermediate_graph_storage_location
+        _LOGGER.info(f"Loading intermediate graph from blob: {intermediate_graph_storage_location}")
+        with open(intermediate_graph_storage_location + '.sha256', 'r') as fp:
+            expected_graph_checksum = fp.read().split(' ')[0]
+        graph_checksum = checksum(file_path=intermediate_graph_storage_location, algorithm='sha256')
+        assert graph_checksum == expected_graph_checksum, (graph_checksum, expected_graph_checksum)
+        with open(self._intermediate_graph_storage_location, 'rb') as fp:
+            intermediate_graph: IntermediateGraph = pickle.load(fp)
+        return intermediate_graph
+
 
         return
 
