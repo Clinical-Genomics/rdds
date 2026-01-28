@@ -16,6 +16,19 @@ _HPO_GENES_TO_DISEASE = '/rdds/tmp/dataset-hpo/genes_to_disease.txt'
 _HPO_FREQUENCY_TO_DISEASE = '/rdds/tmp/dataset-hpo/phenotype.hpoa'
 _HPO_ONTOLOGY = '/rdds/tmp/dataset-hpo/hp.json'
 
+
+def _lookup_idx(value: Union[str, int], arr: np.ndarray) -> int:
+    """
+    Helper function to find index of value in arr.
+    """
+    if isinstance(value, str):
+        value: bytes = value.encode('utf-8')
+    idx, = np.nonzero(arr == value)
+    assert isinstance(idx, np.ndarray), idx
+    assert len(idx) == 1, (value, idx, 'not found')
+    return idx[0]
+
+
 class Phen2GenDatasetCompiler:
 
     def __init__(self,
@@ -174,14 +187,6 @@ class Phen2GenDatasetCompiler:
         _LOGGER.info("Creating edges hpo-to-gene")
         hpo_ids: np.ndarray = hpo_nodes.features["hpo_id_full"].numpy()  # str
         disease_gene_ids: np.ndarray = gene_nodes.features["gene_id"].numpy()  # int
-
-        def _lookup_idx(value: Union[str, int], arr:np.ndarray) -> int:
-            if isinstance(value, str):
-                value: bytes = value.encode('utf-8')
-            idx, = np.nonzero(arr == value)
-            assert isinstance(idx, np.ndarray), idx
-            assert len(idx) == 1, (value, idx, 'not found')
-            return idx[0]
 
         # The DF is a HPO -> gene by 1-1 relationship.
         hpo_id_idx = phenotype_to_genes.hpo_id.map(lambda hpo_id: _lookup_idx(hpo_id, arr=hpo_ids))
