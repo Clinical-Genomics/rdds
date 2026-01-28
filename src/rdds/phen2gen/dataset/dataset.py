@@ -107,15 +107,24 @@ class Phen2GenDatasetCompiler:
         return node_set
 
     @staticmethod
-    def _construct_disease_nodes(df: pd.DataFrame) -> tfgnn.NodeSet:
+    def _construct_disease_nodes(df_gene_to_disease: pd.DataFrame,
+                                 df_frequency_to_disease: pd.DataFrame) -> tfgnn.NodeSet:
+        """
+        Construct nodes from OMIM and ORPHANET disease IDs
+        """
+        # TODO: Download complete set of OMIM, ORPHANET disease IDs from source, input files here might be incomplete!
         # TODO: Lookup disease name (only URLs are present in TSV data)
-        df = df.copy(deep=True)
-        disease_id = df.disease_id.drop_duplicates().values
+
+        gene_disease_ids = df_gene_to_disease.disease_id.copy()
+        frequency_to_disease_ids = df_frequency_to_disease.database_id.copy()
+        disease_ids = pd.concat((gene_disease_ids, frequency_to_disease_ids), axis=0, ignore_index=True)
+        disease_ids = disease_ids.drop_duplicates()
+        disease_ids = disease_ids.values
         node_set = tfgnn.NodeSet.from_fields(
-            sizes=tf.constant([len(disease_id)], dtype=tf.int64),
+            sizes=tf.constant([len(disease_ids)], dtype=tf.int64),
             features={
-                "disease_id": disease_id,
-                "disease_name": [''] * len(disease_id)
+                "disease_id": disease_ids,
+                "disease_name": [''] * len(disease_ids)
             }
         )
         _LOGGER.info(f"Added nodes for {node_set.total_size} diseases")
@@ -205,6 +214,65 @@ class Phen2GenDatasetCompiler:
         _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-gene terms")
         return edge_set
 
+    @staticmethod
+    def _construct_hpo_disease_edges(hpo_frequency_to_disease: pd.DataFrame,
+                                     hpo_nodes: tfgnn.NodeSet,
+                                     disease_nodes: tfgnn.NodeSet) -> tfgnn.EdgeSet:
+        """
+        TODO: Parse the .qualifier field to make use of NOT negative association
+        TODO: Parse frequency to provide "support" feature, indicating number of patients per disease
+        TODO: Parse frequency to provide a normalisation constant
+        """
+
+        hpo_frequency_to_disease = hpo_frequency_to_disease.copy(deep=True)
+
+        from fractions import Fraction
+        def _parse_frequency_field(value: Union[str, None]) -> float:
+            """
+            Examples: 1/4, HP:0011461, 32% or NaN
+
+            Excluded        HP:0040285 	0% of affected individuals
+            Very rare       HP:0040284 	1–4% of affected individuals
+            Occasional      HP:0040283 	5–29% of affected individuals
+            Frequent        HP:0040282 	30–79% of affected individuals
+            Very frequent   HP:0040281 	80–99% of affected individuals
+            Obligate        HP:0040280  100% of affected individuals
+
+            Source: https://obophenotype.github.io/human-phenotype-ontology/annotations/frequency/
+            """
+            lookup_table = {  # As an average of the bounds in the above specification, (0, 1)
+                'HP:0040285': 0.0,  # 0% of affected individuals
+                'HP:0040284': (1 + 4) / 2.0 / 100.0,  # 1–4% of affected individuals
+                'HP:0040283': (5 + 29) / 2.0 / 100.0,  # 5–29% of affected individuals
+                'HP:0040282': (30 + 79) / 2.0 / 100.0,  # 30–79% of affected individuals
+                'HP:0040281': (80 + 99) / 2.0 / 100.0,  # 80–99% of affected individuals
+                'HP:0040280': 1.0  # 100% of affected individuals
+            }
+            if not (value == value):  # nan check
+                return None
+            if 'HP' in value:
+                return lookup_table[value]
+            if '%' in value:
+                return float(value.replace('%','')) / 100.0
+            fraction = Fraction(value)
+            frequency = fraction.numerator / fraction.denominator
+            return frequency
+
+        hpo_frequency_to_disease['frequency_parsed'] = hpo_frequency_to_disease.frequency.map(lambda frq_value: _parse_frequency_field(frq_value))
+        node_disease: np.ndarray = disease_nodes.features['disease_id'].numpy()  # str
+        node_hpo: np.ndarray = hpo_nodes.features['hpo_id_full'].numpy()  # str
+        hpo_frequency_to_disease['node_hpo_idx'] = hpo_frequency_to_disease.hpo_id.map(lambda hpo_id_str: _lookup_idx(value=hpo_id_str, arr=node_hpo))
+        hpo_frequency_to_disease['node_disease_idx'] = hpo_frequency_to_disease.database_id.map(lambda database_id_str: _lookup_idx(value=database_id_str, arr=node_disease))
+        edge_set = tfgnn.EdgeSet.from_fields(
+            sizes=tf.constant([len(hpo_frequency_to_disease)]),
+            adjacency=tfgnn.Adjacency.from_indices(
+                source=("hpo", hpo_frequency_to_disease.node_hpo_idx.values),
+                target=("disease", hpo_frequency_to_disease.node_disease_idx.values)
+            )
+        )
+        _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-disease terms")
+        return edge_set
+
     def compile(self):
         """ Preprocess input files and write examples of Graph to TFRecord file """
         on_bad_lines = "error"
@@ -235,7 +303,8 @@ class Phen2GenDatasetCompiler:
         # Define nodes
         hpo_nodes = self._construct_hpo_nodes(hpo_ontology=hpo_ontology)
         gene_nodes = self._construct_gene_nodes(df=df_genes_to_disease)
-        disease_nodes = self._construct_disease_nodes(df=df_genes_to_disease)
+        disease_nodes = self._construct_disease_nodes(df_gene_to_disease=df_genes_to_disease,
+                                                      df_frequency_to_disease=df_frequency_to_disease)
         # TODO: Add variants
         # TODO: Add all of NCBI genes (not just disease genes)
 
@@ -244,6 +313,9 @@ class Phen2GenDatasetCompiler:
         hpo_gene_edges = self._construct_hpo_gene_edges(phenotype_to_genes=df_phenotype_to_genes,
                                                         gene_nodes=gene_nodes,
                                                         hpo_nodes=hpo_nodes)
+        disease_hpo_edges = self._construct_hpo_disease_edges(hpo_frequency_to_disease=df_frequency_to_disease,
+                                                              hpo_nodes=hpo_nodes,
+                                                              disease_nodes=disease_nodes)
 
         # Define context
         context = None

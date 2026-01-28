@@ -181,11 +181,11 @@ edge_sets {
 }
 
 edge_sets {
-    key: "disease>hpo"
+    key: "hpo>disease"
     value {
         description: "Disease-to-HPO link"
-        source: "disease"
-        target: "hpo"
+        source: "hpo"
+        target: "disease"
 
         features {
             key: "frequency"

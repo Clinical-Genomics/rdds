@@ -43,6 +43,8 @@ to test model performance (as a validation set).
 
 > Use only Orphanet annotations (ignoring OMIM)
 
+[Great list of additional data sources by OMIM](https://mirror.omim.org/help/external)
+
 ### Model
 Do as in 2. to encode phenotype - gene relations using word2vec.
 A simpler approach (not using patient case data) would be to go with 3. instead.
