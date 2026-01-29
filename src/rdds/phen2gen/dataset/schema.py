@@ -43,7 +43,7 @@ node_sets {
         features {
             key: "gene_id"
             value: {
-                description: "NCBI gene ID"
+                description: "HGNC gene ID, HGNC:32 without prefix"
                 dtype: DT_INT64
             }
         }
@@ -51,7 +51,7 @@ node_sets {
         features {
             key: "gene_symbol"
             value: {
-                description: "NCBI gene symbol"
+                description: "HGNC gene symbol, like BRCA1"
                 dtype: DT_STRING
             }
         }
@@ -225,6 +225,7 @@ edge_sets {
 # TODO: Add "hypothesis" feature to possible seed nodes?
 # TODO: Decide whether to use latent node edges as the "strength" between variant-hpo or use the latent state itself
 # TODO: Add latent node features "hypothesis" as prediction y_hat?
+# TODO: Add HGNC .gene_group and .locus_group as edges to gene-gene
 
 _DUMMY_DATA = {
     (NODES, "hpo", "hpo_id"): [0, 1],

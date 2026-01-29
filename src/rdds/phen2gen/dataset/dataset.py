@@ -20,6 +20,7 @@ _HPO_PHEN_TO_GENE_TSV = '/rdds/tmp/dataset-hpo/phenotype_to_genes.txt'
 _HPO_GENES_TO_DISEASE = '/rdds/tmp/dataset-hpo/genes_to_disease.txt'
 _HPO_FREQUENCY_TO_DISEASE = '/rdds/tmp/dataset-hpo/phenotype.hpoa'
 _HPO_ONTOLOGY = '/rdds/tmp/dataset-hpo/hp.json'
+_HGNC_GENES = '/rdds/tmp/dataset-hgnc/hgnc_complete_set_2026-01-06.txt'
 
 
 def _lookup_idx(value: Union[str, int], arr: np.ndarray) -> int:
@@ -51,12 +52,14 @@ class Phen2GenDatasetCompiler:
                  hpo_genes_to_disease: str = _HPO_GENES_TO_DISEASE,
                  hpo_frequency_to_disease: str = _HPO_FREQUENCY_TO_DISEASE,
                  hpo_ontology: str = _HPO_ONTOLOGY,
+                 hgnc_genes: str = _HGNC_GENES,
                  cleartext_schema: str = _SCHEMA,
                  tfrecord_output_path: str = os.path.join(WORKDIR, 'dataset.tfrecord')):
         self._hpo_phen_to_gene_tsv = hpo_phen_to_gene_tsv
         self._hpo_genes_to_disease_tsv = hpo_genes_to_disease
         self._hpo_frequency_to_disease = hpo_frequency_to_disease
         self._hpo_ontology = hpo_ontology
+        self._hgnc_genes = hgnc_genes
         self._output_tfrecord_file_path = tfrecord_output_path
         self._cleartext_schema = cleartext_schema
         self._schema = text_format.Merge(self._cleartext_schema, schema_pb2.GraphSchema())
@@ -109,14 +112,13 @@ class Phen2GenDatasetCompiler:
     @staticmethod
     def _construct_gene_nodes(df: pd.DataFrame) -> tfgnn.NodeSet:
         df = df.copy(deep=True)
-        df = df.drop_duplicates('ncbi_gene_id')
-        gene_id = df.ncbi_gene_id.map(lambda gene_str: int(gene_str.replace('NCBIGene:', ''))).values
-        gene_name = df.gene_symbol.values
+        gene_id = df.hgnc_id.map(lambda gene_str: int(gene_str.replace('HGNC:', ''))).values  # HGNC:32
+        gene_symbol = df.symbol.values  # CARD9
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(gene_id)], dtype=tf.int64),
             features={
                 "gene_id": gene_id,
-                "gene_name": gene_name
+                "gene_symbol": gene_symbol
             }
         )
         _LOGGER.info(f"Added nodes for {node_set.total_size} genes")
@@ -334,13 +336,17 @@ class Phen2GenDatasetCompiler:
 
         hpo_ontology: hpotk.Ontology = hpotk.load_ontology(self._hpo_ontology)
 
+        # Prepare HGNC genes
+        df_hgnc_genes = pd.read_csv(self._hgnc_genes,
+                                    low_memory=False,
+                                    on_bad_lines=on_bad_lines,
+                                    delimiter='\t')
+
         # Define nodes
         hpo_nodes = self._construct_hpo_nodes(hpo_ontology=hpo_ontology)
-        gene_nodes = self._construct_gene_nodes(df=df_genes_to_disease)
+        gene_nodes = self._construct_gene_nodes(df=df_hgnc_genes)
         disease_nodes = self._construct_disease_nodes(df_gene_to_disease=df_genes_to_disease,
                                                       df_frequency_to_disease=df_frequency_to_disease)
-        # TODO: Add variants
-        # TODO: Add all of NCBI genes (not just disease genes)
 
         # Define edges
         hpo_hpo_edges = self._construct_hpo_hpo_edges(hpo_ontology=hpo_ontology, hpo_node_set=hpo_nodes)
