@@ -14,7 +14,7 @@ class HGNC:
 
     def __init__(self):
         # FIXME: Add GRCh37 as well, this file is just 38
-        self._hgnc_complete_set = _HGNC_URL + '/hgnc_complete_set_2026-01-06.txt'
+        self._hgnc_complete_set = _HGNC_URL + '/hgnc_complete_set_2026-01-06.txt'  # GRCh38
         self._hgnc_complete_set_sha256 = '744b245d30ae95cb91aae1039f9cb62b32246261565fe0039199aac5f230ff6e'
         self._files_checksums = [
             (self._hgnc_complete_set, self._hgnc_complete_set_sha256)
