@@ -113,11 +113,11 @@ node_sets {
 }
 
 edge_sets {
-    key: "gene>variant"
+    key: "variant>gene"
     value {
-        description: "A gene-to-variant link"
-        source: "gene"
-        target: "variant"
+        description: "A variant-to-gene link"
+        source: "variant"
+        target: "gene"
 
         features {
             key: "relatedness"

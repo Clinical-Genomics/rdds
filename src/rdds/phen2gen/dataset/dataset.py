@@ -23,16 +23,25 @@ _HPO_ONTOLOGY = '/rdds/tmp/dataset-hpo/hp.json'
 _HGNC_GENES = '/rdds/tmp/dataset-hgnc/hgnc_complete_set_2026-01-06.txt'
 
 
-def _lookup_idx(value: Union[str, int], arr: np.ndarray) -> int:
+
+def _lookup_idx(value: Union[str, int],
+                arr: np.ndarray,
+                allow_misses_with_message: str = None) -> Union[int, None]:
     """
     Helper function to find index of value in arr.
+    :param allow_misses_with_message: Allow no match for value in arr, logging a message
     """
     if isinstance(value, str):
         value: bytes = value.encode('utf-8')
     idx, = np.nonzero(arr == value)
     assert isinstance(idx, np.ndarray), idx
     assert len(idx) <= 1, (value, idx, 'ambiguous, multiple matches', arr[idx])
-    assert len(idx) > 0, (value, idx, 'not found')
+    if len(idx) == 0:
+        if allow_misses_with_message:
+            _LOGGER.warning(allow_misses_with_message)
+            return None
+        else:
+            raise ValueError(f"value {value} not found in arr, got idx {idx}")
     return idx[0]
 
 def _variant_id(parsed_variant: ParsableVariant) -> str:
@@ -309,7 +318,6 @@ class Phen2GenDatasetCompiler:
         disease_ids = disease_nodes.features['disease_id'].numpy()  # str, OMIM: or ORPHANET:
         gene_symbol_idx = genes_to_disease.gene_symbol.map(lambda gene_symbol: _lookup_idx(gene_symbol, arr=gene_symbols))
         disease_id_idx = genes_to_disease.disease_id.map(lambda disease_id: _lookup_idx(disease_id, arr=disease_ids))
-        # AssertionError: (b'-', array([], dtype=int64), 'not found')
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(genes_to_disease)]),
             adjacency=tfgnn.Adjacency.from_indices(
@@ -340,6 +348,42 @@ class Phen2GenDatasetCompiler:
         )
         _LOGGER.info(f"Added {node_set.total_size} variant nodes")
         return node_set
+
+    @staticmethod
+    def _construct_variant_gene_edges(vcf_path: str,
+                                      variant_nodes: tfgnn.NodeSet,
+                                      gene_nodes: tfgnn.NodeSet) -> tfgnn.EdgeSet:
+        _LOGGER.info("Creating variant-gene edges")
+        node_ids = []
+        gene_ids = []
+
+        variant_node_ids = variant_nodes.features['variant_id'].numpy()
+        gene_symbols = gene_nodes.features['gene_symbol'].numpy()
+
+        vcf_reader = VCFReader(fname=vcf_path)
+        for variant in vcf_reader:
+            variant_parsed = ParsableVariant(variant=variant, vep_csq_description=vcf_reader.csq_description)
+            #assert variant_parsed.CSQ_SYMBOL_SOURCE == 'HGNC', (variant_parsed.CSQ_SYMBOL_SOURCE, variant_parsed.ID, variant_parsed.CSQ_SYMBOL)
+            gene_symbol = variant_parsed.CSQ_SYMBOL
+            if len(gene_symbol) == 0 or gene_symbol is None:
+                _LOGGER.debug(f"Variant-Gene edger: Ignoring variant {variant_parsed.ID} due to no annotated gene_symbol: '{gene_symbol}'")
+                continue
+            node_ids.append(_lookup_idx(value=_variant_id(parsed_variant=variant_parsed),arr=variant_node_ids))
+            # TODO: FIXME: lookup will fail for variants due to some GRCh37 specific gene names as well as RNA specific annotations
+            gene_idx = _lookup_idx(value=gene_symbol,
+                                   arr=gene_symbols,
+                                   allow_misses_with_message = f"Variant {variant_parsed.ID}, gene={gene_symbol} not found in node genes")
+            if gene_idx:
+                gene_ids.append(gene_idx)
+        edge_set = tfgnn.EdgeSet.from_fields(
+            sizes=tf.constant([len(node_ids)]),
+            adjacency=tfgnn.Adjacency.from_indices(
+                source=("variant", node_ids),
+                target=("gene", gene_ids)
+            )
+        )
+        _LOGGER.info(f"Added {edge_set.total_size} variant->gene edges")
+        return edge_set
 
     def compile_graph_blob(self):
         """ Preprocess input files of non-patient case specific origin and write to intermediate IntermediateGraph blob """
