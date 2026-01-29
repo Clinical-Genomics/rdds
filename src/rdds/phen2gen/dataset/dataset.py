@@ -6,7 +6,7 @@ import tensorflow as tf
 import tensorflow_gnn as tfgnn
 import numpy as np
 import hpotk
-from typing import List, Union
+from typing import List, Union, Dict
 from dataclasses import dataclass
 import pickle
 import os
@@ -472,6 +472,34 @@ class Phen2GenDatasetCompiler:
         with open(self._intermediate_graph_storage_location, 'rb') as fp:
             intermediate_graph: IntermediateGraph = pickle.load(fp)
         return intermediate_graph
+
+    @staticmethod
+    def _build_graph(intermediate_graph: IntermediateGraph,
+                     variant_nodes: tfgnn.NodeSet,
+                     variant_gene_edges: tfgnn.EdgeSet) -> tfgnn.GraphTensor:
+
+        node_sets = {
+            'hpo': intermediate_graph.hpo_nodes,
+            'disease': intermediate_graph.disease_nodes,
+            'gene': intermediate_graph.gene_nodes,
+            'variant': variant_nodes
+        }
+
+        edge_sets = {
+            'hpo>hpo': intermediate_graph.hpo_hpo_edges,
+            'hpo>gene': intermediate_graph.hpo_gene_edges,
+            'hpo>disease': intermediate_graph.disease_hpo_edges,
+            'gene>disease': intermediate_graph.gene_disease_edges,
+            'variant>gene': variant_gene_edges
+        }
+
+        graph = tfgnn.GraphTensor.from_pieces(
+            node_sets=node_sets,
+            edge_sets=edge_sets
+        )
+
+        return graph
+
 
     def _yield_graph_tensor(self,
                             dummy_data: bool = False,
