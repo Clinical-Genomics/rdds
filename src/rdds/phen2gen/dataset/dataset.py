@@ -213,14 +213,13 @@ class Phen2GenDatasetCompiler:
 
         _LOGGER.info("Creating edges hpo-to-gene")
         hpo_ids: np.ndarray = hpo_nodes.features["hpo_id_full"].numpy()  # str
-        disease_gene_ids: np.ndarray = gene_nodes.features["gene_id"].numpy()  # int
+        gene_symbols: np.ndarray = gene_nodes.features["gene_symbol"].numpy()  # str
 
-        # The DF is a HPO -> gene by 1-1 relationship.
         hpo_id_idx = phenotype_to_genes.hpo_id.map(lambda hpo_id: _lookup_idx(hpo_id, arr=hpo_ids))
-        gene_id_idx = phenotype_to_genes.ncbi_gene_id.map(lambda gene_id: _lookup_idx(gene_id, arr=disease_gene_ids))
+        gene_symbol_idx = phenotype_to_genes.gene_symbol.map(lambda gene_symbol: _lookup_idx(gene_symbol, arr=gene_symbols))
 
         phenotype_to_genes['nodeset_hpo_idx'] = hpo_id_idx
-        phenotype_to_genes['nodeset_gene_idx'] = gene_id_idx
+        phenotype_to_genes['nodeset_gene_idx'] = gene_symbol_idx
 
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(phenotype_to_genes)]),
