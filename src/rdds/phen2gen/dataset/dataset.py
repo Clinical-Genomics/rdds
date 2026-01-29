@@ -31,8 +31,13 @@ def _lookup_idx(value: Union[str, int], arr: np.ndarray) -> int:
         value: bytes = value.encode('utf-8')
     idx, = np.nonzero(arr == value)
     assert isinstance(idx, np.ndarray), idx
-    assert len(idx) == 1, (value, idx, 'not found')
+    assert len(idx) <= 1, (value, idx, 'ambiguous, multiple matches', arr[idx])
+    assert len(idx) > 0, (value, idx, 'not found')
     return idx[0]
+
+def _variant_id(parsed_variant: ParsableVariant) -> str:
+    # Create variant ID from ID as well as REF-ALT for examples such as 1_15274_A_T;1_15274_A_G
+    return parsed_variant.ID + '-' + parsed_variant.REF + '-' + parsed_variant.ALT
 
 
 @dataclass
@@ -323,7 +328,7 @@ class Phen2GenDatasetCompiler:
         genmod_rank_scores: List[float] = []
         for variant in vcf_reader:
             variant_parsed = ParsableVariant(variant=variant, vep_csq_description=vcf_reader.csq_description)
-            variant_ids.append(variant_parsed.ID)
+            variant_ids.append(_variant_id(parsed_variant=variant_parsed))
             genmod_rank_scores.append(variant_parsed.RankScore_value)
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(variant_ids)], dtype=tf.int64),
