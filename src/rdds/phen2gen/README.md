@@ -84,6 +84,7 @@ Can this be extended to other properties, like to infer pheno-mouse-gene to impr
     Great slides for different applications and domains, visualised.
 - Check out [Grale: Designing Networks for Graph Learning, Jonathan Halcrow, Alexandru Mosoi, Sam Ruth, Bryan Perozzi]()
 - [Visualizing GNNs with NetworkX](https://github.com/tensorflow/gnn/blob/main/examples/tutorials/kdd_2023/code_tutorial_visualization.ipynb)
+- [Visualizing very large networkx graphs using Datashader](https://datashader.org/user_guide/Networks.html)
 - [Additional visualisation example in Keras tutorials, GNN for node classification](https://keras.io/examples/graph/gnn_citations/)
 - [Important notes on pattern for Model Saving and Inference](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/input_pipeline.md#the-big-picture-training-export-and-inference)
 - [Tensorflow GNN node classification](https://github.com/tensorflow/gnn/blob/main/examples/tutorials/log_2022/code_tutorial_1_tfgnn_single_machine.ipynb)

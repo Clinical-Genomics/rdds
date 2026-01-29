@@ -43,6 +43,7 @@ class IntermediateGraph:
     hpo_hpo_edges: tfgnn.EdgeSet
     hpo_gene_edges: tfgnn.EdgeSet
     disease_hpo_edges: tfgnn.EdgeSet
+    gene_disease_edges: tfgnn.EdgeSet
 
 
 class Phen2GenDatasetCompiler:
@@ -77,7 +78,7 @@ class Phen2GenDatasetCompiler:
 
     @staticmethod
     def _construct_hpo_nodes(hpo_ontology: hpotk.Ontology) -> tfgnn.NodeSet:
-
+        _LOGGER.info("Constructing HPO nodes")
         nodeset_hpo_id: List[int] = []
         nodeset_hpo_id_full: List[str] = []
         nodeset_hpo_name: List[str] = []
@@ -132,6 +133,7 @@ class Phen2GenDatasetCompiler:
         """
         # TODO: Download complete set of OMIM, ORPHANET disease IDs from source, input files here might be incomplete!
         # TODO: Lookup disease name (only URLs are present in TSV data)
+        _LOGGER.info("Constructing disease nodes")
 
         gene_disease_ids = df_gene_to_disease.disease_id.copy()
         frequency_to_disease_ids = df_frequency_to_disease.database_id.copy()
@@ -205,7 +207,6 @@ class Phen2GenDatasetCompiler:
         Consists of both OMIM and ORPHANET associations in a hpo-to-gene 1-by-1 mapping.
         There are multiple hpo->gene mappings per HPO term, so there are multiple edges per hpo term
         to gene.
-
 
         TODO: Select OMIM or ORPHANET as hpo-gene association source, see phenotype_to_genes.disease_id
         """
@@ -281,6 +282,7 @@ class Phen2GenDatasetCompiler:
         node_hpo: np.ndarray = hpo_nodes.features['hpo_id_full'].numpy()  # str
         hpo_frequency_to_disease['node_hpo_idx'] = hpo_frequency_to_disease.hpo_id.map(lambda hpo_id_str: _lookup_idx(value=hpo_id_str, arr=node_hpo))
         hpo_frequency_to_disease['node_disease_idx'] = hpo_frequency_to_disease.database_id.map(lambda database_id_str: _lookup_idx(value=database_id_str, arr=node_disease))
+        # TODO: Add frequency_parsed as feature to edge
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(hpo_frequency_to_disease)]),
             adjacency=tfgnn.Adjacency.from_indices(
@@ -292,7 +294,30 @@ class Phen2GenDatasetCompiler:
         return edge_set
 
     @staticmethod
+    def _construct_gene_disease_edges(genes_to_disease: pd.DataFrame,
+                                      gene_nodes: tfgnn.NodeSet,
+                                      disease_nodes: tfgnn.NodeSet) -> tfgnn.EdgeSet:
+        _LOGGER.info("Constructing gene-disease edges")
+        genes_to_disease = genes_to_disease.copy(deep=True)
+        genes_to_disease = genes_to_disease.query("gene_symbol!='-'")  # Drop entries where no gene symbol associated
+        gene_symbols = gene_nodes.features['gene_symbol'].numpy()  # str, BRCA1
+        disease_ids = disease_nodes.features['disease_id'].numpy()  # str, OMIM: or ORPHANET:
+        gene_symbol_idx = genes_to_disease.gene_symbol.map(lambda gene_symbol: _lookup_idx(gene_symbol, arr=gene_symbols))
+        disease_id_idx = genes_to_disease.disease_id.map(lambda disease_id: _lookup_idx(disease_id, arr=disease_ids))
+        # AssertionError: (b'-', array([], dtype=int64), 'not found')
+        edge_set = tfgnn.EdgeSet.from_fields(
+            sizes=tf.constant([len(genes_to_disease)]),
+            adjacency=tfgnn.Adjacency.from_indices(
+                source=("gene", gene_symbol_idx.values),
+                target=("disease", disease_id_idx.values)
+            )
+        )
+        _LOGGER.info(f"Added {edge_set.total_size} edges for gene->disease terms")
+        return edge_set
+
+    @staticmethod
     def _construct_variant_nodes(vcf_path: str) -> tfgnn.NodeSet:
+        _LOGGER.info("Constructing variant nodes")
         vcf_reader = VCFReader(fname=vcf_path)
         variant_ids: List[str] = []
         genmod_rank_scores: List[float] = []
@@ -308,6 +333,7 @@ class Phen2GenDatasetCompiler:
                 "label": [0] * len(variant_ids)
             }
         )
+        _LOGGER.info(f"Added {node_set.total_size} variant nodes")
         return node_set
 
     def compile_graph_blob(self):
@@ -355,13 +381,17 @@ class Phen2GenDatasetCompiler:
         disease_hpo_edges = self._construct_hpo_disease_edges(hpo_frequency_to_disease=df_frequency_to_disease,
                                                               hpo_nodes=hpo_nodes,
                                                               disease_nodes=disease_nodes)
+        gene_disease_edges = self._construct_gene_disease_edges(genes_to_disease=df_genes_to_disease,
+                                                               gene_nodes=gene_nodes,
+                                                               disease_nodes=disease_nodes)
 
         intermediate_graph = IntermediateGraph(hpo_nodes=hpo_nodes,
                                                gene_nodes=gene_nodes,
                                                disease_nodes=disease_nodes,
                                                hpo_hpo_edges=hpo_hpo_edges,
                                                hpo_gene_edges=hpo_gene_edges,
-                                               disease_hpo_edges=disease_hpo_edges)
+                                               disease_hpo_edges=disease_hpo_edges,
+                                               gene_disease_edges=gene_disease_edges)
         self._store_intermediate_graph(intermediate_graph)
 
     def _store_intermediate_graph(self, intermediate_graph: IntermediateGraph):
