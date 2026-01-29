@@ -95,9 +95,9 @@ node_sets {
         }
 
         features {
-            key: "rank_score"
+            key: "genmod_rank_score"
             value: {
-                description: "The combined inferred pathogenicity score from RD pipeline"
+                description: "Inferred pathogenicity score from the RD pipeline"
                 dtype: DT_FLOAT
             }
         }

@@ -14,6 +14,7 @@ import os
 from .. import WORKDIR, _LOGGER
 from .schema import _SCHEMA, _DUMMY_DATA
 from rdds.lib.checksum import checksum
+from rdds.lib.vcf import VCFReader, ParsableVariant
 
 _HPO_PHEN_TO_GENE_TSV = '/rdds/tmp/dataset-hpo/phenotype_to_genes.txt'
 _HPO_GENES_TO_DISEASE = '/rdds/tmp/dataset-hpo/genes_to_disease.txt'
@@ -289,6 +290,25 @@ class Phen2GenDatasetCompiler:
         _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-disease terms")
         return edge_set
 
+    @staticmethod
+    def _construct_variant_nodes(vcf_path: str) -> tfgnn.NodeSet:
+        vcf_reader = VCFReader(fname=vcf_path)
+        variant_ids: List[str] = []
+        genmod_rank_scores: List[float] = []
+        for variant in vcf_reader:
+            variant_parsed = ParsableVariant(variant=variant, vep_csq_description=vcf_reader.csq_description)
+            variant_ids.append(variant_parsed.ID)
+            genmod_rank_scores.append(variant_parsed.RankScore_value)
+        node_set = tfgnn.NodeSet.from_fields(
+            sizes=tf.constant([len(variant_ids)], dtype=tf.int64),
+            features={
+                "variant_id": variant_ids,
+                "genmod_rank_score": genmod_rank_scores,
+                "label": [0] * len(variant_ids)
+            }
+        )
+        return node_set
+
     def compile_graph_blob(self):
         """ Preprocess input files of non-patient case specific origin and write to intermediate IntermediateGraph blob """
         on_bad_lines = "error"
@@ -368,9 +388,6 @@ class Phen2GenDatasetCompiler:
         with open(self._intermediate_graph_storage_location, 'rb') as fp:
             intermediate_graph: IntermediateGraph = pickle.load(fp)
         return intermediate_graph
-
-
-        return
 
     def _yield_graph_tensor(self,
                             dummy_data: bool = False,
