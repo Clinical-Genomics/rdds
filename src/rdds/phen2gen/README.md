@@ -88,6 +88,7 @@ Can this be extended to other properties, like to infer pheno-mouse-gene to impr
 - [Additional visualisation example in Keras tutorials, GNN for node classification](https://keras.io/examples/graph/gnn_citations/)
 - [Important notes on pattern for Model Saving and Inference](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/input_pipeline.md#the-big-picture-training-export-and-inference)
 - [Tensorflow GNN node classification](https://github.com/tensorflow/gnn/blob/main/examples/tutorials/log_2022/code_tutorial_1_tfgnn_single_machine.ipynb)
+- [Contrastive losses API for Self-supervised learning, SSL](https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/api_docs/python/models/contrastive_losses.md)
 
 ## Related Source Code
 - [Graph2Vec in Keras and NetworkX](https://keras.io/examples/graph/node2vec_movielens/)
@@ -109,6 +110,8 @@ Good list of ortholog (gene) data sources
 
 - [Book on Graph Learning](https://www.cs.mcgill.ca/~wlh/grl_book/files/GRL_Book.pdf)
     Great for terminology and defining scope for ML problems. Good explanations of concepts.
+
+- [Link prediction, ScienceDirect](https://www.sciencedirect.com/topics/computer-science/link-prediction)
 
 # Alternative take on Case Investigation
 
@@ -172,6 +175,10 @@ The seed nodes will be the input x to predict y_hat. One can vary the seed nodes
 - gene
 - hpo terms (dropout)
 
+[Message passing example in this TFGNN arxiv paper](https://arxiv.org/pdf/2207.03522)
+[Message passing paper for chemistry to embed molecules, arxiv](https://arxiv.org/pdf/1704.01212) but it read out on all of graph,
+not individual nodes.
+
 In case of no conductance learning (i.e. graph building using for example GRALE)
 there's no dependency on the inputs. We rather evaluate the graph quality
 by precision, recall on the known causative variant.
@@ -179,7 +186,7 @@ by precision, recall on the known causative variant.
 ## As a Node Prediction Problem
 Use [GraphSAGE](https://arxiv.org/pdf/1706.02216) can be used to generate unsupervised embeddings from
 node-feature-neighbor data.
-
+[Description of GraphSage](https://snap.stanford.edu/graphsage/) and [GraphSAGE imlementation in Tensorflow](https://github.com/williamleif/GraphSAGE)
 Then we frame it as a node classification problem.
 
 # Google GNN introduction NEURIPS
@@ -204,6 +211,9 @@ terms in association with it's neighbouring data points.
 Look into GRALE for graph learning, to create a graph from data.
 
 Look into Node2Vec for graph similarity tasks.
+https://snap.stanford.edu/node2vec/
+[Node2Vec implementation](https://github.com/aditya-grover/node2vec/blob/master/src/node2vec.py)
+[Node2Vec in TF](https://github.com/apple2373/node2vec)
 
 "Affinity Hierarchichial Clustering" algorith for graph clustering seems to outperform other algos like k-means.
 This algo tries to reduce interconnections across identified clusters (intercluster edges).

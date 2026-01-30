@@ -500,7 +500,6 @@ class Phen2GenDatasetCompiler:
 
         return graph
 
-
     def _yield_graph_tensor(self,
                             dummy_data: bool = False,
                             n_dummy_samples: int = 10) -> tfgnn.GraphTensor:

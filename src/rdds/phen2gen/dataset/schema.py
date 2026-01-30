@@ -196,6 +196,31 @@ edge_sets {
         }
     }
 }
+"""
+# TODO: Add "hypothesis" feature to possible seed nodes?
+# TODO: Decide whether to use latent node edges as the "strength" between variant-hpo or use the latent state itself
+# TODO: Add latent node features "hypothesis" as prediction y_hat?
+# TODO: Add HGNC .gene_group and .locus_group as edges to gene-gene
+
+_DUMMY_DATA = {
+    (NODES, "hpo", "hpo_id"): [0, 1],
+    (NODES, "hpo", "hpo_name"): ["hpo_name0", "hpo_name1"],
+    (NODES, "gene", "gene_id"): [2, 3],
+    (NODES, "gene", "gene_symbol"):["BRCA1", "BRCA2"],
+    (NODES, "disease", "disease_id"): ["OMIM:0", "OMIM:1"],
+    (NODES, "disease", "disease_name"): ["Developmental and epileptic encephalopathy", "Short QT syndrome 2"],
+    (NODES, "variant", "variant_id"): ["1.3213A>T", "5.5421235G>C"],
+    (NODES, "variant", "rank_score"): [0.01, 0.95],
+    (NODES, "variant", "label"): [0, 1],
+    (EDGES, "gene>variant", "relatedness"): [0, 1],
+    (EDGES, "gene>disease", "relatedness"): [0, 1],
+    (EDGES, "hpo>hpo", "relatedness"): [0, 1],
+    (EDGES, "hpo>gene", "relatedness"): [0, 1],
+    (EDGES, "disease>hpo", "relatedness"): [0, 1]
+}
+
+"""
+Unused latent nodes:
 
 node_sets {
     key: "latent-variant-hpo"
@@ -222,24 +247,3 @@ edge_sets {
     }
 }
 """
-# TODO: Add "hypothesis" feature to possible seed nodes?
-# TODO: Decide whether to use latent node edges as the "strength" between variant-hpo or use the latent state itself
-# TODO: Add latent node features "hypothesis" as prediction y_hat?
-# TODO: Add HGNC .gene_group and .locus_group as edges to gene-gene
-
-_DUMMY_DATA = {
-    (NODES, "hpo", "hpo_id"): [0, 1],
-    (NODES, "hpo", "hpo_name"): ["hpo_name0", "hpo_name1"],
-    (NODES, "gene", "gene_id"): [2, 3],
-    (NODES, "gene", "gene_symbol"):["BRCA1", "BRCA2"],
-    (NODES, "disease", "disease_id"): ["OMIM:0", "OMIM:1"],
-    (NODES, "disease", "disease_name"): ["Developmental and epileptic encephalopathy", "Short QT syndrome 2"],
-    (NODES, "variant", "variant_id"): ["1.3213A>T", "5.5421235G>C"],
-    (NODES, "variant", "rank_score"): [0.01, 0.95],
-    (NODES, "variant", "label"): [0, 1],
-    (EDGES, "gene>variant", "relatedness"): [0, 1],
-    (EDGES, "gene>disease", "relatedness"): [0, 1],
-    (EDGES, "hpo>hpo", "relatedness"): [0, 1],
-    (EDGES, "hpo>gene", "relatedness"): [0, 1],
-    (EDGES, "disease>hpo", "relatedness"): [0, 1]
-}
