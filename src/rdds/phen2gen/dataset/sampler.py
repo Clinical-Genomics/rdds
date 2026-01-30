@@ -52,7 +52,6 @@ class InMemorySampler:
         print(self._sampling_spec)
 
     def _build_sampling_spec(self):
-        self._sampling_spec = text_format.Parse(_SAMPLING_SPEC, sampling_spec_pb2.SamplingSpec())
         self._sampling_spec = text_format.Parse(_SAMPLING_SPEC, tfgnn.sampler.SamplingSpec())
 
     def _build_sampling_model(self):
@@ -69,6 +68,7 @@ class InMemorySampler:
                 self._complete_graph, node_set_name
             )
 
+        # NOTE: seed_node_dtype must go hand in hand with tfgnn.create_graph_spec_from_schema_pb(..., indices_dtype=tf.int64)
         self._sampling_model: KerasModel = expsampler.create_sampling_model_from_spec(
             self._graph_schema,
             self._sampling_spec,

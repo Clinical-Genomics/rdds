@@ -79,7 +79,8 @@ class Phen2GenDatasetCompiler:
         self._cleartext_schema = cleartext_schema
         self._schema = text_format.Merge(self._cleartext_schema, schema_pb2.GraphSchema())
         _LOGGER.info(f"Schema:\n{self._schema}")
-        self._graph_spec = tfgnn.create_graph_spec_from_schema_pb(self._schema)
+        # NOTE: indices_dtype must  go hand in hand with Sampler expected indices dtype
+        self._graph_spec = tfgnn.create_graph_spec_from_schema_pb(self._schema, indices_dtype=tf.int64)
         self._intermediate_graph_storage_location = os.path.join(WORKDIR, 'graph-data/intermediate-graph.blob')
 
     @property

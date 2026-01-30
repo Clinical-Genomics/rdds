@@ -2,6 +2,7 @@
 # https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/schema.md
 
 from tensorflow_gnn import NODES, EDGES
+from tensorflow import constant, float32, int64, string
 
 _SCHEMA = """
 node_sets {
