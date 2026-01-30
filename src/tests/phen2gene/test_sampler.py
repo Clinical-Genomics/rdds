@@ -17,7 +17,7 @@ def test_sampler():
 
     seeds = [0, 1]
     n_seeds = len(seeds)
-    seeds = tf.data.Dataset.from_tensor_slices([0, 1])
+    seeds = tf.data.Dataset.from_tensor_slices(seeds)
     seeds = seeds.batch(1)  # n_components in GraphTensor
     seeds = seeds.map(
         lambda s: tf.RaggedTensor.from_row_lengths(s, tf.ones_like(s))

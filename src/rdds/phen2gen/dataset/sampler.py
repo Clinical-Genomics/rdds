@@ -1,4 +1,4 @@
-from tensorflow import int32
+from tensorflow import int32, int64
 from tensorflow.keras import Model as KerasModel
 import tensorflow_gnn as tfgnn
 from tensorflow_gnn.experimental import sampler as expsampler
@@ -74,7 +74,7 @@ class InMemorySampler:
             self._sampling_spec,
             edge_sampler,
             get_features,
-            seed_node_dtype=int32)
+            seed_node_dtype=int64)
         _LOGGER.info(f"Sampling model:\n{self._sampling_model.summary(line_length=120)}")
 
     @property

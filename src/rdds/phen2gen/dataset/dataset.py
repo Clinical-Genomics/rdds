@@ -83,11 +83,11 @@ class Phen2GenDatasetCompiler:
         self._intermediate_graph_storage_location = os.path.join(WORKDIR, 'graph-data/intermediate-graph.blob')
 
     @property
-    def schema(self):
+    def schema(self) -> schema_pb2.GraphSchema:
         return self._schema
 
     @property
-    def graph_spec(self):
+    def graph_spec(self) -> tfgnn.GraphTensorSpec:
         return self._graph_spec
 
     @staticmethod
@@ -116,9 +116,9 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(nodeset_hpo_id)], dtype=tf.int64),
             features={
-                "hpo_id": nodeset_hpo_id,
-                "hpo_id_full": nodeset_hpo_id_full,
-                "hpo_name": nodeset_hpo_name
+                "hpo_id": tf.constant(nodeset_hpo_id, dtype=tf.int64),
+                "hpo_id_full": tf.constant(nodeset_hpo_id_full, dtype=tf.string),
+                "hpo_name": tf.constant(nodeset_hpo_name, dtype=tf.string)
             }
         )
         _LOGGER.info(f"Added nodes for {node_set.total_size} HPO terms")
@@ -132,8 +132,8 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(gene_id)], dtype=tf.int64),
             features={
-                "gene_id": gene_id,
-                "gene_symbol": gene_symbol
+                "gene_id": tf.constant(gene_id, dtype=tf.int64),
+                "gene_symbol": tf.constant(gene_symbol, dtype=tf.string)
             }
         )
         _LOGGER.info(f"Added nodes for {node_set.total_size} genes")
@@ -157,8 +157,8 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(disease_ids)], dtype=tf.int64),
             features={
-                "disease_id": disease_ids,
-                "disease_name": [''] * len(disease_ids)
+                "disease_id": tf.constant(disease_ids, dtype=tf.string),
+                "disease_name": tf.constant([''] * len(disease_ids), dtype=tf.string)
             }
         )
         _LOGGER.info(f"Added nodes for {node_set.total_size} diseases")
@@ -204,8 +204,8 @@ class Phen2GenDatasetCompiler:
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(edgeset_sources)]),
             adjacency=tfgnn.Adjacency.from_indices(
-                source=("hpo", edgeset_sources),
-                target=("hpo", edgeset_targets)
+                source=("hpo", tf.constant(edgeset_sources, dtype=tf.int64)),
+                target=("hpo", tf.constant(edgeset_targets, dtype=tf.int64))
             )
         )
         _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-hpo terms")
@@ -239,8 +239,8 @@ class Phen2GenDatasetCompiler:
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(phenotype_to_genes)]),
             adjacency=tfgnn.Adjacency.from_indices(
-                source=("hpo", phenotype_to_genes.nodeset_hpo_idx.values),
-                target=("gene", phenotype_to_genes.nodeset_gene_idx.values)
+                source=("hpo", tf.constant(phenotype_to_genes.nodeset_hpo_idx.values, dtype=tf.int64)),
+                target=("gene", tf.constant(phenotype_to_genes.nodeset_gene_idx.values, dtype=tf.int64))
             )
         )
         _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-gene terms")
@@ -300,8 +300,8 @@ class Phen2GenDatasetCompiler:
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(hpo_frequency_to_disease)]),
             adjacency=tfgnn.Adjacency.from_indices(
-                source=("hpo", hpo_frequency_to_disease.node_hpo_idx.values),
-                target=("disease", hpo_frequency_to_disease.node_disease_idx.values)
+                source=("hpo", tf.constant(hpo_frequency_to_disease.node_hpo_idx.values, dtype=tf.int64)),
+                target=("disease", tf.constant(hpo_frequency_to_disease.node_disease_idx.values, dtype=tf.int64))
             )
         )
         _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-disease terms")
@@ -321,8 +321,8 @@ class Phen2GenDatasetCompiler:
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(genes_to_disease)]),
             adjacency=tfgnn.Adjacency.from_indices(
-                source=("gene", gene_symbol_idx.values),
-                target=("disease", disease_id_idx.values)
+                source=("gene", tf.constant(gene_symbol_idx.values, dtype=tf.int64)),
+                target=("disease", tf.constant(disease_id_idx.values, dtype=tf.int64))
             )
         )
         _LOGGER.info(f"Added {edge_set.total_size} edges for gene->disease terms")
@@ -341,9 +341,9 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(variant_ids)], dtype=tf.int64),
             features={
-                "variant_id": variant_ids,
-                "genmod_rank_score": genmod_rank_scores,
-                "label": [0] * len(variant_ids)
+                "variant_id": tf.constant(variant_ids, dtype=tf.string),
+                "genmod_rank_score": tf.constant(genmod_rank_scores, dtype=tf.float32),
+                "label": tf.constant([0] * len(variant_ids), dtype=tf.float32)
             }
         )
         _LOGGER.info(f"Added {node_set.total_size} variant nodes")
@@ -378,8 +378,8 @@ class Phen2GenDatasetCompiler:
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(node_ids)]),
             adjacency=tfgnn.Adjacency.from_indices(
-                source=("variant", node_ids),
-                target=("gene", gene_ids)
+                source=("variant", tf.constant(node_ids, dtype=tf.int64)),
+                target=("gene", tf.constant(gene_ids, dtype=tf.int64))
             )
         )
         _LOGGER.info(f"Added {edge_set.total_size} variant->gene edges")
