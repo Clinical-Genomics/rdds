@@ -66,6 +66,12 @@ However, using Orphanet annotations is better from a clinical perspective <sup>3
 > Can I train the embeddings using a two-goal method: to correctly identify pheno-pheno and pheno-gene links?
 Can this be extended to other properties, like to infer pheno-mouse-gene to improve embeddings?
 
+> Design Obstacle: Variants are case-specific and not available at time of generation. Need to have
+    an embedding model that 1. does not use variants for training graphSAGE or 2. is somehow agnostic to variants present or not.
+    Or we do this fully explorative, that is, train SAGE and infer links on a case-by-case basis. THIS IS THE STARTING POINT!
+    Can I decompose the SAGE kernel somehow, to allow injection of variant based weights later on?
+    Generating embeddings REQUIRES that all data types are present at time of latent variable creation!
+
 ### Integrations
 - [ ] Decide on whether to generate a gene panel, or to use as per-variant scoring method
 
