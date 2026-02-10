@@ -1,6 +1,4 @@
-import tensorflow as tf
 import tensorflow_gnn as tfgnn
-from typing import Dict
 
 def random_graph_tensor_with_id(*args, **kwargs) -> tfgnn.GraphTensor:
     """
