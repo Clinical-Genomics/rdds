@@ -117,7 +117,8 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(nodeset_hpo_id)], dtype=tf.int64),
             features={
-                "hpo_id": tf.constant(nodeset_hpo_id, dtype=tf.int64),
+                "#id": tf.constant(nodeset_hpo_id, dtype=tf.int64),
+                "hpo_id": tf.constant(nodeset_hpo_id, dtype=tf.int64),  # TODO: Deprecate, replaced by #id
                 "hpo_id_full": tf.constant(nodeset_hpo_id_full, dtype=tf.string),
                 "hpo_name": tf.constant(nodeset_hpo_name, dtype=tf.string)
             }
@@ -133,7 +134,8 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(gene_id)], dtype=tf.int64),
             features={
-                "gene_id": tf.constant(gene_id, dtype=tf.int64),
+                "#id": tf.constant(df.index.values, dtype=tf.int64),
+                "gene_id": tf.constant(gene_id, dtype=tf.int64),  # TODO: Deprecate, replaced by #id
                 "gene_symbol": tf.constant(gene_symbol, dtype=tf.string)
             }
         )
@@ -158,6 +160,7 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(disease_ids)], dtype=tf.int64),
             features={
+                "#id": tf.constant(range(0, len(disease_ids)), dtype=tf.int64),
                 "disease_id": tf.constant(disease_ids, dtype=tf.string),
                 "disease_name": tf.constant([''] * len(disease_ids), dtype=tf.string)
             }
@@ -342,6 +345,7 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(variant_ids)], dtype=tf.int64),
             features={
+                "#id": tf.constant(range(0, len(variant_ids)), dtype=tf.int64),
                 "variant_id": tf.constant(variant_ids, dtype=tf.string),
                 "genmod_rank_score": tf.constant(genmod_rank_scores, dtype=tf.float32),
                 "label": tf.constant([0] * len(variant_ids), dtype=tf.float32)
@@ -507,6 +511,7 @@ class Phen2GenDatasetCompiler:
         """
         :param dummy_data: Yield dummy data (for testing)
         """
+        raise DeprecationWarning()
         # TODO: Replace with iterator on top of compiled dataset file
         if dummy_data:
             for _ in range(0, n_dummy_samples):
