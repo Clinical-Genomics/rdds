@@ -66,7 +66,7 @@ def test():
                                         validate=True)
     assert isinstance(graph, tfgnn.GraphTensor)
     assert '#id' in graph.node_sets['A'].features.keys()
-    assert graph.node_sets['A'].features['#id'].dtype == tf.int32
+    assert graph.node_sets['A'].features['#id'].dtype == tf.int64
     assert '#id' in graph.node_sets['B'].features.keys()
-    assert graph.node_sets['B'].features['#id'].dtype == tf.int32
+    assert graph.node_sets['B'].features['#id'].dtype == tf.int64
     assert '#id' not in graph.node_sets['C'].features.keys()
