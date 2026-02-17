@@ -55,7 +55,7 @@ class IntermediateGraph:
     gene_nodes: tfgnn.NodeSet
     disease_nodes: tfgnn.NodeSet
     hpo_hpo_edges: tfgnn.EdgeSet
-    hpo_gene_edges: tfgnn.EdgeSet
+    gene_hpo_edges: tfgnn.EdgeSet
     disease_hpo_edges: tfgnn.EdgeSet
     gene_disease_edges: tfgnn.EdgeSet
 
@@ -216,7 +216,7 @@ class Phen2GenDatasetCompiler:
         return edge_set
 
     @staticmethod
-    def _construct_hpo_gene_edges(phenotype_to_genes: pd.DataFrame,
+    def _construct_gene_hpo_edges(phenotype_to_genes: pd.DataFrame,
                                   hpo_nodes: tfgnn.NodeSet,
                                   gene_nodes: tfgnn.NodeSet,
                                   ) -> tfgnn.EdgeSet:
@@ -243,11 +243,11 @@ class Phen2GenDatasetCompiler:
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(phenotype_to_genes)]),
             adjacency=tfgnn.Adjacency.from_indices(
-                source=("hpo", tf.constant(phenotype_to_genes.nodeset_hpo_idx.values, dtype=tf.int64)),
-                target=("gene", tf.constant(phenotype_to_genes.nodeset_gene_idx.values, dtype=tf.int64))
+                source=("gene", tf.constant(phenotype_to_genes.nodeset_gene_idx.values, dtype=tf.int64)),
+                target=("hpo", tf.constant(phenotype_to_genes.nodeset_hpo_idx.values, dtype=tf.int64))
             )
         )
-        _LOGGER.info(f"Added {edge_set.total_size} edges for hpo-gene terms")
+        _LOGGER.info(f"Added {edge_set.total_size} edges for gene-hpo terms")
         return edge_set
 
     @staticmethod
@@ -429,7 +429,7 @@ class Phen2GenDatasetCompiler:
 
         # Define edges
         hpo_hpo_edges = self._construct_hpo_hpo_edges(hpo_ontology=hpo_ontology, hpo_node_set=hpo_nodes)
-        hpo_gene_edges = self._construct_hpo_gene_edges(phenotype_to_genes=df_phenotype_to_genes,
+        gene_hpo_edges = self._construct_gene_hpo_edges(phenotype_to_genes=df_phenotype_to_genes,
                                                         gene_nodes=gene_nodes,
                                                         hpo_nodes=hpo_nodes)
         disease_hpo_edges = self._construct_hpo_disease_edges(hpo_frequency_to_disease=df_frequency_to_disease,
@@ -443,7 +443,7 @@ class Phen2GenDatasetCompiler:
                                                gene_nodes=gene_nodes,
                                                disease_nodes=disease_nodes,
                                                hpo_hpo_edges=hpo_hpo_edges,
-                                               hpo_gene_edges=hpo_gene_edges,
+                                               gene_hpo_edges=gene_hpo_edges,
                                                disease_hpo_edges=disease_hpo_edges,
                                                gene_disease_edges=gene_disease_edges)
         self._store_intermediate_graph(intermediate_graph)
@@ -492,7 +492,7 @@ class Phen2GenDatasetCompiler:
 
         edge_sets = {
             'hpo>hpo': intermediate_graph.hpo_hpo_edges,
-            'hpo>gene': intermediate_graph.hpo_gene_edges,
+            'gene>hpo': intermediate_graph.gene_hpo_edges,
             'hpo>disease': intermediate_graph.disease_hpo_edges,
             'gene>disease': intermediate_graph.gene_disease_edges,
             'variant>gene': variant_gene_edges
