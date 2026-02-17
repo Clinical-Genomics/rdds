@@ -373,12 +373,12 @@ class Phen2GenDatasetCompiler:
             if len(gene_symbol) == 0 or gene_symbol is None:
                 _LOGGER.debug(f"Variant-Gene edger: Ignoring variant {variant_parsed.ID} due to no annotated gene_symbol: '{gene_symbol}'")
                 continue
-            node_ids.append(_lookup_idx(value=_variant_id(parsed_variant=variant_parsed),arr=variant_node_ids))
             # TODO: FIXME: lookup will fail for variants due to some GRCh37 specific gene names as well as RNA specific annotations
             gene_idx = _lookup_idx(value=gene_symbol,
                                    arr=gene_symbols,
                                    allow_misses_with_message = f"Variant {variant_parsed.ID}, gene={gene_symbol} not found in node genes")
             if gene_idx:
+                node_ids.append(_lookup_idx(value=_variant_id(parsed_variant=variant_parsed), arr=variant_node_ids))
                 gene_ids.append(gene_idx)
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(node_ids)]),
