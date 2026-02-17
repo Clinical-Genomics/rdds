@@ -10,11 +10,9 @@ import pytest as pt
 
 _SINGLE_GRAPH = (1, 2)  # [1, 2)
 
-@pt.fixture
-def new_keras_session():
-    tf.keras.backend.clear_session()
 
-def test_sampler_with_dummy_data(new_keras_session):
+def test_sampler_with_dummy_data():
+    tf.keras.backend.clear_session()
     tmpfile = NamedTemporaryFile(dir='/tmp')
     compiler = Phen2GenDatasetCompiler(tfrecord_output_path=tmpfile.name)
     # NOTE: Be aware of limitation in random_graph_tensor(), cannot generate graph_tensor.indices_dtype int64
@@ -44,9 +42,10 @@ def test_sampler_with_dummy_data(new_keras_session):
 @pt.mark.parametrize("n_iter", [1, 5])
 def test_repeat_dummy_data(n_iter):
     for _ in range(0, n_iter):
-        test_sampler_with_dummy_data(new_keras_session)
+        test_sampler_with_dummy_data()
 
-def test_sampler_with_real_data(new_keras_session):
+def test_sampler_with_real_data():
+    tf.keras.backend.clear_session()
     vcf_path = '/rdds/tmp/justhusky_short.vcf'
     dataset_compiler = Phen2GenDatasetCompiler(tfrecord_output_path=None)
     schema = dataset_compiler.schema
@@ -82,4 +81,4 @@ def test_sampler_with_real_data(new_keras_session):
 @pt.mark.parametrize("n_iter", [1, 5])
 def test_repeat_real_data(n_iter):
     for _ in range(0, n_iter):
-        test_sampler_with_real_data(new_keras_session)
+        test_sampler_with_real_data()
