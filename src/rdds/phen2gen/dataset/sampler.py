@@ -5,11 +5,12 @@ from tensorflow_gnn.experimental import sampler as expsampler
 from tensorflow_gnn.sampler import sampling_spec_pb2
 from google.protobuf import text_format
 
-
 from .. import _LOGGER
 from .sampling_spec import _SAMPLING_SPEC
 
 # TODO: Consider sample size as hyperparameters
+
+# TODO: Add a sampler that does not randomize edges during inference
 
 class InMemorySampler:
 
