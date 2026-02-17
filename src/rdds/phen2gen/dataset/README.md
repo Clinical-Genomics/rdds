@@ -14,6 +14,10 @@ https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/docs/guide/data_prep.
 
 This is my usecase: https://github.com/tensorflow/gnn/blob/main/tensorflow_gnn/sampler/sampling_spec_builder_test.py#L136
 
+## SamplingSpecBuilder
+The python API enforces source->target edge directionality in sampling which makes the python API not as
+flexible as the protobuf definition which allows bidirectional sampling.
+
 ## Sampler
 
 ```

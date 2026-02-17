@@ -281,3 +281,9 @@ Generating graph embeddings
 
 - Great link prediction example: https://github.com/tensorflow/gnn/blob/main/examples/tutorials/kdd_2023/code_tutorial_1.ipynb
 - Great intro to GNNs: https://gnn.seas.upenn.edu/lectures/lecture-1/
+
+## Embeddings Exploration
+- https://github.com/jeremypuchta/interactive-exploration-embedding-space
+
+## Developing
+1. Enable enable_graph_tensor_validation_at_runtime()
