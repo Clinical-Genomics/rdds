@@ -1,6 +1,6 @@
 from tempfile import NamedTemporaryFile
 import tensorflow as tf
-from tensorflow_gnn import GraphTensor
+from tensorflow_gnn import GraphTensor, enable_graph_tensor_validation_at_runtime
 
 from rdds.phen2gen.dataset.sampler import InMemorySampler
 from rdds.phen2gen.dataset.dataset import Phen2GenDatasetCompiler
@@ -12,6 +12,7 @@ _SINGLE_GRAPH = (1, 2)  # [1, 2)
 
 
 def test_sampler_with_dummy_data():
+    enable_graph_tensor_validation_at_runtime()
     tf.keras.backend.clear_session()
     tmpfile = NamedTemporaryFile(dir='/tmp')
     compiler = Phen2GenDatasetCompiler(tfrecord_output_path=tmpfile.name)
@@ -45,6 +46,7 @@ def test_repeat_dummy_data(n_iter):
         test_sampler_with_dummy_data()
 
 def test_sampler_with_real_data():
+    enable_graph_tensor_validation_at_runtime()
     tf.keras.backend.clear_session()
     vcf_path = '/rdds/tmp/justhusky_short.vcf'
     dataset_compiler = Phen2GenDatasetCompiler(tfrecord_output_path=None)
