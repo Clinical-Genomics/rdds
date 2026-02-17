@@ -119,14 +119,6 @@ edge_sets {
         description: "A variant-to-gene link"
         source: "variant"
         target: "gene"
-
-        features {
-            key: "relatedness"
-            value: {
-                description: "A boolean relationship, [0, 1]"
-                dtype: DT_FLOAT
-            }
-        }
     }
 }
 
@@ -136,14 +128,6 @@ edge_sets {
         description: "A gene-to-disease link"
         source: "gene"
         target: "disease"
-
-        features {
-            key: "relatedness"
-            value: {
-                description: "A boolean relationship, [0, 1]"
-                dtype: DT_FLOAT
-            }
-        }
     }
 }
 
@@ -153,31 +137,15 @@ edge_sets {
         description: "HPO-HPO ontology link"
         source: "hpo"
         target: "hpo"
-
-        features {
-            key: "relatedness"
-            value: {
-                description: "A boolean relationship, [0, 1]"
-                dtype: DT_FLOAT
-            }
-        }
     }
 }
 
 edge_sets {
-    key: "hpo>gene"
+    key: "gene>hpo"
     value {
         description: "HPO-to-gene link"
-        source: "hpo"
-        target: "gene"
-
-        features {
-            key: "relatedness"
-            value: {
-                description: "A boolean relationship, [0, 1]"
-                dtype: DT_FLOAT
-            }
-        }
+        source: "gene"
+        target: "hpo"
     }
 }
 
