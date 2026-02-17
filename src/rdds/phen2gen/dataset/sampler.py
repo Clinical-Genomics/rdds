@@ -15,9 +15,11 @@ class InMemorySampler:
 
     def __init__(self,
                  graph_schema: tfgnn.GraphSchema,
-                 complete_graph: tfgnn.GraphTensor):
+                 complete_graph: tfgnn.GraphTensor,
+                 sampling_spec: str = _SAMPLING_SPEC):
         self._graph_schema = graph_schema
         self._complete_graph = complete_graph
+        self._sampling_spec_str = sampling_spec
 
     """
     def _build_sampling_spec_broken(self):
@@ -54,7 +56,7 @@ class InMemorySampler:
         """
 
     def _build_sampling_spec(self):
-        self._sampling_spec = text_format.Parse(_SAMPLING_SPEC, tfgnn.sampler.SamplingSpec())
+        self._sampling_spec = text_format.Parse(self._sampling_spec_str, tfgnn.sampler.SamplingSpec())
 
     def _build_sampling_model(self):
         """

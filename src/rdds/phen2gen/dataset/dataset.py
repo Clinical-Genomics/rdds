@@ -345,7 +345,7 @@ class Phen2GenDatasetCompiler:
         node_set = tfgnn.NodeSet.from_fields(
             sizes=tf.constant([len(variant_ids)], dtype=tf.int64),
             features={
-                "#id": tf.constant(range(0, len(variant_ids)), dtype=tf.int64),
+                "#id":  tf.range(0, len(variant_ids), dtype=tf.int64),
                 "variant_id": tf.constant(variant_ids, dtype=tf.string),
                 "genmod_rank_score": tf.constant(genmod_rank_scores, dtype=tf.float32),
                 "label": tf.constant([0] * len(variant_ids), dtype=tf.float32)
