@@ -21,7 +21,8 @@ singularity exec \
 	export PYTHONPATH=/rdds/src && \
 	export PYTHONUNBUFFERED=1 &&
 	. /opt/pyenv/bin/activate && \
-	jupyter lab --config /rdds/build/devenv/jupyter_lab_config.py"
+	cd /rdds && \
+	jupyter lab --config build/devenv/jupyter_lab_config.py"
 
 rmdir $SINGULARITY_CACHEDIR
 rmdir $APPTAINER_TMPDIR
