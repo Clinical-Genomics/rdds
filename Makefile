@@ -215,4 +215,4 @@ generate-dataset-statistics-%:
 
 start-jupyter-notebook-image:
 	# Start notebook docker image accessible on ssh port 2152
-	SIF_IMAGE_PATH=tmp/devenv/rdds_cosmograph-v1.12.0-rc2.sif ./job.slurm "dropbear -p 2152 -b /usr/share/base-files/motd -s -F -R"
+	SIF_IMAGE_PATH=tmp/devenv/rdds_nvidia-dev-phen2gen.sif ./job.slurm "dropbear -p 2152 -b /usr/share/base-files/motd -s -F -R"
