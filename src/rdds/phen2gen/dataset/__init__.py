@@ -1,1 +1,2 @@
 from .dataset import Phen2GenDatasetCompiler
+from .prepare_clinical_cases import prepare_clinical_cases

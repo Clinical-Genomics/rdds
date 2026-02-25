@@ -46,7 +46,7 @@ def _lookup_idx(value: Union[str, int],
 
 def _variant_id(parsed_variant: ParsableVariant) -> str:
     # Create variant ID from ID as well as REF-ALT for examples such as 1_15274_A_T;1_15274_A_G
-    return parsed_variant.ID + '-' + parsed_variant.REF + '-' + parsed_variant.ALT
+    return str(parsed_variant.CHROM) + '.' + str(parsed_variant.POS) + '-' + parsed_variant.ID + '-' + parsed_variant.REF + '-' + parsed_variant.ALT
 
 
 @dataclass
@@ -135,7 +135,7 @@ class Phen2GenDatasetCompiler:
             sizes=tf.constant([len(gene_id)], dtype=tf.int64),
             features={
                 "#id": tf.constant(df.index.values, dtype=tf.int64),
-                "gene_id": tf.constant(gene_id, dtype=tf.int64),  # TODO: Deprecate, replaced by #id
+                "gene_id": tf.constant(gene_id, dtype=tf.int64),
                 "gene_symbol": tf.constant(gene_symbol, dtype=tf.string)
             }
         )
@@ -363,23 +363,25 @@ class Phen2GenDatasetCompiler:
         gene_ids = []
 
         variant_node_ids = variant_nodes.features['variant_id'].numpy()
-        gene_symbols = gene_nodes.features['gene_symbol'].numpy()
+        gene_node_ids = gene_nodes.features['gene_id'].numpy()
 
         vcf_reader = VCFReader(fname=vcf_path)
         for variant in vcf_reader:
             variant_parsed = ParsableVariant(variant=variant, vep_csq_description=vcf_reader.csq_description)
-            #assert variant_parsed.CSQ_SYMBOL_SOURCE == 'HGNC', (variant_parsed.CSQ_SYMBOL_SOURCE, variant_parsed.ID, variant_parsed.CSQ_SYMBOL)
-            gene_symbol = variant_parsed.CSQ_SYMBOL
-            if len(gene_symbol) == 0 or gene_symbol is None:
-                _LOGGER.debug(f"Variant-Gene edger: Ignoring variant {variant_parsed.ID} due to no annotated gene_symbol: '{gene_symbol}'")
+            gene_id = int(variant_parsed.CSQ_HGNC_ID)
+            if gene_id is None:
+                _LOGGER.warning(f"Variant-Gene edger: Ignoring variant {variant_parsed.ID} due to no annotated gene_symbol: '{variant_parsed.CSQ_SYMBOL}'")
                 continue
             # TODO: FIXME: lookup will fail for variants due to some GRCh37 specific gene names as well as RNA specific annotations
-            gene_idx = _lookup_idx(value=gene_symbol,
-                                   arr=gene_symbols,
-                                   allow_misses_with_message = f"Variant {variant_parsed.ID}, gene={gene_symbol} not found in node genes")
+            gene_idx = _lookup_idx(value=gene_id,
+                                   arr=gene_node_ids,
+                                   allow_misses_with_message = f"Variant {variant_parsed.ID}, gene={variant_parsed.CSQ_SYMBOL}, {gene_id} not found in node genes")
             if gene_idx:
-                node_ids.append(_lookup_idx(value=_variant_id(parsed_variant=variant_parsed), arr=variant_node_ids))
+                node_idx = _lookup_idx(value=_variant_id(parsed_variant=variant_parsed), arr=variant_node_ids)
+                node_ids.append(node_idx)
                 gene_ids.append(gene_idx)
+            else:
+                raise ValueError(f"Found no variant-gene-link between {variant_parsed.ID} {variant.CSQ_HGNC_ID}")
         edge_set = tfgnn.EdgeSet.from_fields(
             sizes=tf.constant([len(node_ids)]),
             adjacency=tfgnn.Adjacency.from_indices(
