@@ -392,6 +392,140 @@ class Phen2GenDatasetCompiler:
         _LOGGER.info(f"Added {edge_set.total_size} variant->gene edges")
         return edge_set
 
+    @staticmethod
+    def _find_variant_gene_edge(variant_index_start: int,
+                                variant_index_end: int,
+                                vcf_path: str,
+                                variant_node_ids: np.ndarray,
+                                gene_node_ids: np.ndarray,
+                                result_queue,
+                                tmp_dir_path: str):
+        from rdds.lib.process_pool import MULTIPROCESSING_LOGGER
+        vcf_reader = VCFReader(fname=vcf_path, unpack_if_gzipped=False)
+        variants = list(vcf_reader)
+        MULTIPROCESSING_LOGGER.info(f"Loaded {len(variants)} variants")
+        csq_description = vcf_reader.csq_description
+        del vcf_reader
+        variants = variants[variant_index_start:variant_index_end+1]  # Account for indexing not inclusive
+        MULTIPROCESSING_LOGGER.info(f"Will process {len(variants)} variants")
+        variant_ids = []
+        gene_ids = []
+        for variant in variants:
+            try:
+                variant_parsed = ParsableVariant(variant=variant, vep_csq_description=csq_description)
+                variant_vcf_id = variant_parsed.ID
+                gene_id = int(variant_parsed.CSQ_HGNC_ID)
+                gene_symbol = variant_parsed.CSQ_SYMBOL
+                if gene_id is None:
+                    MULTIPROCESSING_LOGGER.warning(f"Variant-Gene edger: Ignoring variant {variant_vcf_id} due to no annotated gene_symbol: '{gene_symbol}'")
+                    continue
+                # TODO: FIXME: lookup will fail for variants due to some GRCh37 specific gene names as well as RNA specific annotations
+                gene_idx = _lookup_idx(value=gene_id,
+                                       arr=gene_node_ids,
+                                       allow_misses_with_message = f"Variant {variant_vcf_id}, gene={gene_symbol}, {gene_id} not found in node genes")
+                if gene_idx:
+                    variant_idx = _lookup_idx(value=_variant_id(parsed_variant=variant_parsed), arr=variant_node_ids)
+                    variant_ids.append(variant_idx)
+                    gene_ids.append(gene_idx)
+                else:
+                    raise ValueError(f"Found no variant-gene-link between {variant_vcf_id} {gene_id} {gene_symbol}")
+            except Exception as e:
+                if variant.CHROM.lower() == 'mt':
+                    # TODO: Input data should be annotated with MT HGNC IDs
+                    MULTIPROCESSING_LOGGER.warning(f"Error parsing variant {vcf_path, variant.CHROM, variant.POS, variant.ID}: {e}")
+                    MULTIPROCESSING_LOGGER.warning("MT SNVs not supported (missing HGNC annotations) - continuing")
+                    continue
+                MULTIPROCESSING_LOGGER.error(f"Error parsing variant {vcf_path, variant.CHROM, variant.POS, variant.ID}: {e}")
+                raise e
+        result_dict = {
+            'variant_index_start': variant_index_start,
+            'variant_ids': variant_ids,
+            'gene_ids': gene_ids
+        }
+        output_file_name = os.path.join(tmp_dir_path, str(variant_index_start))
+        MULTIPROCESSING_LOGGER.info(f"Storing node-gene mapping in {output_file_name}")
+        with open(output_file_name, 'wb') as fp:
+            pickle.dump(result_dict, fp)
+        result_queue.put(output_file_name)
+
+    @staticmethod
+    def _construct_variant_gene_edges_parallel(vcf_path: str,
+                                               variant_nodes: tfgnn.NodeSet,
+                                               gene_nodes: tfgnn.NodeSet,
+                                               n_jobs=11) -> tfgnn.EdgeSet:
+        """
+        Construct variant-gene edges.
+        Store intermediate results as pickled objects on disk,
+        as they are too big to be passed in pipes, queues.
+        """
+        from rdds.lib.process_pool import ProcessPool
+        from tempfile import TemporaryDirectory
+        import os
+        n_workers = min(n_jobs, os.cpu_count())
+        _LOGGER.info(f"Will use {n_workers} workers")
+        variant_node_ids = variant_nodes.features['variant_id'].numpy()
+        gene_node_ids = gene_nodes.features['gene_id'].numpy()
+        vcf_reader = VCFReader(fname=vcf_path)
+        number_of_variants = vcf_reader.number_of_variants
+        del vcf_reader
+        variant_indices = np.arange(number_of_variants)
+        variant_indices_jobs = np.array_split(variant_indices, indices_or_sections=n_workers)
+        job_kwargs = []
+        result_queue = ProcessPool.get_context().SimpleQueue()
+        tmp_dir = TemporaryDirectory(dir=WORKDIR, prefix=os.path.basename(vcf_path)+'-')
+        tmp_dir_path = tmp_dir.name
+        _LOGGER.info(f"Temporary work dir: {tmp_dir_path}")
+        for variant_index_array in variant_indices_jobs:
+            variant_index_array = list(variant_index_array)
+            job_kwargs.append({'variant_index_start': variant_index_array[0],
+                               'variant_index_end': variant_index_array[-1],
+                               'vcf_path': vcf_path,
+                               'variant_node_ids': variant_node_ids,
+                               'gene_node_ids': gene_node_ids,
+                               'result_queue': result_queue,
+                               'tmp_dir_path': tmp_dir_path})
+        pool = ProcessPool(function=Phen2GenDatasetCompiler._find_variant_gene_edge,
+                           kwargs=job_kwargs,
+                           workers=n_workers)
+        completed_tasks = pool.run()
+
+        # Store pickled object paths from workers
+        results_pickled = []
+        for task in completed_tasks:
+            assert task.process.exitcode == 0, task
+            results_pickled.append(result_queue.get())
+            if len(results_pickled) == n_workers:
+                _LOGGER.info('Recieved all worker results')
+                break
+            else:
+                _LOGGER.debug(f"Recieved result: {results_pickled[-1]}")
+        pool.close()
+        del pool
+
+        # Load pickled arrays
+        results = []
+        for path in results_pickled:
+            with open(path, 'rb') as fp:
+                results.append(pickle.load(fp))
+        results = sorted(results, key=lambda d: d['variant_index_start'])
+
+        # Load lists of variant and gene idx
+        gene_idx = []
+        variant_idx = []
+        for result in results:
+            variant_idx += result['variant_ids']
+            gene_idx += result['gene_ids']
+
+        edge_set = tfgnn.EdgeSet.from_fields(
+            sizes=tf.constant([len(variant_idx)]),
+            adjacency=tfgnn.Adjacency.from_indices(
+                source=("variant", tf.constant(variant_idx, dtype=tf.int64)),
+                target=("gene", tf.constant(gene_idx, dtype=tf.int64))
+            )
+        )
+        return edge_set
+
+
     def compile_graph_blob(self):
         """ Preprocess input files of non-patient case specific origin and write to intermediate IntermediateGraph blob """
         on_bad_lines = "error"

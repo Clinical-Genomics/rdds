@@ -48,7 +48,7 @@ def build_train(args):
     with open('/rdds/variant.graph', 'rb') as fp:
         variant_nodes = pickle.load(fp)
 
-    variant_gene_edges = Phen2GenDatasetCompiler._construct_variant_gene_edges(
+    variant_gene_edges = Phen2GenDatasetCompiler._construct_variant_gene_edges_parallel(
         vcf_path=case_spec['popularyak']['vcf'],
         variant_nodes=variant_nodes,
         gene_nodes=graph_static.gene_nodes
