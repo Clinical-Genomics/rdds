@@ -355,44 +355,6 @@ class Phen2GenDatasetCompiler:
         return node_set
 
     @staticmethod
-    def _construct_variant_gene_edges(vcf_path: str,
-                                      variant_nodes: tfgnn.NodeSet,
-                                      gene_nodes: tfgnn.NodeSet) -> tfgnn.EdgeSet:
-        _LOGGER.info("Creating variant-gene edges")
-        node_ids = []
-        gene_ids = []
-
-        variant_node_ids = variant_nodes.features['variant_id'].numpy()
-        gene_node_ids = gene_nodes.features['gene_id'].numpy()
-
-        vcf_reader = VCFReader(fname=vcf_path)
-        for variant in vcf_reader:
-            variant_parsed = ParsableVariant(variant=variant, vep_csq_description=vcf_reader.csq_description)
-            gene_id = int(variant_parsed.CSQ_HGNC_ID)
-            if gene_id is None:
-                _LOGGER.warning(f"Variant-Gene edger: Ignoring variant {variant_parsed.ID} due to no annotated gene_symbol: '{variant_parsed.CSQ_SYMBOL}'")
-                continue
-            # TODO: FIXME: lookup will fail for variants due to some GRCh37 specific gene names as well as RNA specific annotations
-            gene_idx = _lookup_idx(value=gene_id,
-                                   arr=gene_node_ids,
-                                   allow_misses_with_message = f"Variant {variant_parsed.ID}, gene={variant_parsed.CSQ_SYMBOL}, {gene_id} not found in node genes")
-            if gene_idx:
-                node_idx = _lookup_idx(value=_variant_id(parsed_variant=variant_parsed), arr=variant_node_ids)
-                node_ids.append(node_idx)
-                gene_ids.append(gene_idx)
-            else:
-                raise ValueError(f"Found no variant-gene-link between {variant_parsed.ID} {variant.CSQ_HGNC_ID}")
-        edge_set = tfgnn.EdgeSet.from_fields(
-            sizes=tf.constant([len(node_ids)]),
-            adjacency=tfgnn.Adjacency.from_indices(
-                source=("variant", tf.constant(node_ids, dtype=tf.int64)),
-                target=("gene", tf.constant(gene_ids, dtype=tf.int64))
-            )
-        )
-        _LOGGER.info(f"Added {edge_set.total_size} variant->gene edges")
-        return edge_set
-
-    @staticmethod
     def _find_variant_gene_edge(variant_index_start: int,
                                 variant_index_end: int,
                                 vcf_path: str,
@@ -400,6 +362,9 @@ class Phen2GenDatasetCompiler:
                                 gene_node_ids: np.ndarray,
                                 result_queue,
                                 tmp_dir_path: str):
+        """
+        Helper multiprocessing method to shard variants and lookup related gene idx.
+        """
         from rdds.lib.process_pool import MULTIPROCESSING_LOGGER
         vcf_reader = VCFReader(fname=vcf_path, unpack_if_gzipped=False)
         variants = list(vcf_reader)
@@ -449,12 +414,16 @@ class Phen2GenDatasetCompiler:
         result_queue.put(output_file_name)
 
     @staticmethod
-    def _construct_variant_gene_edges_parallel(vcf_path: str,
-                                               variant_nodes: tfgnn.NodeSet,
-                                               gene_nodes: tfgnn.NodeSet,
-                                               n_jobs=11) -> tfgnn.EdgeSet:
+    def _construct_variant_gene_edges(vcf_path: str,
+                                      variant_nodes: tfgnn.NodeSet,
+                                      gene_nodes: tfgnn.NodeSet,
+                                      n_jobs=11) -> tfgnn.EdgeSet:
         """
         Construct variant-gene edges.
+
+        This is a very costly method in terms of compute, since every variant needs
+        to be matched variant <-> gene index by lookup tables.
+
         Store intermediate results as pickled objects on disk,
         as they are too big to be passed in pipes, queues.
         """
@@ -523,6 +492,7 @@ class Phen2GenDatasetCompiler:
                 target=("gene", tf.constant(gene_idx, dtype=tf.int64))
             )
         )
+        _LOGGER.info(f"Added {edge_set.total_size} variant->gene edges")
         return edge_set
 
 
