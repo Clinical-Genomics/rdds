@@ -39,12 +39,13 @@ class VCFReader(cyvcf2.VCFReader):
     def __init__(self,
                  fname: str,
                  *args,
+                 unpack_if_gzipped: bool = True,
                  **kwargs):
 
         self.fname: str = fname
 
         # Unpack the gzipped file to improve read performance
-        if '.gz' in fname:
+        if '.gz' in fname and unpack_if_gzipped:
             self.tmp_file: NamedTemporaryFile = NamedTemporaryFile('r')
             process: sp.Popen = sp.Popen(f'gunzip --keep -c {fname} > {self.tmp_file.name}', shell=True)
             process.wait()
