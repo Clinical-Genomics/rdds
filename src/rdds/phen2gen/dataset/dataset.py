@@ -417,7 +417,7 @@ class Phen2GenDatasetCompiler:
     def _construct_variant_gene_edges(vcf_path: str,
                                       variant_nodes: tfgnn.NodeSet,
                                       gene_nodes: tfgnn.NodeSet,
-                                      n_jobs=11) -> tfgnn.EdgeSet:
+                                      n_workers: int = os.cpu_count()) -> tfgnn.EdgeSet:
         """
         Construct variant-gene edges.
 
@@ -430,7 +430,7 @@ class Phen2GenDatasetCompiler:
         from rdds.lib.process_pool import ProcessPool
         from tempfile import TemporaryDirectory
         import os
-        n_workers = min(n_jobs, os.cpu_count())
+        n_workers = min(n_workers, os.cpu_count())
         _LOGGER.info(f"Will use {n_workers} workers")
         variant_node_ids = variant_nodes.features['variant_id'].numpy()
         gene_node_ids = gene_nodes.features['gene_id'].numpy()
