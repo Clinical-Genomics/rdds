@@ -366,7 +366,7 @@ class Phen2GenDatasetCompiler:
         Helper multiprocessing method to shard variants and lookup related gene idx.
         """
         from rdds.lib.process_pool import MULTIPROCESSING_LOGGER
-        vcf_reader = VCFReader(fname=vcf_path, unpack_if_gzipped=False)
+        vcf_reader = VCFReader(fname=vcf_path, unpack_if_gzipped=False)  # Don't unpack to RAM (risk of OoM)
         variants = list(vcf_reader)
         MULTIPROCESSING_LOGGER.info(f"Loaded {len(variants)} variants")
         csq_description = vcf_reader.csq_description
