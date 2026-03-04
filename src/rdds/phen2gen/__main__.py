@@ -1,6 +1,6 @@
 import argparse
 
-from . import WORKDIR
+from . import WORKDIR, _LOGGER
 
 parser = argparse.ArgumentParser(prog='Phen2Gen Model',
                                  description='Data management, model training and inference CLI')
@@ -30,38 +30,25 @@ def build_train(args):
     from .dataset import Phen2GenDatasetCompiler
     import pickle
 
-    case_spec = prepare_clinical_cases(cases_dir=args.patient_case_dir)
-
+    case_specs = prepare_clinical_cases(cases_dir=args.patient_case_dir)
     dataset_compiler = Phen2GenDatasetCompiler()
-    # dataset_compiler.compile_graph_blob()  # FIXME: prebuilt, cached on disk
-    graph_static = dataset_compiler._load_intermediate_graph()
-
-    if False:
-        variant_nodes = dataset_compiler._construct_variant_nodes(
-            vcf_path=case_spec['popularyak']['vcf']
-        )
-
-
-        with open('/rdds/variant.graph', 'wb') as fp:
-            pickle.dump(variant_nodes, fp)
-
-    with open('/rdds/variant.graph', 'rb') as fp:
-        variant_nodes = pickle.load(fp)
-
-    variant_gene_edges = Phen2GenDatasetCompiler._construct_variant_gene_edges_parallel(
-        vcf_path=case_spec['popularyak']['vcf'],
+    dataset_compiler.compile_graph_blob()  # FIXME: prebuilt, cached on disk
+    for case_name, case_spec in case_specs.items():
+        _LOGGER.info(f"Building graph for case: {case_name}")
+        dataset_compiler = Phen2GenDatasetCompiler()
+        graph_static = dataset_compiler._load_intermediate_graph()
+        variant_nodes = dataset_compiler._construct_variant_nodes(vcf_path=case_spec[case_name]['vcf'])
+        variant_gene_edges = Phen2GenDatasetCompiler._construct_variant_gene_edges_parallel(
+        vcf_path=case_spec[case_name]['vcf'],
         variant_nodes=variant_nodes,
-        gene_nodes=graph_static.gene_nodes
-    )
-
-    with open('/rdds/variant-gene-edges.graph', 'wb') as fp:
-        pickle.dump(variant_gene_edges, fp)
-    print('done')
-    exit(0)
-
-    graph_popularyak = dataset_compiler._build_graph(intermediate_graph=graph_static,
-                                                     variant_nodes=variant_nodes,
-                                                     variant_gene_edges=variant_gene_edges)
+        gene_nodes=graph_static.gene_nodes)
+        case_graph = dataset_compiler._build_graph(intermediate_graph=graph_static,
+                                                   variant_nodes=variant_nodes,
+                                                   variant_gene_edges=variant_gene_edges)
+        storage_path = WORKDIR + f"/{case_name}.graph"
+        _LOGGER.info(f"Storing graph at {storage_path}")
+        with open(storage_path, 'wb') as fp:
+            pickle.dump(case_graph, fp)
 
 subparser.set_defaults(func=lambda args: build_train(args))
 
