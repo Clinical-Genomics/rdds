@@ -127,6 +127,42 @@ class Phen2GenDatasetCompiler:
         return node_set
 
     @staticmethod
+    def add_clinical_hypothesis_to_hpo_nodes(graph: tfgnn.GraphTensor,
+                                             clinically_relevant_hpo_terms: pd.DataFrame) -> tfgnn.GraphTensor:
+        """
+        Add new feature to hpo nodes, 'manifested', that is a boolean 0, 1 describing whether the
+        HPO is present in the patient or not (clinical manifestation).
+
+        Expects a DataFrame containing column 'id' (HP:00001) as string
+        :param graph: A graph with a node set 'hpo' and feature 'hpo_id':int
+        :param clinically_relevant_hpo_terms: Dataframe containing 'id' column with str HP:[NUM] data
+        :returns: A new graph with added 'manifested' feature in 'hpo' node set
+        """
+        assert len(clinically_relevant_hpo_terms) > 0, 'Got empty clinically_relevant_hpo_terms'
+        hpo_nodes = graph.node_sets['hpo']
+        graph_features = hpo_nodes.features
+        node_hpo_ids = graph_features['hpo_id'].numpy()  # int
+        feature_clinical_hypothesis = [0.0] * len(node_hpo_ids)
+        for _, row in clinically_relevant_hpo_terms.iterrows():
+           clinically_relevant_hpo_id: str = row.id
+           assert 'HP:' in clinically_relevant_hpo_id
+           clinically_relevant_hpo_id_num = int(clinically_relevant_hpo_id.replace('HP:', ''))
+           match_idx = None
+           for idx, node_hpo_id in enumerate(node_hpo_ids):
+               if clinically_relevant_hpo_id_num == node_hpo_id:
+                   match_idx = idx
+                   break
+           assert match_idx
+           feature_clinical_hypothesis[match_idx] = 1.0
+        assert np.sum(feature_clinical_hypothesis) == len(clinically_relevant_hpo_terms), 'Failed to map all clinically relevant HPO terms to HPO nodes'
+        feature_clinical_hypothesis = tf.constant(feature_clinical_hypothesis, dtype=tf.float32)
+        graph_features_new = dict(graph_features)
+        graph_features_new.update({'manifested': feature_clinical_hypothesis})
+        graph_new = graph.replace_features(node_sets = {'hpo': graph_features_new})
+        assert 'manifested' in graph_new.node_sets['hpo'].features.keys(), 'Failed to add clinically relevant hpo feature to graph'
+        return graph_new
+
+    @staticmethod
     def _construct_gene_nodes(df: pd.DataFrame) -> tfgnn.NodeSet:
         df = df.copy(deep=True)
         gene_id = df.hgnc_id.map(lambda gene_str: int(gene_str.replace('HGNC:', ''))).values  # HGNC:32
