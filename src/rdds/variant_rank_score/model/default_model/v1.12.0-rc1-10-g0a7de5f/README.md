@@ -22,3 +22,40 @@ Model selection on epoch 34 where max(MCC) and also top highest score on `epoch_
 * dd04995 Git version: Rework function and improve container support
 * 3e5587b (tag: v1.12.0-rc1) VRS: Add MIVMIR - Nextflow module to analyze model performance
 ```
+
+## Case Performance Notes
+The following notes relates to causative variants pulled from MUTACC database
+and used by validation scripts to check performance.
+Some cases have been ranked badly, and these are listed below for further
+analysis.
+
+### Cuteminnow. prio
+Marked as VUS in scout, not reported by cust002.
+
+### Finebedbug, prio
+Annotated as 'criteria_provided&_conflicting_classifications' by Raredisease pipeline.
+Newer information from ClinVar refer to this variant as pathogenic.
+Rerunning with 'pathogenic&likely_pathogenic', 'criteria_provided&multiple_submitters&no_conflicts'
+yields mivmir and gicam score 1.0.
+
+### Romanticunicorn, prio
+This variant was de novo, but dismissed because of lack of phenotype and low SpliceAI.
+"Mark as causative" have been unchecked in cust002.
+
+### Helpfulmarten
+TBD
+
+### Stirringtitmouse
+
+Annotated 'criteria_provided&_conflicting_classifications' still in clinvar.
+Expect no change in ranking performance.
+
+## Thresholds
+The following thresholds are equivalent GICAM thresholds to GENMOD (-30,+51 range):  
+
+Genmod threshold 20 -> 0.618 normaliserat -> 0.85 recall -> 0.932 gicam threshold
+
+genmod threshold 15 -> 0.556 normaliserat -> 0.911 recall -> 0.757 gicam threshold
+
+genmod threshold 10 -> 0.494 normaliserat -> 0.927 recall -> 0.730 gicam threshold
+
