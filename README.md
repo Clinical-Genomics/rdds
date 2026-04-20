@@ -4,10 +4,10 @@
 [![CI-CD](https://github.com/Clinical-Genomics/rdds/actions/workflows/build-test-push.yml/badge.svg)](https://github.com/Clinical-Genomics/rdds/actions/workflows/build-test-push.yml)
 
 This repository contains tools for data exploration and
-machine learning development targeting rare disease analysis.
+machine learning models targeting rare disease WGS analysis.
 
-This repo provides a development environment that can be used both locally
-as well as on SLURM.
+Provides a development environment that can be used both locally
+as well as on SLURM cluster (using singularity, podman).
 
 ## Layout
 ```raw
@@ -23,3 +23,11 @@ as well as on SLURM.
 ├── rdds
 ├── requirements-pip.txt
 └── tests
+
+./rdds
+├── dataset_clinvar
+├── dataset_giab
+├── dataset_mutacc
+├── gicam
+├── lib
+└── variant_rank_score (MIVMIR)
