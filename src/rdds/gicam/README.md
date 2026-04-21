@@ -10,6 +10,11 @@ GENMOD scoring is configured to a subset rank config related to:
 - Variant call quality
 ```
 
+In effect, this module will act as a variant filter to improve
+precision by reducing FPs.
+
+GICAM was developed using genmod version `v3.10.1`.
+
 ## TODOs
 - [ ] GICAM module dataset compiler from mivmir-nf pipeline to .hd5 (don't rely on variant rank score module)
 - [ ] Add Number Needed to Treat metric, nice alternative when comparing binary output models.
