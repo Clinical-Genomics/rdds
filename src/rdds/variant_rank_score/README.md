@@ -1,64 +1,37 @@
-# Variant Rank Score Model
+# MIVMIR
 
-Previous genmod model used about ~50 parameters for estimating pathogenicity.
+This directory contains the
+<b>M</b>odule for <b>I</b>ntegration of
+<b>V</b>ariant <b>M</b>etadata for <b>I</b>nformed <b>R</b>anking (<b>MIVMIR</b>).
 
-## TODOs
-* [ ] Reduce parameters to about same size as genmod model
-* [ ] Use the property of NaN values as a property of unseen, uncharacterized variants
+It's a regression type DNN model that infers pathogenicity score on SNVs,
+trained on ClinVar TP and an Ashkenazim TN truth sets.
 
-## Features
-The following features are used in genmod ranking model:
-```
-CSQ
-	MaxEntScan_alt
-	MaxEntScan_diff
-	MES-SWA_acceptor_alt
-	MES-SWA_acceptor_diff
-	MES-SWA_donor_alt
-	MES-SWA_donor_diff
-	SpliceAI_pred_DS_AL
-	SpliceAI_pred_DS_DG
-	SpliceAI_pred_DS_DL
-	PolyPhen
-	REVEL_score
-	SIFT
-	LoFtool
-	GERP++_RS
-	phastCons100way_vertebrate
-	phyloP100way_vertebrate
-CLINVAR_CLNREVSTAT
-CLINVAR_CLNSIG
-CADD
-FILTER
-most_severe_consequence
-ModelScore
-SWEGENAF
-GNOMADAF_popmax
-SPIDEX
-SpliceAI_pred_DS_AG
-MTAF
-Frq
-GeneticModels
-```
+## Input Features
+See the [model definition](model/model.py) for input, output specification.
 
-## Vocabulary File
-`models/vocabulary.txt` contains the embedding vocabulary.
-This file should *not* contain `[UNK]` token, it's added
-by Tensorflow embeddings layer when importing vocabulary.
+Generally, the model is dependent on generally available upstream variant annotations,
+_apart_ from the `Frq` annotation which is the variant frequency in the clinical, local cohort.
+Suggest to use your own local database (if available) as this has a positive impact on performance.
+The model can run without this annotation (input will then be set to `0.0`) but will result in
+decreased performance.
 
-However, for visualising the embeddings in Tensorboard,
-please add the `[UNK]` token.
+## Training
 
-## Generating Datasets
+Generally, the data sets are divided into
+   *  ClinVar, negative background
+   *  Validation set consisting of solved cases stored in our local MUTACC database
+
+### Generating Datasets
 
 1. Download ClinVar, GIAB and MUTACC datasets as VCF files.
    Refer to each of the `rdds.dataset_clinvar`, `rdds.dataset_giab` and `rdds/dataset_mutacc` for API usage.
    These modules will label and strip all additional information in VCF except
    `CHROM, POS, ID, REF, ALT, QUAL, FILTER and INFO/[LABEL]`.
 3. Concat all VCF files using command `python3 -m rdds.variant_rank_score concat-vcfs [VCF_FILE, ...]`.
-4. Run concatenated VCF file through `MIP` pipeline to annotate the variants.
-5. Compile the `MIP` output VCF to `.hd5` using command `TBD`.
-6. Now you're ready to start training with the data using command `TBD`
+4. Run concatenated VCF file through `MIP` pipeline to annotate the variants as an case analysis.
+5. Compile the `MIP` output VCF to `.hd5` using command `compile-vcf`.
+6. Now you're ready to start training with the data using command `train`
 
 The following VCF files are required for model training:
 * [ ] Output from module `rdds.dataset_clinvar` containing True Positives, TPs (train data)
@@ -69,7 +42,7 @@ The following VCF files are required for model training:
 This is a dataset containing True Positive (pathogenic) variants.
 
 ```
-python3 -m rdds.dataset_clinvar preprocess
+python3 -m rdds.dataset_clinvar download-preprocess
 ```
 
 ### GIAB
@@ -96,6 +69,14 @@ rdds.variant_rank_score compile-vcf \
 ```
 Last known run configuration on Hasta required 5 cores and 120G of RAM.
 
+### Vocabulary File
+`models/vocabulary.txt` contains the embedding vocabulary.
+This file should *not* contain `[UNK]` token, it's added
+by Tensorflow embeddings layer when importing vocabulary.
+
+However, for visualising the embeddings in Tensorboard,
+please add the `[UNK]` token to the vocabulary text file.
+
 ## Hyperparameter Tuning
 Enable the hyperparameter tuning flag when running training, example:
 ```
@@ -108,8 +89,21 @@ See the `predict-on-vcf` command.
 Recommended CPU, RAM configuration is 10 cores and 150GB
 of RAM.
 
-## Inspecting Model Performance
+
+## Automated Validation Suite (additional MUTACC data)
+See the [mivmirvalidation](https://github.com/Clinical-Genomics/mivmirvalidation) repository.
+This is a complete nextflow pipeline for:
+* Pulling out solved, causative TPs from MUTACC alongside case background
+* Running a case by case MIVMIR input feature annotation pipeline to generate MIVMIR input feature complete variants
+* MIVMIR inference
+* MIVMIR module validation performance scripts (and comparison to GENMOD)
+* Generating additional training data for [GICAM module](../gicam)
+
+### Manually Inspecting Model Performance
 ```bash
-python3 -m rdds.variant_rank_score inference_exploration [KERAS_MODEL_PATH] [HD5_TRAIN_TEST_FILE_PATH]
+python3 -m rdds.variant_rank_score inference_exploration \
+[KERAS_MODEL_PATH] \
+[HD5_TRAIN_TEST_FILE_PATH]
+
 cd tmp/variant-rank-score/inference_viz/
 ```
