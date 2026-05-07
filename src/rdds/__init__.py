@@ -1,0 +1,3 @@
+from .lib.openblas_intel_xeon import override_openblas_core_type_on_intel_xeon_cpus
+
+override_openblas_core_type_on_intel_xeon_cpus()
