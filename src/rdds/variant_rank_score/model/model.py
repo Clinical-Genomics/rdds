@@ -988,7 +988,8 @@ class VariantRankScoreModel:
     def score_variant(self,
                       variants: List[ParsableVariant],
                       explain_variant_score_threshold: float = 0.9,
-                      ignore_clinvar_uncertain_conflicting_annotations: bool = True) -> pd.DataFrame:
+                      ignore_clinvar_uncertain_conflicting_annotations: bool = True,
+                      override_vcf_input_keys: Dict[str, str] = None) -> pd.DataFrame:
         """
         Run model inference step on ParsableVariant instance.
         :param variants: The variants to score
@@ -996,6 +997,8 @@ class VariantRankScoreModel:
         :param ignore_clinvar_uncertain_conflicting_annotations: Drop CLINVAR_CLNSIG, CLINVAR_CLNREVSTAT annotation data
             in case CLNSIG field contains conflicting or uncertain keywords.
             If set to False, model will reduce inference score for conflicting or uncertain variants.
+        :param override_vcf_input_keys: Dict mapping of keys to override in case another VCF key is desired as
+            model input instead of standard model input naming in _generate_dataset_tensor_signature().
         :return: Rank scores, (0, 1), the higher the more pathogenic.
           Input-output order is preserved.
         """
@@ -1023,12 +1026,17 @@ class VariantRankScoreModel:
         input_dict: Dict[str, Union[List, tf.Tensor]] = {}
         for tensor_spec in model_input_data_spec:
             input_dict.update({tensor_spec.name: []})
+            if override_vcf_input_keys is not None and tensor_spec.name in override_vcf_input_keys.keys():
+                _LOGGER.info(f"Using {override_vcf_input_keys[tensor_spec.name]} as input instead of {tensor_spec.name}")
+                vcf_key = override_vcf_input_keys[tensor_spec.name]
+            else:
+                vcf_key = tensor_spec.name
             for variant in variants:
                 if tensor_spec.dtype == tf.string:
-                    str_data = get_str_feature(variant=variant, name=tensor_spec.name)
+                    str_data = get_str_feature(variant=variant, name=vcf_key)
                     if ignore_clinvar_uncertain_conflicting_annotations:
                         try:
-                            if 'CLINVAR' in tensor_spec.name:  # TODO: Issue 257
+                            if 'CLINVAR' in vcf_key:  # TODO: Issue 257
                                 clinvar_clnsig = str(variant.__getattribute__('CSQ_CLINVAR_CLNSIG')).lower()
                                 if 'uncertain' in clinvar_clnsig or 'conflicting' in clinvar_clnsig:
                                     str_data = b''
@@ -1036,7 +1044,7 @@ class VariantRankScoreModel:
                             pass
                     input_dict[tensor_spec.name].append(str_data)
                 elif tensor_spec.dtype == tf.float32:
-                    input_dict[tensor_spec.name].append(get_num_feature(variant=variant, name=tensor_spec.name))
+                    input_dict[tensor_spec.name].append(get_num_feature(variant=variant, name=vcf_key))
                 else:
                     raise ValueError(f'Unmapped input data dtype spec: {tensor_spec}')
             # Convert to Tensor
@@ -1058,6 +1066,8 @@ class VariantRankScoreModel:
             explanations_full[idx_scores_above_threshold, :] = self._model_explainer.shap_values(X=df_selected_variants_for_explanation.values,
                                                                                                  gc_collect=True)  # FIXME: Method call not supposed to be erroneous by typechecker
         explanations_df = pd.DataFrame(data=explanations_full, columns=self._features)
+        if override_vcf_input_keys is not None:
+            explanations_df.rename(columns=override_vcf_input_keys, inplace=True)
         result_df = pd.concat(objs=(pd.Series(pathogenicity_scores, name='pathogenicity_score'),
                                     explanations_df),
                               axis=1)
