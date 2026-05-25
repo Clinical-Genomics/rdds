@@ -113,8 +113,22 @@ subparser.add_argument('--pretrained_model_explainer_path', help='Path to VRS pr
 subparser.add_argument('--cpu_cores',
                        help='Number of CPU cores to allocate for processing',
                        default=os.cpu_count() - 1)
+subparser.add_argument('--explain_variant_score_threshold',
+                       help='Explain inference on variants with inference score >= threshold',
+                       default=None)
+subparser.add_argument('--override_vcf_input_keys',
+                       help='Use alternative VCF annotation key as model input, not using model default. [OLD_NAME:NEW_NAME],[...] ...',
+                       default=None)
 def predict_on_vcf(args):
     from .vcf_inference import predict_on_vcf
+    from .vcf_inference.parse_override_vcf_input_keys import parse_override_vcf_input_keys
+
+    override_vcf_input_keys = parse_override_vcf_input_keys(args.override_vcf_input_keys)
+    print(f"Overriding input VCF keys:\n{override_vcf_input_keys}")
+
+    explain_variant_score_threshold = float(args.explain_variant_score_threshold) if \
+        args.explain_variant_score_threshold is not None else None
+
     if '*' in args.vcf_file_path:
         # Globbing
         vcf_file_paths = glob(args.vcf_file_path)
@@ -127,7 +141,10 @@ def predict_on_vcf(args):
         predict_on_vcf(vrs_model_file_path=args.pretrained_model_path,
                        model_explainer_path=args.pretrained_model_explainer_path,
                        vcf_file_path=vcf_file_path,
-                       cpu_cores=int(args.cpu_cores))
+                       cpu_cores=int(args.cpu_cores),
+                       explain_variant_score_threshold=explain_variant_score_threshold,
+                       override_vcf_input_keys=override_vcf_input_keys
+                       )
 subparser.set_defaults(func=predict_on_vcf)
 
 subparser = subparsers.add_parser('post-train-explainer', help='Train explanations model from pretrained keras model')

@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from cyvcf2 import Writer as VcfWriter
 import gc
+from typing import Dict
 
 from rdds.lib.logging import get_logger
 from .. import WORKDIR
@@ -17,7 +18,9 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
                                     model_explainer_path: str,
                                     subprocess_work_dir: str,
                                     variant_index_start: int,
-                                    variant_index_stop: int):
+                                    variant_index_stop: int,
+                                    explain_variant_score_threshold: float = None,
+                                    override_vcf_input_keys: Dict[str, str] = None):
     from ..model import VariantRankScoreModel
     vcf_reader = VCFReader(vcf_file_path)
     vcf_reader.add_info_to_header({'ID': 'MivmirScore',
@@ -52,7 +55,12 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
     vrs_model = VariantRankScoreModel()
     vrs_model.load_saved_model(keras_model_path=vrs_model_file_path,
                                model_explainer_path=model_explainer_path)
-    df: pd.DataFrame = vrs_model.score_variant(parsed_variants)
+    score_variant_kwargs = {'variants': parsed_variants}
+    if override_vcf_input_keys is not None:
+        score_variant_kwargs.update({'override_vcf_input_keys': override_vcf_input_keys})
+    if explain_variant_score_threshold is not None:
+        score_variant_kwargs.update({'explain_variant_score_threshold': explain_variant_score_threshold})
+    df: pd.DataFrame = vrs_model.score_variant(**score_variant_kwargs)
     for i, variant in enumerate(variants):
         df_i = df.iloc[i]
         variant.INFO['MivmirScore'] = f'{df_i.pathogenicity_score:.5F}'
@@ -75,19 +83,24 @@ def _subprocess_predict_on_vcf_part(vcf_file_path: str,
 def predict_on_vcf(vrs_model_file_path: str,
                    model_explainer_path: str,
                    vcf_file_path:str,
-                   cpu_cores: int):
+                   cpu_cores: int,
+                   explain_variant_score_threshold: float = None,
+                   override_vcf_input_keys: Dict[str, str] = None):
     """
     Run pre-trained model to annotate VCF with inferences.
     This method requires ~80GB RAM with default settings
 
     :param vrs_model_file_path: The path to the pretrained model
     :param model_explainer_path: The path to the saved model explainer
-    :param vcf_file_path:
-    :param cpu_cores:
+    :param vcf_file_path: Path to the VCF file
+    :param cpu_cores: Amount of cores to use
+    param override_vcf_input_keys: Override VCF input keys
     """
     fn_kwargs = {
         'vrs_model_file_path': vrs_model_file_path,
         'model_explainer_path': model_explainer_path,
+        'explain_variant_score_threshold': explain_variant_score_threshold,
+        'override_vcf_input_keys': override_vcf_input_keys
     }
     map_vcf(vcf_file_path=vcf_file_path,
             fn=_subprocess_predict_on_vcf_part,

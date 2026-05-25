@@ -214,3 +214,63 @@ def test_inference_batch_composition(ignore_clinvar_uncertain_conflicting_annota
             d = d.dropna()
             err = np.sum(np.abs(d.values))
             assert np.isclose(err, 0.0, atol=1E-3), (column, d)
+
+
+@pt.mark.parametrize('override_vcf_input_keys',
+                     [
+                         'most_severe_consequence:foo',
+                         'Frq:foo,CADD:bar,most_severe_consequence:THE_consequence'
+                     ])
+def test_override_input_annotations(work_dir,
+                                    override_vcf_input_keys):
+    """
+    Test to verify that inference input annotations can be overridden by user.
+    """
+    # GIVEN a VCF as input
+    test_data_path = os.path.basename(TEST_DATA_PATH)
+    test_data_path = os.path.join(work_dir, test_data_path)
+    shutil.copyfile(TEST_DATA_PATH, test_data_path)
+    test_data_path_modified = test_data_path.replace('.vcf', '.mod.vcf')
+    shutil.copyfile(test_data_path, test_data_path_modified)
+
+    # WHEN configuring inference to use alternative inference VCF key as input, instead of default
+    # Edit keys in VCF
+    old_keys = []
+    new_keys = []
+    for overrides in override_vcf_input_keys.split(','):
+        old, new = overrides.split(':')
+        sp.check_call(f'sed -i \'s/{old}/{new}/g\' {test_data_path_modified}',
+                      shell=True,
+                      stderr=sp.STDOUT)
+        old_keys.append(old)
+        new_keys.append(new)
+
+    ## Run reference model
+    sp.check_call(f'python3 -m rdds.variant_rank_score predict-on-vcf \
+        --explain_variant_score_threshold 0.0 \
+        {test_data_path}',
+                  shell=True,
+                  stderr=sp.STDOUT)
+
+    sp.check_call(f'python3 -m rdds.variant_rank_score predict-on-vcf \
+        --explain_variant_score_threshold 0.0 \
+        --override_vcf_input_keys {override_vcf_input_keys} \
+        {test_data_path_modified}',
+                  shell=True,
+                  stderr=sp.STDOUT)
+
+    vcf_reader = VCFReader(test_data_path.replace('.vcf', '-predictions.vcf'))
+    variants = list(vcf_reader)
+
+    vcf_reader_alternative_annotation = VCFReader(test_data_path_modified.replace('.vcf', '-predictions.vcf'))
+    variants_alternative_annotation = list(vcf_reader_alternative_annotation)
+
+    for variant, variant_alternative_annotation in zip(variants, variants_alternative_annotation):
+        #  THEN expect identical behavior to non-modified VCF and default model inference
+        assert variant.INFO['MivmirScore'] == variant_alternative_annotation.INFO['MivmirScore'], (variant.ID)
+        # THEN expect that the explanations is also adjusted accordingly to new key
+        explanations = variant_alternative_annotation.INFO['MivmirExplanation']
+        for old_key in old_keys:
+            assert old_key not in explanations, (old_key, explanations)
+        for new_key in new_keys:
+            assert new_key in explanations, (new_key, explanations)
