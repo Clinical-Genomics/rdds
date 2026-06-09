@@ -95,7 +95,9 @@ RUN apt-get update && \
  apt-get install -y --no-install-recommends \
  vim \
  git \
- htop
+ htop \
+ picard-tools \
+ openjdk-8-jre-headless
 
 # Install dropbear SSH server and keygen tool
 COPY --from=dropbear /opt/dropbear/dropbear /usr/bin
