@@ -1040,6 +1040,8 @@ class VariantRankScoreModel:
                                 clinvar_clnsig = str(variant.__getattribute__('CSQ_CLINVAR_CLNSIG')).lower()
                                 if 'uncertain' in clinvar_clnsig or 'conflicting' in clinvar_clnsig:
                                     str_data = b''
+                                if clinvar_clnsig == 'other' or clinvar_clnsig == 'association':
+                                    str_data = b''
                         except AttributeError:
                             pass
                     input_dict[tensor_spec.name].append(str_data)
