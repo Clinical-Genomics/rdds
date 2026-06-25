@@ -53,9 +53,9 @@ Expect no change in ranking performance.
 ## Thresholds
 The following thresholds are equivalent GICAM thresholds to GENMOD (-30,+51 range):  
 
-Genmod threshold 20 -> 0.618 normaliserat -> 0.85 recall -> 0.932 gicam threshold
+Genmod threshold 20 -> 0.618 normalized -> 0.85 recall ->  0.946 gicam threshold
 
-genmod threshold 15 -> 0.556 normaliserat -> 0.911 recall -> 0.757 gicam threshold
+genmod threshold 15 -> 0.556 normalized -> 0.911 recall ->  0.743 gicam threshold
 
-genmod threshold 10 -> 0.494 normaliserat -> 0.927 recall -> 0.730 gicam threshold
+genmod threshold 10 -> 0.494 normalized -> 0.927 recall ->  0.703 gicam threshold
 
